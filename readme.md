@@ -50,7 +50,7 @@ npm run dev
 
 ## 分工（摘要）
 
-前端分工按 [分工.md](分工.md) 中约定执行：
+前端分工按 [前端分工.md](前端分工.md) 中约定执行：
 - F1（你）：播放器核心、状态管理、Monaco 编辑器集成、与后端 API 对接（负责 `src/stores/player.js` 与 `Editor.vue`）
 - F2（队友）：UI 布局、变量卡片、SSE 对话组件与可视化画布（负责 `App.vue`、`VariablePanel.vue`、`ChatBox.vue`、`ArrayCanvas.vue`）
 
@@ -58,7 +58,7 @@ npm run dev
 - 成员 A：AST 插桩引擎（基于 JavaParser 的 ModifierVisitor/Visitor，负责在赋值/声明/循环处插入 `TraceEngine.record()` 并输出步骤 JSON）
 - 成员 B：动态编译与安全沙盒（内存编译、反射加载、独立线程/超时、黑名单检查、LLM/SSE 转发）
 
-（更详细的接口约定见 `分工.md` 中的 "后端接口约定" 部分。）
+（更详细的接口约定见 `前端分工.md` 中的 "后端接口约定" 部分。）
 
 ## 贡献指南
 
