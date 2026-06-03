@@ -51,8 +51,8 @@ npm run dev
 ## 分工（摘要）
 
 前端分工按 [前端分工.md](前端分工.md) 中约定执行：
-- F1（你）：播放器核心、状态管理、Monaco 编辑器集成、与后端 API 对接（负责 `src/stores/player.js` 与 `Editor.vue`）
-- F2（队友）：UI 布局、变量卡片、SSE 对话组件与可视化画布（负责 `App.vue`、`VariablePanel.vue`、`ChatBox.vue`、`ArrayCanvas.vue`）
+- F1：播放器核心、状态管理、Monaco 编辑器集成、与后端 API 对接（负责 `src/stores/player.js` 与 `Editor.vue`）
+- F2：UI 布局、变量卡片、SSE 对话组件与可视化画布（负责 `App.vue`、`VariablePanel.vue`、`ChatBox.vue`、`ArrayCanvas.vue`）
 
 后端可简要分工建议（两人）：
 - 成员 A：AST 插桩引擎（基于 JavaParser 的 ModifierVisitor/Visitor，负责在赋值/声明/循环处插入 `TraceEngine.record()` 并输出步骤 JSON）
