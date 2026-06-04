@@ -79,3 +79,84 @@ npm run dev
 
 ---
 更新：补充了开发启动步骤与简明分工，新增 `.gitignore` 文件以忽略构建/IDE 临时文件。
+
+## 详细 API 与数据契约
+
+为了前后端以及多个前端组件（F2）能可靠互操作，下面给出约定的 HTTP / SSE 接口与 JSON 格式示例：
+
+1) POST /api/run — 执行用户代码并返回步骤
+- 请求体：
+	```json
+	{ "code": "public class UserCode { ... }" }
+	```
+- 成功响应：
+	```json
+	{
+		"success": true,
+		"runId": "uuid-xxx",
+		"steps": [
+			{ "step": 1, "line": 3, "variables": { "arr": [5,3,8] } },
+			{ "step": 2, "line": 4, "variables": { "arr": [5,3,8], "n": 3 } }
+		]
+	}
+	```
+- 失败响应：
+	```json
+	{ "success": false, "error": "编译错误: ..." }
+	```
+
+2) GET /api/explain/{runId}/{step} — SSE 解说流
+- 返回 Server-Sent Events，逐段发送文本片段：
+	```text
+	data: 这是第1步的解释...
+
+	data: 这是第1步的补充...
+
+	data: [DONE]
+
+	```
+- 前端应将收到的片段按到达顺序拼接，并在接收到 `[DONE]` 后关闭 EventSource。
+
+3) Steps 数组中每一项的 `Step` 对象约定：
+- `step` (number) — 从 1 开始的步序号
+- `line` (number|null) — 对应源代码 1-based 行号（若该步骤未对应源码行可为 null）
+- `variables` (object) — 当前作用域的变量快照，键为变量名，值为可序列化的 JSON 值（见后文变量序列化约定）
+
+变量序列化约定（建议）
+- 基本类型：`number` / `string` / `boolean` 原样返回
+- 一维数组：返回为数组，例如 `[1,2,3]`
+- 二维/多维数组：返回嵌套数组，例如 `[[1,2],[3,4]]`
+- 对象/引用类型：推荐以结构化对象表示，优先返回浅度可读格式。例如链表节点可以表示为 `{ "__type": "ListNode", "id": "n1", "val": 5, "next": "n2" }`，并在 `variables` 中用引用 id 连接。复杂对象也可以返回字符串化快照作为最后手段。
+
+示例完整 `steps`（片段）：
+```json
+[{
+	"step": 1,
+	"line": 3,
+	"variables": { "arr": [5,3,8] }
+},
+{
+	"step": 2,
+	"line": 6,
+	"variables": { "arr": [3,5,8], "i": 0, "j": 1 }
+}]
+```
+
+错误与超时处理
+- 若用户代码触发运行时异常，`/api/run` 应返回 `success: false` 并包含错误信息；若后端能返回部分步骤（比如在异常前已记录步骤），可在响应中包含 `steps` 字段并标记 `error`。
+- 后端应实现执行超时（MVP 为 5s），超时同样返回 `success: false` 和 `error: "timeout"`。
+
+安全与沙盒约定（后端实现须遵守）
+- AST 黑名单：拒绝 `System.exit`、`Runtime.getRuntime().exec`、本地文件写入与反射危险用法
+- 独立线程与超时：在单独线程或进程中运行用户代码并在超时后强制中断
+- 限制 imports：仅允许白名单内的包（例如 `java.util.*`）
+
+后端配置（建议）
+- `application.properties`:
+	- `javatutor.sandbox.timeoutMs=5000`
+	- `javatutor.llm.apiKey`（如需要）
+
+联调建议
+- 在前期使用 mock 数据（`player.runMock()`）作为前后端契约的“活文档”，后端准备真实接口后逐步替换。
+- 任何变更 `steps` 字段结构需在 `分工.md` 中书面确认。
+
