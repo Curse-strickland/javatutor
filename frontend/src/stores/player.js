@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 
+/*
 const mockSteps = [
   // 第3行：创建数组
   { step: 1, line: 3, variables: { arr: [5, 3, 8] } },
@@ -43,6 +44,7 @@ const mockSteps = [
   // 内层结束，回到外层，i++ => i=2，不满足 i < n-1 (2<2 false)，循环结束
   { step: 14, line: 5, variables: { arr: [3, 5, 8], n: 3, i: 2 } }
 ]
+*/
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -50,6 +52,7 @@ export const usePlayerStore = defineStore('player', {
     currentStep: 0,
     isLoading: false,
     error: null,
+    runId: null, // 核心修复：暴露出 runId 供队友的 ChatBox.vue 监听
   }),
   getters: {
     currentVariables: (state) => state.steps[state.currentStep]?.variables || {},
@@ -57,6 +60,32 @@ export const usePlayerStore = defineStore('player', {
     totalSteps: (state) => state.steps.length,
   },
   actions: {
+    async runCode(code) {
+      this.isLoading = true
+      this.error = null
+      this.runId = null // 每次运行前清空旧的 runId，防止队友组件误触发
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        })
+        const data = await res.json()
+        // 兼容两种格式：如果后端用了标准 code 200，或者带了 success 标志
+        if (data.code === 200 || data.success) {
+          this.steps = data.data || data.steps || []
+          this.runId = data.runId
+          this.currentStep = 0
+        } else {
+          this.error = data.msg || data.error || '网络请求失败'
+        }
+      } catch (e) {
+        this.error = e.message || '网络请求失败'
+      } finally {
+        this.isLoading = false
+      }
+    },
+    /*
     runMock() {
       this.isLoading = true
       setTimeout(() => {
@@ -66,16 +95,14 @@ export const usePlayerStore = defineStore('player', {
       }, 500)
     },
     async runCode(code) {
-      // 以后替换为真实 API
+      // （已改）以后替换为真实 API
     },
+    */
     nextStep() {
       if (this.currentStep < this.totalSteps - 1) this.currentStep++
     },
     prevStep() {
       if (this.currentStep > 0) this.currentStep--
-    },
-    reset() {
-      this.currentStep = 0
-    }
+    }    
   }
 })
