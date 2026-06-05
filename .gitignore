@@ -34,3 +34,4 @@ Thumbs.db
 # JavaTutor specific
 /.cache/
 /.tmp/
+backend/target/
