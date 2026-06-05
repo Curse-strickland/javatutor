@@ -25,13 +25,30 @@ public class RunController {
     // 用户代码里的 TraceEngine.record(...) 跨类调用才能正常工作。
     private static final String TRACE_ENGINE_SOURCE = 
         "import java.util.*;\n" +
+        "import java.lang.reflect.Array;\n" +
         "public class TraceEngine {\n" +
         "    private static List<Map<String,Object>> steps = new ArrayList<>();\n" +
+        "    private static Object deepCopyValue(Object v) {\n" +
+        "        if (v == null) return null;\n" +
+        "        Class<?> cls = v.getClass();\n" +
+        "        if (cls.isArray()) {\n" +
+        "            int len = Array.getLength(v);\n" +
+        "            List<Object> copy = new ArrayList<>(len);\n" +
+            "            for (int i = 0; i < len; i++) { copy.add(Array.get(v, i)); }\n" +
+        "            return copy;\n" +
+        "        }\n" +
+        "        // For common immutable types (Number, String, Boolean) just return as-is\n" +
+        "        return v;\n" +
+        "    }\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
         "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
-        "        record.put(\"variables\", new LinkedHashMap<>(vars));\n" +
+        "        LinkedHashMap<String,Object> varsCopy = new LinkedHashMap<>();\n" +
+        "        for (Map.Entry<String,Object> e : vars.entrySet()) {\n" +
+        "            varsCopy.put(e.getKey(), deepCopyValue(e.getValue()));\n" +
+        "        }\n" +
+        "        record.put(\"variables\", varsCopy);\n" +
         "        steps.add(record);\n" +
         "    }\n" +
         "    public static void reset() { steps.clear(); }\n" +

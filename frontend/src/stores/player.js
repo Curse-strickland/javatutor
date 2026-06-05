@@ -73,9 +73,12 @@ export const usePlayerStore = defineStore('player', {
         const data = await res.json()
         // 兼容两种格式：如果后端用了标准 code 200，或者带了 success 标志
         if (data.code === 200 || data.success) {
-          this.steps = data.data || data.steps || []
-          this.runId = data.runId
-          this.currentStep = 0
+            this.steps = data.data || data.steps || []
+            this.runId = data.runId
+            this.currentStep = 0
+            // 简洁日志：打印 steps 长度与首个步骤变量
+            console.log('runCode: steps count', (this.steps || []).length)
+            console.log('runCode: currentStep', this.currentStep, 'firstStepVars', this.steps[0]?.variables)
         } else {
           this.error = data.msg || data.error || '网络请求失败'
         }
