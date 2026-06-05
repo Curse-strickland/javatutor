@@ -77,6 +77,12 @@ public class RunController {
             traceEngineClass.getMethod("reset").invoke(null);
 
             // ⑧ 反射调用 UserCode.main() → 新线程 + 5秒超时
+            // ╔══════════════════════════════════════════════════════════╗
+            // ║  🔒 [占位] 安全沙箱 — 待 @后端同学 接入                    ║
+            // ║  当前：单线程 + 5秒超时（基础防护）                       ║
+            // ║  待加：SecurityManager / 文件访问限制 / 网络隔离 /        ║
+            // ║        反射黑名单 / 内存限制 等                           ║
+            // ╚══════════════════════════════════════════════════════════╝
 
             //新线程
             ExecutorService executor = Executors.newSingleThreadExecutor();
