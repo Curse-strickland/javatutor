@@ -40,6 +40,8 @@
         <option value="2000">2x</option>
       </select>
       <span class="text-sm">步骤: {{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
+      //加错误提示
+      <span v-if="store.error" class="text-red-500 text-sm">错误: {{ store.error }}</span>
     </div>
   </div>
 </template>
@@ -58,9 +60,10 @@ let timer = null
 
 const runCode = () => {
   const code = editorRef.value?.getCode() || ''
-  store.runMock()   // 暂时使用 mock，后续改为真实 API
+  store.runCode(code)   // （已改）暂时使用 mock，后续改为真实 API
   if (isAutoPlaying.value) stopAutoPlay()
 }
+
 
 const toggleAutoPlay = () => {
   if (isAutoPlaying.value) stopAutoPlay()
