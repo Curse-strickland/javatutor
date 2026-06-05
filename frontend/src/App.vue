@@ -9,15 +9,13 @@
         </div>
       </div>
 
-      <!-- 右侧：预留区域（供 F2 使用） -->
+      <!-- 右侧：变量展示区（F2） -->
       <div class="w-1/2 bg-gray-50 dark:bg-gray-900 flex flex-col">
         <div class="p-4 border-b">
-          <h3 class="font-bold">变量展示区（F2）</h3>
+          <h3 class="font-bold">变量展示区</h3>
         </div>
         <div class="flex-1 p-4 overflow-auto">
-          <p class="text-gray-500">这里将显示变量卡片、数据结构画布等…</p>
-          <!-- 临时展示当前变量以便调试 -->
-          <pre class="mt-4 text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">{{ JSON.stringify(store.currentVariables, null, 2) }}</pre>
+          <VariablePanel />
         </div>
       </div>
     </div>
@@ -50,6 +48,7 @@
 import { ref, watch, nextTick } from 'vue'
 import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
+import VariablePanel from './components/VariablePanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
