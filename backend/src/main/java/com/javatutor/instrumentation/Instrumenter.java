@@ -19,12 +19,20 @@ public class Instrumenter {
         //parse 用户的代码,形成ast
         //cu就是抽象语法树的根节点
         /**
-        CompilationUnit              ← cu 就是这个根节点
-        └── ClassOrInterfaceDeclaration
-            └── MethodDeclaration
-                    └── BlockStmt { }              ← 方法体
-                        └── ExpressionStmt
-                            └── VariableDeclarationExpr "int n = 3"
+        CompilationUnit                          ← 根节点：一个完整的 .java 文件
+        │
+        ├── PackageDeclaration                   ← package com.example;
+        ├── ImportDeclaration                    ← import java.util.*;
+        │       
+        └── ClassOrInterfaceDeclaration          ← public class UserCode
+            └── MethodDeclaration                ←   public static void main(...)
+                ├── Parameter: String[] args     ←     方法参数
+                └── BlockStmt                    ←     方法体 { }
+                    ├── ExpressionStmt           ←       int[] arr = {5,3,8};
+                    │           └── VariableDeclarationExpr
+                    └── ExpressionStmt           ←       int n = arr.length;
+                        └── VariableDeclarationExpr
+
 
          */
         CompilationUnit cu = StaticJavaParser.parse(userCode);
@@ -68,18 +76,129 @@ public class Instrumenter {
                 6.   返回外层
                  */
 
-                //每条有变化的语句后面加上record()
-                NodeList<Statement> statements = newBlock.getStatements();
-                for (int i = 0; i < statements.size(); i++) {
-                    Statement stmt = statements.get(i);
+                // 为了在进入/退出分支和循环时都能记录状态，先构建一个新的 statements 列表，
+                // 对于需要插桩的位置，根据语句类型选择在前后插入 record()
+                NodeList<Statement> oldStatements = newBlock.getStatements();
+                NodeList<Statement> newStatements = new NodeList<>();
+                for (int i = 0; i < oldStatements.size(); i++) {
+                    Statement stmt = oldStatements.get(i);
+                    int line = stmt.getBegin().map(pos -> pos.line).orElse(null);
+
                     if (shouldInstrument(stmt)) {
-                        int line = stmt.getBegin().map(pos -> pos.line).orElse(null);
-                        // Bug5 修复：只收集当前语句之前（含自身）已声明的变量，避免把后面还没声明的变量也扫进来导致编译失败
-                        List<String> visibleVars = collectVisibleVariables(block, i);
-                        // 在当前语句后面插入 record()
-                        statements.addAfter(buildRecordStatement(line, visibleVars), stmt);
+                        // 控制流语句：把 "进入" 记录插入到语句的主体首部（以捕获 for-init 声明的循环变量），
+                        // 并在语句之后插入 "退出" 记录；对于简单赋值/声明等，仅在语句后插入记录。
+                        if (stmt.isIfStmt() || stmt.isForStmt() || stmt.isForEachStmt() || stmt.isWhileStmt() || stmt.isDoStmt()) {
+                            // 先对语句本身进行修改：在其 body 的开头插入一条记录（如果 body 不是块语句则包装为 BlockStmt）
+                            if (stmt.isForStmt()) {
+                                ForStmt fs = stmt.asForStmt();
+                                int ln = line;
+                                Statement body = fs.getBody();
+                                if (body.isBlockStmt()) {
+                                    BlockStmt bodyBlock = body.asBlockStmt();
+                                    List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
+                                    // 确保包含 for-init 中声明的循环变量
+                                    collectDirectVariables(stmt, insideVars);
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                    // 仅在进入体首部记录，退出时通过后续退出记录采集快照，避免重复
+                                } else {
+                                    BlockStmt newBody = new BlockStmt();
+                                    fs.setBody(newBody);
+                                    List<String> insideVars = collectVisibleVariables(newBody, -1);
+                                    collectDirectVariables(stmt, insideVars);
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(body);
+                                }
+                                newStatements.add(fs);
+                            } else if (stmt.isForEachStmt()) {
+                                ForEachStmt fes = stmt.asForEachStmt();
+                                int ln = line;
+                                Statement body = fes.getBody();
+                                if (body.isBlockStmt()) {
+                                    BlockStmt bodyBlock = body.asBlockStmt();
+                                    List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
+                                    collectDirectVariables(stmt, insideVars);
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                    // 仅在进入体首部记录，退出时由后续退出记录采集快照
+                                } else {
+                                    BlockStmt newBody = new BlockStmt();
+                                    fes.setBody(newBody);
+                                    List<String> insideVars = collectVisibleVariables(newBody, -1);
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(body);
+                                }
+                                newStatements.add(fes);
+                            } else if (stmt.isWhileStmt()) {
+                                WhileStmt ws = stmt.asWhileStmt();
+                                int ln = line;
+                                Statement body = ws.getBody();
+                                if (body.isBlockStmt()) {
+                                    BlockStmt bodyBlock = body.asBlockStmt();
+                                    List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
+                                    collectDirectVariables(stmt, insideVars);
+                                        bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                        // 仅在进入体首部记录，退出时由后续退出记录采集快照
+                                } else {
+                                    BlockStmt newBody = new BlockStmt();
+                                    ws.setBody(newBody);
+                                    List<String> insideVars = collectVisibleVariables(newBody, -1);
+                                    collectDirectVariables(stmt, insideVars);
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(body);
+                                }
+                                newStatements.add(ws);
+                            } else if (stmt.isDoStmt()) {
+                                DoStmt ds = stmt.asDoStmt();
+                                int ln = line;
+                                Statement body = ds.getBody();
+                                if (body.isBlockStmt()) {
+                                    BlockStmt bodyBlock = body.asBlockStmt();
+                                    List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
+                                    collectDirectVariables(stmt, insideVars);
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                } else {
+                                    BlockStmt newBody = new BlockStmt();
+                                    ds.setBody(newBody);
+                                    List<String> insideVars = collectVisibleVariables(newBody, -1);
+                                    collectDirectVariables(stmt, insideVars);
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(body);
+                                }
+                                newStatements.add(ds);
+                            } else if (stmt.isIfStmt()) {
+                                IfStmt ifs = stmt.asIfStmt();
+                                int ln = line;
+                                // 在 if 之前插入一次记录以表示条件判断时的高亮（无论 true/false 都应高亮）
+                                List<String> condVars = collectVisibleVariables(block, i);
+                                collectDirectVariables(stmt, condVars);
+                                newStatements.add(buildRecordStatement(ln, condVars));
+
+                                // 不在 then/else 首部再插入进入记录；保持 then/else 原样
+                                newStatements.add(ifs);
+                            } else {
+                                // 兜底：将原语句加入
+                                newStatements.add(stmt);
+                            }
+
+                            // IfStmt 在判断前已插入高亮记录，不需要退出记录
+                            // while/for/do 循环：不插入退出记录 — 无限循环时退出
+                            // 记录会成为不可达代码；正常退出时下一步的记录自然会覆盖
+                        } else if (stmt.isReturnStmt()) {
+                            // return 语句：record 必须在 return 之前插入，否则成为不可达代码
+                            List<String> visibleBefore = collectVisibleVariables(block, i);
+                            newStatements.add(buildRecordStatement(line, visibleBefore));
+                            newStatements.add(stmt);
+                        } else {
+                            newStatements.add(stmt);
+                            List<String> visibleAfter = collectVisibleVariables(block, i);
+                            newStatements.add(buildRecordStatement(line, visibleAfter));
+                        }
+                    } else {
+                        newStatements.add(stmt);
                     }
                 }
+
+                // 替换为新 statements
+                newBlock.setStatements(newStatements);
                 return newBlock;
             }
         },null);
@@ -135,6 +254,11 @@ public class Instrumenter {
             return true;
         }
 
+        // 控制流语句（if/for/while/do/foreach）也需要插桩以记录进入/退出
+        if (stmt.isIfStmt() || stmt.isForStmt() || stmt.isForEachStmt() || stmt.isWhileStmt() || stmt.isDoStmt()) {
+            return true;
+        }
+
         // 其他（方法调用、空语句等）→ 不插桩
         return false;
     }
@@ -154,9 +278,13 @@ public class Instrumenter {
         List<String> vars = new ArrayList<>();
 
         //当前 block：只看索引 ≤ beforeStmtIndex 的语句中的变量（跳过嵌套 BlockStmt 内部的，因为还没执行到）
+        // BugFix: 跳过 ForStmt/ForEachStmt，它们的循环变量（如 i）作用域仅限于 body 内部，
+        // 不能暴露给后续兄弟语句（否则后面语句的 record 引用 i 会导致编译失败）
         NodeList<Statement> statements = block.getStatements();
         for (int i = 0; i <= beforeStmtIndex && i < statements.size(); i++) {
-            collectDirectVariables(statements.get(i), vars);
+            Statement s = statements.get(i);
+            if (s.isForStmt() || s.isForEachStmt()) continue;
+            collectDirectVariables(s, vars);
         }
 
         //往上遍历父级节点
@@ -167,10 +295,13 @@ public class Instrumenter {
 
             if(parent instanceof BlockStmt){
                 //父级是 BlockStmt：只收集包含 currentNode 的那条语句及之前的变量
+                // BugFix: 跳过 ForStmt/ForEachStmt，循环变量作用域仅限于 body 内部
                 BlockStmt parentBlock = (BlockStmt) parent;
                 int childIdx = findChildIndex(parentBlock, currentNode);
                 for (int i = 0; i <= childIdx && i < parentBlock.getStatements().size(); i++) {
-                    collectDirectVariables(parentBlock.getStatements().get(i), vars);
+                    Statement s = parentBlock.getStatements().get(i);
+                    if (s.isForStmt() || s.isForEachStmt()) continue;
+                    collectDirectVariables(s, vars);
                 }
             } else {
                 //父级非 BlockStmt（如 ForStmt）：收集直接属于该节点的变量（如 for-init 里的 i）
@@ -215,8 +346,50 @@ public class Instrumenter {
     // 从节点中收集 VariableDeclarator，但跳过嵌套 BlockStmt 内部的
     // 例如：for(int i=0; ...) { int j=... } — 只收 i，不收 j（j 在嵌套 BlockStmt 里，还没执行到）
     private void collectDirectVariables(Node node, List<String> vars) {
+        // 情况 B：node 是非 BlockStmt 的父级（如 ForStmt）——收集该节点自身声明的变量（例如 for-init 中的 i）
+        if (node instanceof ForStmt) {
+            ForStmt forStmt = (ForStmt) node;
+            for (Expression e : forStmt.getInitialization()) {
+                if (e.isVariableDeclarationExpr()) {
+                    for (VariableDeclarator vd : e.asVariableDeclarationExpr().getVariables()) {
+                        String name = vd.getNameAsString();
+                        if (!vars.contains(name)) vars.add(name);
+                    }
+                }
+            }
+            return;
+        }
+
+        if (node instanceof ForEachStmt) {
+            ForEachStmt fe = (ForEachStmt) node;
+            String name = fe.getVariable().getVariable(0).getNameAsString();
+            if (!vars.contains(name)) vars.add(name);
+            return;
+        }
+
+        if (node instanceof WhileStmt || node instanceof DoStmt) {
+            // While/Do 本身不声明可见到父作用域的变量（通常在外部声明），无需处理
+            return;
+        }
+
+        // 情况 A：node 是一个顶层语句（BlockStmt 的直接子语句）——只收集直接在该语句声明的变量，
+        // 例如 "int x = 1;"（ExpressionStmt 包含 VariableDeclarationExpr）
+        if (node instanceof Statement) {
+            Statement stmt = (Statement) node;
+            if (stmt.isExpressionStmt()) {
+                Expression expr = stmt.asExpressionStmt().getExpression();
+                if (expr.isVariableDeclarationExpr()) {
+                    for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
+                        String name = vd.getNameAsString();
+                        if (!vars.contains(name)) vars.add(name);
+                    }
+                }
+            }
+            return;
+        }
+
+        // 兜底：尝试找到直接的 VariableDeclarator，但过滤掉那些位于嵌套 BlockStmt 内的
         for (VariableDeclarator vd : node.findAll(VariableDeclarator.class)) {
-            // 检查该 VariableDeclarator 是否在 node 内部的某个嵌套 BlockStmt 中
             Node parent = vd.getParentNode().orElse(null);
             boolean insideNestedBlock = false;
             while (parent != null && parent != node) {

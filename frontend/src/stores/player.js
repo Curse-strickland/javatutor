@@ -70,19 +70,15 @@ export const usePlayerStore = defineStore('player', {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code })
         })
-
-        // 先读取文本，便于处理空响应或非 JSON 响应
-        let text = ''
-        try {
-          text = await res.text()
-        } catch (e) {
-          console.warn('读取响应文本失败', e)
-        }
-
-        if (!res.ok) {
-          // 非 2xx 状态码，优先展示响应文本（如果有），否则展示状态码和状态文本
-          const statusText = res.statusText || ''
-          this.error = text || `HTTP ${res.status} ${statusText}`.trim()
+        const data = await res.json()
+        // 兼容两种格式：如果后端用了标准 code 200，或者带了 success 标志
+        if (data.code === 200 || data.success) {
+            this.steps = data.data || data.steps || []
+            this.runId = data.runId
+            this.currentStep = 0
+            // 简洁日志：打印 steps 长度与首个步骤变量
+            console.log('runCode: steps count', (this.steps || []).length)
+            console.log('runCode: currentStep', this.currentStep, 'firstStepVars', this.steps[0]?.variables)
         } else {
           if (!text) {
             // 空响应（例如 204），给出可理解的错误信息

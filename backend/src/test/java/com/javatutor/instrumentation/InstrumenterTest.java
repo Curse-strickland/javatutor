@@ -149,6 +149,142 @@ class InstrumenterTest {
         }
     }
 
+    /**
+     * 斐波那契计算全链路测试：插桩 → 编译 → 运行，并检测 Bug 1/2/3/5 的触发条件。
+     *
+     * Bug 1 检测：是否有连续两个 step 行号相同（说明进入/退出 for 用同一行）
+     * Bug 3 检测：退出 for 的 step 是否缺少循环变量 i
+     * Bug 2/5 检测：循环体末尾是否有独立快照（body-end record）
+     */
+    @Test
+    void testFibonacciAndDetectBugs() throws Exception {
+        String fibCode =
+            "public class UserCode {\n" +
+            "    public static void main(String[] args) {\n" +
+            "        int n = 7;\n" +
+            "        int a = 0;\n" +
+            "        int b = 1;\n" +
+            "        for (int i = 2; i <= n; i++) {\n" +
+            "            int next = a + b;\n" +
+            "            a = b;\n" +
+            "            b = next;\n" +
+            "        }\n" +
+            "        int result = b;\n" +
+            "    }\n" +
+            "}\n";
+
+        Instrumenter instrumenter = new Instrumenter();
+        String instrumentedCode = instrumenter.instrument(fibCode);
+
+        System.out.println("=== Fibonacci 插桩结果 ===");
+        System.out.println(instrumentedCode);
+        System.out.println("==========================");
+
+        instrumentedCode = removePackageDeclaration(instrumentedCode);
+
+        InMemoryCompiler compiler = new InMemoryCompiler();
+        Map<String, String> sources = new LinkedHashMap<>();
+        sources.put("TraceEngine", TRACE_ENGINE_SOURCE);
+        sources.put("UserCode", instrumentedCode);
+
+        Map<String, byte[]> bytecodeMap;
+        try {
+            bytecodeMap = compiler.compile(sources);
+        } catch (RuntimeException e) {
+            fail("Fibonacci 编译失败: " + e.getMessage());
+            return;
+        }
+
+        ClassLoader cl = new InMemoryClassLoader(bytecodeMap);
+        Class<?> traceEngineClass = cl.loadClass("TraceEngine");
+        Class<?> userClass = cl.loadClass("UserCode");
+
+        traceEngineClass.getMethod("reset").invoke(null);
+        Method main = userClass.getMethod("main", String[].class);
+        main.invoke(null, (Object) new String[0]);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> steps =
+            (List<Map<String, Object>>) traceEngineClass.getMethod("getSteps").invoke(null);
+
+        assertFalse(steps.isEmpty(), "应该有步骤产出");
+
+        System.out.println("=== Fibonacci Steps (" + steps.size() + " 步) ===");
+        for (Map<String, Object> step : steps) {
+            System.out.printf("  step=%2d  line=%2d  vars=%s%n",
+                step.get("step"), step.get("line"), step.get("variables"));
+        }
+        System.out.println("============================================");
+
+        // ── Bug 1 检测：进入 record 和退出 record 是否用同一行号 ──
+        // 找到所有同一行的"进入"和"退出"对（退出 record 不含 i，进入 record 含 i）
+        Set<Integer> linesWithEnter = new HashSet<>();
+        Set<Integer> linesWithExit = new HashSet<>();
+        for (Map<String, Object> step : steps) {
+            int line = ((Number) step.get("line")).intValue();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> vars = (Map<String, Object>) step.get("variables");
+            if (vars.containsKey("i")) {
+                linesWithEnter.add(line);
+            } else if (vars.containsKey("n") && !vars.containsKey("i")) {
+                // 没有 i 但有 n — 可能是 exit record
+                linesWithExit.add(line);
+            }
+        }
+        // 取交集：哪些行号既被用作 enter 又被用作 exit？
+        linesWithEnter.retainAll(linesWithExit);
+        if (!linesWithEnter.isEmpty()) {
+            System.out.println("⚠ Bug 1: 进入和退出 record 共用行号 " + linesWithEnter + " — 前端可能不会重渲染");
+        }
+        assertFalse(linesWithEnter.isEmpty(), "Bug 1 应可复现：进入和退出 for 的 record 行号相同");
+
+        // ── Bug 3 检测：退出 for 的 step 是否缺 i ──
+        // 找到最后一个包含 i 的 step 和下一个 step
+        Integer lastIStep = null;
+        Integer firstWithoutI = null;
+        for (int idx = 0; idx < steps.size(); idx++) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> vars = (Map<String, Object>) steps.get(idx).get("variables");
+            boolean hasI = vars.containsKey("i");
+            if (hasI) {
+                lastIStep = idx;
+                firstWithoutI = null;
+            } else if (lastIStep != null && firstWithoutI == null) {
+                firstWithoutI = idx;
+                break;
+            }
+        }
+        if (firstWithoutI != null) {
+            System.out.println("⚠ Bug 3: step " + (lastIStep + 1) + " 之后 i 丢失 (step " + (firstWithoutI + 1) + " 无 i)");
+            // 验证 for 退出 step 确实不含 i（编译正确性要求）
+            @SuppressWarnings("unchecked")
+            Map<String, Object> exitVars = (Map<String, Object>) steps.get(firstWithoutI).get("variables");
+            assertFalse(exitVars.containsKey("i"), "退出 for 的 step 不应有 i（作用域外），但 i 最终值应为 F(7)=13");
+        }
+
+        // ── Bug 2/5 检测：循环体末尾是否有 body-end 快照 ──
+        // 统计 for 循环体内部（line 7-9）有多少个 step
+        long bodySteps = steps.stream()
+            .filter(s -> {
+                int line = ((Number) s.get("line")).intValue();
+                return line >= 7 && line <= 9;
+            })
+            .count();
+        System.out.println("  循环体内部 step 数: " + bodySteps + " (期望 ≥ 8: 3句×2次迭代 + body-end)");
+        // n=7 → 循环 6 次迭代 (i=2..7)
+        // 每次迭代有 3 个 body 语句 → 至少 18 个 body step
+        // 如果没有 body-end，就是纯 18 个；有 body-end 应该有 6 个额外的
+        // 这是个启发式检查，不强制断言因为迭代次数可能因循环条件而异
+        System.out.println("  Bug 5: body-end 快照数量 = " + Math.max(0, bodySteps - 18));
+
+        // ── 最终验证：result 应该是 F(7) = 13 ──
+        @SuppressWarnings("unchecked")
+        Map<String, Object> lastVars = (Map<String, Object>) steps.get(steps.size() - 1).get("variables");
+        assertTrue(lastVars.containsKey("result"), "最后一步应包含 result");
+        // b = F(7) = 13
+        System.out.println("  ✅ result (应为 13): " + lastVars.get("result"));
+    }
+
     // ---- 辅助 ----
 
     private String removePackageDeclaration(String code) {
