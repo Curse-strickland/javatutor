@@ -34,10 +34,9 @@ public class RunController {
         "        if (cls.isArray()) {\n" +
         "            int len = Array.getLength(v);\n" +
         "            List<Object> copy = new ArrayList<>(len);\n" +
-            "            for (int i = 0; i < len; i++) { copy.add(Array.get(v, i)); }\n" +
+        "            for (int i = 0; i < len; i++) { copy.add(Array.get(v, i)); }\n" +
         "            return copy;\n" +
         "        }\n" +
-        "        // For common immutable types (Number, String, Boolean) just return as-is\n" +
         "        return v;\n" +
         "    }\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
@@ -50,6 +49,12 @@ public class RunController {
         "        }\n" +
         "        record.put(\"variables\", varsCopy);\n" +
         "        steps.add(record);\n" +
+        "    }\n" +
+        "    public static boolean recordCondition(boolean cond, int step, int line, Map<String,?> vars) {\n" +
+        "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
+        "        for (Map.Entry<String,?> e : vars.entrySet()) { map.put(e.getKey(), e.getValue()); }\n" +
+        "        record(step, line, map);\n" +
+        "        return cond;\n" +
         "    }\n" +
         "    public static void reset() { steps.clear(); }\n" +
         "    public static List<Map<String,Object>> getSteps() { return steps; }\n" +

@@ -158,51 +158,28 @@ public class Instrumenter {
                             } else if (stmt.isIfStmt()) {
                                 IfStmt ifs = stmt.asIfStmt();
                                 int ln = line;
-                                // then branch
-                                Statement thenStmt = ifs.getThenStmt();
-                                if (thenStmt.isBlockStmt()) {
-                                    BlockStmt thenBlock = thenStmt.asBlockStmt();
-                                    List<String> insideVars = collectVisibleVariables(thenBlock, -1);
-                                    collectDirectVariables(stmt, insideVars);
-                                    thenBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
-                                } else {
-                                    BlockStmt newThen = new BlockStmt();
-                                    ifs.setThenStmt(newThen);
-                                    List<String> insideVars = collectVisibleVariables(newThen, -1);
-                                    collectDirectVariables(stmt, insideVars);
-                                    newThen.addStatement(buildRecordStatement(ln, insideVars));
-                                    newThen.addStatement(thenStmt);
-                                }
-                                // else branch（如果存在）
-                                if (ifs.getElseStmt().isPresent()) {
-                                    Statement elseStmt = ifs.getElseStmt().get();
-                                    if (elseStmt.isBlockStmt()) {
-                                        BlockStmt elseBlock = elseStmt.asBlockStmt();
-                                        List<String> insideVars = collectVisibleVariables(elseBlock, -1);
-                                        collectDirectVariables(stmt, insideVars);
-                                        elseBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
-                                    } else {
-                                        BlockStmt newElse = new BlockStmt();
-                                        ifs.setElseStmt(newElse);
-                                        List<String> insideVars = collectVisibleVariables(newElse, -1);
-                                        collectDirectVariables(stmt, insideVars);
-                                        newElse.addStatement(buildRecordStatement(ln, insideVars));
-                                        newElse.addStatement(elseStmt);
-                                    }
-                                }
+                                // 在 if 之前插入一次记录以表示条件判断时的高亮（无论 true/false 都应高亮）
+                                List<String> condVars = collectVisibleVariables(block, i);
+                                collectDirectVariables(stmt, condVars);
+                                newStatements.add(buildRecordStatement(ln, condVars));
+
+                                // 不在 then/else 首部再插入进入记录；保持 then/else 原样
                                 newStatements.add(ifs);
                             } else {
                                 // 兜底：将原语句加入
                                 newStatements.add(stmt);
                             }
 
-                            // 在控制流语句之后插入退出记录
-                            List<String> visibleAfter = collectVisibleVariables(block, i);
-                            // 移除由该控制语句自身声明的循环变量（例如 for-init 的 i/j），
-                            // 因为退出语句在该变量作用域之外，引用它们会导致编译错误
-                            List<String> declaredHere = getDeclaredNames(stmt);
-                            visibleAfter.removeAll(declaredHere);
-                            newStatements.add(buildRecordStatement(line, visibleAfter));
+                            // 在控制流语句之后插入退出记录（except IfStmt：If 已在判断前插入记录，
+                            // 不需要额外的退出记录以避免重复高亮）
+                            if (!stmt.isIfStmt()) {
+                                List<String> visibleAfter = collectVisibleVariables(block, i);
+                                // 移除由该控制语句自身声明的循环变量（例如 for-init 的 i/j），
+                                // 因为退出语句在该变量作用域之外，引用它们会导致编译错误
+                                List<String> declaredHere = getDeclaredNames(stmt);
+                                visibleAfter.removeAll(declaredHere);
+                                newStatements.add(buildRecordStatement(line, visibleAfter));
+                            }
                         } else {
                             newStatements.add(stmt);
                             List<String> visibleAfter = collectVisibleVariables(block, i);
