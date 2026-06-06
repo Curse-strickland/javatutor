@@ -70,14 +70,42 @@ export const usePlayerStore = defineStore('player', {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code })
         })
-        const data = await res.json()
-        // 兼容两种格式：如果后端用了标准 code 200，或者带了 success 标志
-        if (data.code === 200 || data.success) {
-          this.steps = data.data || data.steps || []
-          this.runId = data.runId
-          this.currentStep = 0
+
+        // 先读取文本，便于处理空响应或非 JSON 响应
+        let text = ''
+        try {
+          text = await res.text()
+        } catch (e) {
+          console.warn('读取响应文本失败', e)
+        }
+
+        if (!res.ok) {
+          // 非 2xx 状态码，优先展示响应文本（如果有），否则展示状态码和状态文本
+          const statusText = res.statusText || ''
+          this.error = text || `HTTP ${res.status} ${statusText}`.trim()
         } else {
-          this.error = data.msg || data.error || '网络请求失败'
+          if (!text) {
+            // 空响应（例如 204），给出可理解的错误信息
+            this.error = '服务器返回空响应'
+          } else {
+            let data = null
+            try {
+              data = JSON.parse(text)
+            } catch (e) {
+              console.warn('无法解析为 JSON:', text)
+              this.error = '服务器返回的不是有效 JSON：' + (text.length > 200 ? text.slice(0, 200) + '...' : text)
+            }
+
+            if (data) {
+              if (data.code === 200 || data.success) {
+                this.steps = data.data || data.steps || []
+                this.runId = data.runId
+                this.currentStep = 0
+              } else {
+                this.error = data.msg || data.error || '网络请求失败'
+              }
+            }
+          }
         }
       } catch (e) {
         this.error = e.message || '网络请求失败'

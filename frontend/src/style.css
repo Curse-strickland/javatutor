@@ -3,24 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --text: #2c2c2e;
+  --text-h: #000000;
+  --bg: #f6f6f8;
+  --card-bg: rgba(255,255,255,0.65);
+  --glass: rgba(255,255,255,0.65);
+  --border: rgba(60,60,67,0.12);
+  --code-bg: #f4f5f7;
+  --primary: #007aff;
+  --primary-600: #0066dd;
+  --accent: var(--primary);
+  --accent-bg: rgba(0,122,255,0.08);
+  --accent-border: rgba(0,122,255,0.18);
+  --shadow: 0 8px 30px rgba(32,33,36,0.08);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  font: 16px/1.5 var(--sans);
+  letter-spacing: 0.13px;
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
@@ -28,31 +30,81 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --text: #e6e6ea;
+    --text-h: #ffffff;
+    --bg: #0b0b0d;
+    --card-bg: rgba(18,18,20,0.6);
+    --border: rgba(255,255,255,0.06);
+    --code-bg: #121214;
+    --primary: #0a84ff;
+    --primary-600: #0060df;
+    --accent: var(--primary);
+    --accent-bg: rgba(10,132,255,0.08);
+    --accent-border: rgba(10,132,255,0.2);
+    --shadow: 0 8px 30px rgba(0,0,0,0.6);
   }
 
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
 }
+
+/* Glass card utility */
+.card, .glass {
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+/* Buttons: Apple-like rounded buttons */
+.btn {
+  border-radius: 12px;
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid transparent;
+  transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-600) 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(0,122,255,0.18);
+  border: none;
+}
+
+.btn:active { transform: translateY(1px) scale(0.997); }
+
+.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.control-bar {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:flex-start;
+  background: transparent;
+}
+
+.splitter { background: transparent; }
+.splitter .splitter-handle { background-color: rgba(60,60,67,0.12); border-radius:2px; }
 
 body {
   margin: 0;
