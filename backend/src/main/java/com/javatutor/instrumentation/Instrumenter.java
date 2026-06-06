@@ -19,12 +19,20 @@ public class Instrumenter {
         //parse 用户的代码,形成ast
         //cu就是抽象语法树的根节点
         /**
-        CompilationUnit              ← cu 就是这个根节点
-        └── ClassOrInterfaceDeclaration
-            └── MethodDeclaration
-                    └── BlockStmt { }              ← 方法体
-                        └── ExpressionStmt
-                            └── VariableDeclarationExpr "int n = 3"
+        CompilationUnit                          ← 根节点：一个完整的 .java 文件
+        │
+        ├── PackageDeclaration                   ← package com.example;
+        ├── ImportDeclaration                    ← import java.util.*;
+        │       
+        └── ClassOrInterfaceDeclaration          ← public class UserCode
+            └── MethodDeclaration                ←   public static void main(...)
+                ├── Parameter: String[] args     ←     方法参数
+                └── BlockStmt                    ←     方法体 { }
+                    ├── ExpressionStmt           ←       int[] arr = {5,3,8};
+                    │           └── VariableDeclarationExpr
+                    └── ExpressionStmt           ←       int n = arr.length;
+                        └── VariableDeclarationExpr
+
 
          */
         CompilationUnit cu = StaticJavaParser.parse(userCode);
@@ -108,6 +116,7 @@ public class Instrumenter {
                                 if (body.isBlockStmt()) {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
+                                    collectDirectVariables(stmt, insideVars);
                                     bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
                                     // 仅在进入体首部记录，退出时由后续退出记录采集快照
                                 } else {
@@ -298,9 +307,13 @@ public class Instrumenter {
         List<String> vars = new ArrayList<>();
 
         //当前 block：只看索引 ≤ beforeStmtIndex 的语句中的变量（跳过嵌套 BlockStmt 内部的，因为还没执行到）
+        // BugFix: 跳过 ForStmt/ForEachStmt，它们的循环变量（如 i）作用域仅限于 body 内部，
+        // 不能暴露给后续兄弟语句（否则后面语句的 record 引用 i 会导致编译失败）
         NodeList<Statement> statements = block.getStatements();
         for (int i = 0; i <= beforeStmtIndex && i < statements.size(); i++) {
-            collectDirectVariables(statements.get(i), vars);
+            Statement s = statements.get(i);
+            if (s.isForStmt() || s.isForEachStmt()) continue;
+            collectDirectVariables(s, vars);
         }
 
         //往上遍历父级节点
@@ -311,10 +324,13 @@ public class Instrumenter {
 
             if(parent instanceof BlockStmt){
                 //父级是 BlockStmt：只收集包含 currentNode 的那条语句及之前的变量
+                // BugFix: 跳过 ForStmt/ForEachStmt，循环变量作用域仅限于 body 内部
                 BlockStmt parentBlock = (BlockStmt) parent;
                 int childIdx = findChildIndex(parentBlock, currentNode);
                 for (int i = 0; i <= childIdx && i < parentBlock.getStatements().size(); i++) {
-                    collectDirectVariables(parentBlock.getStatements().get(i), vars);
+                    Statement s = parentBlock.getStatements().get(i);
+                    if (s.isForStmt() || s.isForEachStmt()) continue;
+                    collectDirectVariables(s, vars);
                 }
             } else {
                 //父级非 BlockStmt（如 ForStmt）：收集直接属于该节点的变量（如 for-init 里的 i）
