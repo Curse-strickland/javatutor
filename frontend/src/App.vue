@@ -25,10 +25,10 @@
       <button @click="runCode" class="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded">
         运行
       </button>
-      <button @click="store.prevStep" class="bg-gray-300 dark:bg-gray-700 px-3 py-1 rounded">
+      <button @click="store.prevStep" class="bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 px-3 py-1 rounded">
         上一步
       </button>
-      <button @click="store.nextStep" class="bg-gray-300 dark:bg-gray-700 px-3 py-1 rounded">
+      <button @click="store.nextStep" class="bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 px-3 py-1 rounded">
         下一步
       </button>
       <button @click="toggleAutoPlay" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
