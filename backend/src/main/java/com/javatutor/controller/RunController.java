@@ -2,6 +2,8 @@ package com.javatutor.controller;
 
 import com.javatutor.compiler.InMemoryCompiler;
 import com.javatutor.instrumentation.Instrumenter;
+import com.javatutor.sandbox.SandboxValidator;
+import com.javatutor.sandbox.SafeSecurityManager;
 import com.javatutor.model.RunRequest;
 import com.javatutor.model.RunResponse;
 import com.github.javaparser.StaticJavaParser;
@@ -23,11 +25,12 @@ public class RunController {
     //这里的关键设计：嵌入的 TRACE_ENGINE_SOURCE 没有 package 声明。
     // 所以运行时 TraceEngine 和用户代码都在默认包里，
     // 用户代码里的 TraceEngine.record(...) 跨类调用才能正常工作。
-    private static final String TRACE_ENGINE_SOURCE = 
+    private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
         "import java.lang.reflect.Array;\n" +
         "public class TraceEngine {\n" +
         "    private static List<Map<String,Object>> steps = new ArrayList<>();\n" +
+        "    private static volatile boolean disabled = false;\n" +
         "    private static Object deepCopyValue(Object v) {\n" +
         "        if (v == null) return null;\n" +
         "        Class<?> cls = v.getClass();\n" +
@@ -40,6 +43,7 @@ public class RunController {
         "        return v;\n" +
         "    }\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
+        "        if (disabled) return;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
         "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
@@ -51,12 +55,14 @@ public class RunController {
         "        steps.add(record);\n" +
         "    }\n" +
         "    public static boolean recordCondition(boolean cond, int step, int line, Map<String,?> vars) {\n" +
+        "        if (disabled) return cond;\n" +
         "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
         "        for (Map.Entry<String,?> e : vars.entrySet()) { map.put(e.getKey(), e.getValue()); }\n" +
         "        record(step, line, map);\n" +
         "        return cond;\n" +
         "    }\n" +
-        "    public static void reset() { steps.clear(); }\n" +
+        "    public static void reset() { steps.clear(); disabled = false; }\n" +
+        "    public static void disable() { disabled = true; }\n" +
         "    public static List<Map<String,Object>> getSteps() { return steps; }\n" +
         "}\n";
 
@@ -69,13 +75,19 @@ public class RunController {
         String runId = UUID.randomUUID().toString();
        
         try{
-            // ② 从代码里提取类名
+            // ② AST 黑名单扫描（插桩前拦截，最先执行）
+            SandboxValidator.Result validation = SandboxValidator.validate(userCode);
+            if (!validation.allowed) {
+                return RunResponse.fail(validation.reason);
+            }
+
+            // ③ 从代码里提取类名
             String className = extractClassName(userCode);
 
-            // ③ 插桩 ast instrumentation
+            // ④ 插桩 ast instrumentation
             String instrumentedCode = instrumenter.instrument(userCode);
 
-            // ④ 去掉 package
+            // ⑤ 去掉 package 声明，使 TraceEngine 和用户类在同一默认包
             instrumentedCode = removePackageDeclaration(instrumentedCode);
 
             //inmemorycompile
@@ -86,50 +98,46 @@ public class RunController {
             //放入当前类和插桩后的usercode
             sources.put( className , instrumentedCode);
 
-            // ⑤ 编译（TraceEngine + 用户代码一起）
+            // ⑥ 编译（TraceEngine + 用户代码一起）
             Map<String , byte[]> bytecodeMap = compiler.compile(sources);
 
-            // ⑥ ClassLoader 加载字节码
+            // ⑦ ClassLoader 加载字节码
             InMemoryClassLoader classLoader = new InMemoryClassLoader(bytecodeMap);
             Class<?> traceEngineClass = classLoader.loadClass("TraceEngine");
             Class<?> userClass = classLoader.loadClass(className);
 
-            // ⑦ 反射调用 TraceEngine.reset() 清空记录
-
+            // ⑧ 反射调用 TraceEngine.reset() 清空记录
             traceEngineClass.getMethod("reset").invoke(null);
 
-            // ⑧ 反射调用 UserCode.main() → 新线程 + 5秒超时
-            // ╔══════════════════════════════════════════════════════════╗
-            // ║  🔒 [占位] 安全沙箱 — 待 @后端同学 接入                    ║
-            // ║  当前：单线程 + 5秒超时（基础防护）                       ║
-            // ║  待加：SecurityManager / 文件访问限制 / 网络隔离 /        ║
-            // ║        反射黑名单 / 内存限制 等                           ║
-            // ╚══════════════════════════════════════════════════════════╝
+            // ⑨ 安装运行时安全沙箱，执行用户代码 → 5秒超时
+            SecurityManager originalSM = System.getSecurityManager();
+            System.setSecurityManager(new SafeSecurityManager());
+            try {
+                ExecutorService executor = Executors.newSingleThreadExecutor();
+                Future<?> future = executor.submit(() -> {
+                    try {
+                        Method main = userClass.getMethod("main", String[].class);
+                        main.invoke(null, (Object) new String[0]);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
-            //新线程
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            //执行用户代码，超时报错
-            Future<?> future = executor.submit(() -> {
-                //查找main方法
-                try{
-                    Method main = userClass.getMethod("main" , String[].class);
-                    main.invoke(null , (Object) new String[0]);
-                } catch (Exception e){
-                    throw new RuntimeException(e);
+                try {
+                    future.get(5, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    traceEngineClass.getMethod("disable").invoke(null);
+                    future.cancel(true);
+                    executor.shutdownNow();
+                    return RunResponse.fail("运行超时（超过5秒）");
                 }
-            });
-
-            try{
-                future.get(5 , TimeUnit.SECONDS);
-            }catch (TimeoutException e){
-                future.cancel(true);
                 executor.shutdownNow();
-                return RunResponse.fail("Runtime Error");
+            } finally {
+                System.setSecurityManager(originalSM);
             }
-            executor.shutdownNow();
 
 
-            // ⑨ 反射调用 TraceEngine.getSteps() 取步骤
+            // ⑩ 反射调用 TraceEngine.getSteps() 取步骤
             @SuppressWarnings("unchecked")
             List<Map<String , Object>> steps = (List<Map<String , Object>>) 
                 traceEngineClass.getMethod("getSteps")
@@ -146,8 +154,12 @@ public class RunController {
     //辅助方法区域
 
     private String extractClassName(String code){
-        CompilationUnit cu = StaticJavaParser.parse(code);
-        return cu.getType(0).getNameAsString();
+        try {
+            CompilationUnit cu = StaticJavaParser.parse(code);
+            return cu.getType(0).getNameAsString();
+        } catch (Exception e) {
+            throw new RuntimeException("代码格式错误：缺少 public class 声明，请确保代码包含完整的类定义");
+        }
     }
 
     private String removePackageDeclaration(String code){

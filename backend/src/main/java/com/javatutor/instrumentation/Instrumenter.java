@@ -179,16 +179,14 @@ public class Instrumenter {
                                 newStatements.add(stmt);
                             }
 
-                            // 在控制流语句之后插入退出记录（except IfStmt：If 已在判断前插入记录，
-                            // 不需要额外的退出记录以避免重复高亮）
-                            if (!stmt.isIfStmt()) {
-                                List<String> visibleAfter = collectVisibleVariables(block, i);
-                                // 移除由该控制语句自身声明的循环变量（例如 for-init 的 i/j），
-                                // 因为退出语句在该变量作用域之外，引用它们会导致编译错误
-                                List<String> declaredHere = getDeclaredNames(stmt);
-                                visibleAfter.removeAll(declaredHere);
-                                newStatements.add(buildRecordStatement(line, visibleAfter));
-                            }
+                            // IfStmt 在判断前已插入高亮记录，不需要退出记录
+                            // while/for/do 循环：不插入退出记录 — 无限循环时退出
+                            // 记录会成为不可达代码；正常退出时下一步的记录自然会覆盖
+                        } else if (stmt.isReturnStmt()) {
+                            // return 语句：record 必须在 return 之前插入，否则成为不可达代码
+                            List<String> visibleBefore = collectVisibleVariables(block, i);
+                            newStatements.add(buildRecordStatement(line, visibleBefore));
+                            newStatements.add(stmt);
                         } else {
                             newStatements.add(stmt);
                             List<String> visibleAfter = collectVisibleVariables(block, i);
@@ -206,33 +204,6 @@ public class Instrumenter {
         },null);
 
         return LexicalPreservingPrinter.print(cu);
-    }
-
-    // 返回节点自身在头部声明的变量名（例如 ForStmt 的 init 中声明的 i）
-    private List<String> getDeclaredNames(Node node) {
-        List<String> names = new ArrayList<>();
-        if (node instanceof ForStmt) {
-            ForStmt forStmt = (ForStmt) node;
-            for (Expression e : forStmt.getInitialization()) {
-                if (e.isVariableDeclarationExpr()) {
-                    for (VariableDeclarator vd : e.asVariableDeclarationExpr().getVariables()) {
-                        String name = vd.getNameAsString();
-                        if (!names.contains(name)) names.add(name);
-                    }
-                }
-            }
-            return names;
-        }
-
-        if (node instanceof ForEachStmt) {
-            ForEachStmt fe = (ForEachStmt) node;
-            String name = fe.getVariable().getVariable(0).getNameAsString();
-            if (!names.contains(name)) names.add(name);
-            return names;
-        }
-
-        // 其它语句类型通常不在语句头声明循环变量
-        return names;
     }
 
     //instrument用到的辅助方法，不对外开放接口
