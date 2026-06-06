@@ -80,7 +80,28 @@ export const usePlayerStore = defineStore('player', {
             console.log('runCode: steps count', (this.steps || []).length)
             console.log('runCode: currentStep', this.currentStep, 'firstStepVars', this.steps[0]?.variables)
         } else {
-          this.error = data.msg || data.error || '网络请求失败'
+          if (!text) {
+            // 空响应（例如 204），给出可理解的错误信息
+            this.error = '服务器返回空响应'
+          } else {
+            let data = null
+            try {
+              data = JSON.parse(text)
+            } catch (e) {
+              console.warn('无法解析为 JSON:', text)
+              this.error = '服务器返回的不是有效 JSON：' + (text.length > 200 ? text.slice(0, 200) + '...' : text)
+            }
+
+            if (data) {
+              if (data.code === 200 || data.success) {
+                this.steps = data.data || data.steps || []
+                this.runId = data.runId
+                this.currentStep = 0
+              } else {
+                this.error = data.msg || data.error || '网络请求失败'
+              }
+            }
+          }
         }
       } catch (e) {
         this.error = e.message || '网络请求失败'
