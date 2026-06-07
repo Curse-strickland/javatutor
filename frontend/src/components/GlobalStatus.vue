@@ -74,7 +74,7 @@ onBeforeUnmount(() => {
 .loader {
   width: 18px;
   height: 18px;
-  border: 3px solid rgba(0,0,0,0.12);
+  border: 3px solid rgba(255,255,255,0.12);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;

@@ -2,20 +2,21 @@
   <div class="variable-panel">
     <div class="mb-3">
       <h4 class="text-lg font-semibold">变量卡片</h4>
-      <p class="text-sm text-gray-500">只读展示当前步骤变量，值变化会短暂高亮。</p>
+      <p class="text-sm" style="color: var(--text-muted)">只读展示当前步骤变量，值变化会短暂高亮。</p>
     </div>
 
-    <div v-if="displayKeys.length === 0" class="text-sm text-gray-500">暂无变量</div>
+    <div v-if="displayKeys.length === 0" class="text-sm" style="color: var(--text-muted)">暂无变量</div>
 
     <div v-else>
       <!-- Scalars: horizontal small cards -->
       <div v-if="scalarKeys.length" class="scalar-row card p-3 mb-3">
         <transition-group name="scalar" tag="div" class="scalars flex gap-3 overflow-auto">
           <div v-for="key in scalarKeys" :key="key" :data-key="key"
-            class="scalar-card p-2 bg-white dark:bg-gray-800 rounded border flex-shrink-0"
+            class="scalar-card p-2 rounded border flex-shrink-0"
+            style="background: var(--card-bg); border-color: var(--border)"
             :class="[{ flash: flashKeys[key] }, valueFlashKeys[key] ? 'value-flash' : '']">
-            <div class="var-name text-xs text-gray-500">{{ key }}</div>
-            <div class="var-value font-semibold text-lg text-gray-900 dark:text-gray-100">{{ pretty(variables[key]) }}</div>
+            <div class="var-name text-xs" style="color: var(--text-muted)">{{ key }}</div>
+            <div class="var-value font-semibold text-lg" style="color: var(--text-h)">{{ pretty(variables[key]) }}</div>
           </div>
         </transition-group>
       </div>
@@ -23,7 +24,7 @@
       <!-- Arrays: each occupies its own row -->
       <div v-for="key in arrayKeys" :key="key" :data-key="key" class="array-row card p-3 rounded mb-3" :class="{ flash: flashKeys[key] }">
         <div class="flex items-center justify-between mb-2">
-          <div class="font-medium text-sm text-gray-800 dark:text-gray-100">{{ key }}</div>
+          <div class="font-medium text-sm" style="color: var(--text-h)">{{ key }}</div>
         </div>
         <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" />
       </div>
