@@ -35,3 +35,5 @@ Thumbs.db
 /.cache/
 /.tmp/
 backend/target/
+reviews/
+test-sandbox.sh
