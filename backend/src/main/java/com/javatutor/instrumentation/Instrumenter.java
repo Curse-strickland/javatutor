@@ -13,8 +13,6 @@ import java.util.*;
 
 public class Instrumenter {
 
-    private int stepCounter; //计数
-    
     public String instrument(String userCode){
         //parse 用户的代码,形成ast
         //cu就是抽象语法树的根节点
@@ -40,8 +38,8 @@ public class Instrumenter {
         //保留原格式
         LexicalPreservingPrinter.setup(cu);
 
-        //重置stepcounter
-        this.stepCounter = 1;
+        //使用局部数组避免 Spring 单例下的线程安全问题
+        int[] counter = {1};
 
 
 
@@ -82,7 +80,7 @@ public class Instrumenter {
                 NodeList<Statement> newStatements = new NodeList<>();
                 for (int i = 0; i < oldStatements.size(); i++) {
                     Statement stmt = oldStatements.get(i);
-                    int line = stmt.getBegin().map(pos -> pos.line).orElse(null);
+                    int line = stmt.getBegin().map(pos -> pos.line).orElse(-1);
 
                     if (shouldInstrument(stmt)) {
                         // 控制流语句：把 "进入" 记录插入到语句的主体首部（以捕获 for-init 声明的循环变量），
@@ -98,15 +96,17 @@ public class Instrumenter {
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     // 确保包含 for-init 中声明的循环变量
                                     collectDirectVariables(stmt, insideVars);
-                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
                                     // 仅在进入体首部记录，退出时通过后续退出记录采集快照，避免重复
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     fs.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
                                     newBody.addStatement(body);
+                                    newBody = (BlockStmt) super.visit(newBody, null);
+                                    fs.setBody(newBody);
                                 }
                                 newStatements.add(fs);
                             } else if (stmt.isForEachStmt()) {
@@ -117,14 +117,17 @@ public class Instrumenter {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
                                     // 仅在进入体首部记录，退出时由后续退出记录采集快照
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     fes.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    collectDirectVariables(stmt, insideVars);
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
                                     newBody.addStatement(body);
+                                    newBody = (BlockStmt) super.visit(newBody, null);
+                                    fes.setBody(newBody);
                                 }
                                 newStatements.add(fes);
                             } else if (stmt.isWhileStmt()) {
@@ -135,15 +138,17 @@ public class Instrumenter {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                        bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                        bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
                                         // 仅在进入体首部记录，退出时由后续退出记录采集快照
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     ws.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
                                     newBody.addStatement(body);
+                                    newBody = (BlockStmt) super.visit(newBody, null);
+                                    ws.setBody(newBody);
                                 }
                                 newStatements.add(ws);
                             } else if (stmt.isDoStmt()) {
@@ -154,14 +159,16 @@ public class Instrumenter {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars));
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     ds.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
                                     newBody.addStatement(body);
+                                    newBody = (BlockStmt) super.visit(newBody, null);
+                                    ds.setBody(newBody);
                                 }
                                 newStatements.add(ds);
                             } else if (stmt.isIfStmt()) {
@@ -170,7 +177,7 @@ public class Instrumenter {
                                 // 在 if 之前插入一次记录以表示条件判断时的高亮（无论 true/false 都应高亮）
                                 List<String> condVars = collectVisibleVariables(block, i);
                                 collectDirectVariables(stmt, condVars);
-                                newStatements.add(buildRecordStatement(ln, condVars));
+                                newStatements.add(buildRecordStatement(ln, condVars, counter));
 
                                 // 不在 then/else 首部再插入进入记录；保持 then/else 原样
                                 newStatements.add(ifs);
@@ -185,12 +192,12 @@ public class Instrumenter {
                         } else if (stmt.isReturnStmt()) {
                             // return 语句：record 必须在 return 之前插入，否则成为不可达代码
                             List<String> visibleBefore = collectVisibleVariables(block, i);
-                            newStatements.add(buildRecordStatement(line, visibleBefore));
+                            newStatements.add(buildRecordStatement(line, visibleBefore, counter));
                             newStatements.add(stmt);
                         } else {
                             newStatements.add(stmt);
                             List<String> visibleAfter = collectVisibleVariables(block, i);
-                            newStatements.add(buildRecordStatement(line, visibleAfter));
+                            newStatements.add(buildRecordStatement(line, visibleAfter, counter));
                         }
                     } else {
                         newStatements.add(stmt);
@@ -208,7 +215,7 @@ public class Instrumenter {
 
     //instrument用到的辅助方法，不对外开放接口
     //
-    private Statement buildRecordStatement(int line , List<String> varNames){
+    private Statement buildRecordStatement(int line, List<String> varNames, int[] counter) {
         //拼接参数
         StringBuilder mapArgs = new StringBuilder();
         for(int i = 0 ; i < varNames.size() ; i++){
@@ -217,14 +224,15 @@ public class Instrumenter {
             mapArgs.append("\"").append(v).append("\",").append(v);
         }
 
-        //生成完整的语句
+        int s = counter[0];
+        counter[0]++;
+
+        //生成完整的语句 — 用 buildMap 替代 Map.of() 突破 10 对 KV 上限
         String recordCall = "TraceEngine.record("
-        + stepCounter + ","
+        + s + ","
         + line + ","
-        + "java.util.Map.of(" + mapArgs.toString() + ")"
+        + "TraceEngine.buildMap(new Object[]{" + mapArgs.toString() + "})"
         + ");";
-        
-        stepCounter ++;
 
         return StaticJavaParser.parseStatement(recordCall);
     }
@@ -245,8 +253,15 @@ public class Instrumenter {
         // 情况1：表达式语句 → 往里看是不是赋值或变量声明
         if (stmt.isExpressionStmt()) {
             Expression expr = stmt.asExpressionStmt().getExpression();
-            // 赋值 or 变量声明 → 需要插桩
-            return expr.isAssignExpr() || expr.isVariableDeclarationExpr();
+            if (expr.isAssignExpr() || expr.isVariableDeclarationExpr()) return true;
+            if (expr.isUnaryExpr()) {
+                UnaryExpr.Operator op = expr.asUnaryExpr().getOperator();
+                return op == UnaryExpr.Operator.PREFIX_INCREMENT
+                    || op == UnaryExpr.Operator.PREFIX_DECREMENT
+                    || op == UnaryExpr.Operator.POSTFIX_INCREMENT
+                    || op == UnaryExpr.Operator.POSTFIX_DECREMENT;
+            }
+            return false;
         }
 
         // 情况2：return 语句 → 需要插桩
