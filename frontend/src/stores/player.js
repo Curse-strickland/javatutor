@@ -65,7 +65,7 @@ export const usePlayerStore = defineStore('player', {
         const delta = state.steps[i]?.output
         if (delta) out += delta
       }
-      return out
+      return out.replace(/\r/g, '')
     },
   },
   actions: {
@@ -86,6 +86,13 @@ export const usePlayerStore = defineStore('player', {
             this.steps = data.data || data.steps || []
             this.runId = data.runId
             this.output = data.output || ''
+            const arr = this.steps
+            if (arr && arr.length) {
+              for (let i = 0; i < arr.length; i++) {
+                const o = arr[i] && arr[i].output
+                if (o) console.log('[player] step', i, 'output:', JSON.stringify(o))
+              }
+            }
             this.currentStep = 0
             // 简洁日志：打印 steps 长度与首个步骤变量
             console.log('runCode: steps count', (this.steps || []).length)

@@ -32,9 +32,11 @@ public class TraceEngine {
         }
         record.put("variables", varsCopy);
         if (capturedOutput != null) {
-            int pos = capturedOutput.size();
+            String outStr = capturedOutput.toString();
+            int pos = outStr.length();
             if (pos > lastOutputPos) {
-                record.put("output", capturedOutput.toString().substring(lastOutputPos));
+                String raw = outStr.substring(lastOutputPos);
+                record.put("output", raw.replace("\r\n", "\n"));
                 lastOutputPos = pos;
             }
         }

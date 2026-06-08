@@ -58,9 +58,11 @@ public class RunController {
         "        }\n" +
         "        record.put(\"variables\", varsCopy);\n" +
         "        if (capturedOutput != null) {\n" +
-        "            int pos = capturedOutput.size();\n" +
+        "            String outStr = capturedOutput.toString();\n" +
+        "            int pos = outStr.length();\n" +
         "            if (pos > lastOutputPos) {\n" +
-        "                record.put(\"output\", capturedOutput.toString().substring(lastOutputPos));\n" +
+        "                String raw = outStr.substring(lastOutputPos);\n" +
+        "                record.put(\"output\", raw.replace(\"\\r\\n\", \"\\n\"));\n" +
         "                lastOutputPos = pos;\n" +
         "            }\n" +
         "        }\n" +
@@ -162,7 +164,7 @@ public class RunController {
                 }
             } finally {
                 System.setOut(originalOut);
-                userOutput = capturedOut.toString();
+                userOutput = capturedOut.toString().replace("\r\n", "\n");
                 System.setSecurityManager(originalSM);
             }
 
