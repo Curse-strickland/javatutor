@@ -16,7 +16,7 @@
       </div>
 
       <!-- 右侧：变量展示区（F2） -->
-      <div class="flex-1 bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <div class="flex-1 flex flex-col" style="background: var(--bg)">
         <div class="p-4 border-b">
           <h3 class="font-bold">变量展示区</h3>
         </div>
@@ -37,7 +37,7 @@
       <button @click="toggleAutoPlay" :class="['btn', isAutoPlaying ? '' : 'btn-primary']">
         {{ isAutoPlaying ? '暂停' : '自动播放' }}
       </button>
-      <select v-model="speed" class="border rounded px-2 py-1 bg-white dark:bg-gray-800">
+      <select v-model="speed" class="border rounded px-2 py-1" style="background: var(--card-bg); color: var(--text); border-color: var(--border)">
         <option value="500">0.5x</option>
         <option value="1000">1x</option>
         <option value="2000">2x</option>
@@ -169,16 +169,16 @@ watch(() => store.currentLine, async (line) => {
   user-select: none;
 }
 .splitter:hover {
-  background-color: rgba(0,0,0,0.04);
+  background-color: rgba(255,255,255,0.06);
 }
 .splitter .splitter-handle {
   width: 2px;
   height: 40px;
-  background-color: rgba(156,163,175,0.6);
+  background-color: rgba(255,255,255,0.15);
   border-radius: 2px;
 }
 .splitter.dragging {
-  background-color: rgba(0,0,0,0.06);
+  background-color: rgba(255,255,255,0.08);
 }
 @media (max-width: 640px) { .splitter .splitter-handle { height: 28px } }
 </style>

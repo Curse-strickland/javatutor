@@ -62,11 +62,7 @@ public class InMemoryCompiler {
                     String shortName = className.contains(".")
                     ? className.substring(className.lastIndexOf(".") + 1)
                     : className;
-                    ClassFileObject cfo = classFileMap.get(shortName);
-                    if(cfo != null){
-                        return cfo;
-                    }
-                    return classFileMap.get(className); //兜底：试试全名
+                    return classFileMap.get(shortName);
                 }
         };
 
@@ -82,10 +78,10 @@ public class InMemoryCompiler {
             StringBuilder errors = new StringBuilder();
             //遍历error info
             for(Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics() ){
-                //collect specific error
-                errors.append(d.getMessage(null)).append("\n");
+                String raw = d.getMessage(null);
+                errors.append(translateError(raw)).append("\n");
             }
-            throw new RuntimeException("Compilation failed:\n" + errors.toString());
+            throw new RuntimeException("编译失败：\n" + errors.toString());
         }
 
         //返回
@@ -97,4 +93,15 @@ public class InMemoryCompiler {
 
     }
 
+    /** 将常见英文编译错误映射为中文提示 */
+    private static String translateError(String msg) {
+        if (msg == null) return "";
+        if (msg.contains("cannot find symbol")) return "找不到符号 — 可能缺少变量声明或拼写错误";
+        if (msg.contains("';' expected")) return "缺少分号 ';'";
+        if (msg.contains("reached end of file while parsing")) return "代码不完整，缺少结尾的 '}'";
+        if (msg.contains("illegal start of expression")) return "表达式开头不正确 — 请检查语法";
+        if (msg.contains("not a statement")) return "这不是有效的语句 — 请检查代码格式";
+        if (msg.contains("incompatible types")) return "类型不兼容 — 赋值类型与变量类型不匹配";
+        return msg;
+    }
 }

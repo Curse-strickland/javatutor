@@ -63,6 +63,11 @@ public class RunController {
         "    }\n" +
         "    public static void reset() { steps.clear(); disabled = false; }\n" +
         "    public static void disable() { disabled = true; }\n" +
+        "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
+        "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
+        "        for (int i = 0; i < pairs.length; i += 2) { m.put((String) pairs[i], pairs[i + 1]); }\n" +
+        "        return m;\n" +
+        "    }\n" +
         "    public static List<Map<String,Object>> getSteps() { return steps; }\n" +
         "}\n";
 
@@ -72,6 +77,9 @@ public class RunController {
     public RunResponse run(@RequestBody RunRequest request){
         //① 拿到用户代码 + 生成 runId（UUID）
         String userCode = request.getCode();
+        if (userCode == null || userCode.isBlank()) {
+            return RunResponse.fail("代码不能为空");
+        }
         String runId = UUID.randomUUID().toString();
        
         try{
@@ -114,24 +122,26 @@ public class RunController {
             System.setSecurityManager(new SafeSecurityManager());
             try {
                 ExecutorService executor = Executors.newSingleThreadExecutor();
-                Future<?> future = executor.submit(() -> {
-                    try {
-                        Method main = userClass.getMethod("main", String[].class);
-                        main.invoke(null, (Object) new String[0]);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-
                 try {
-                    future.get(5, TimeUnit.SECONDS);
-                } catch (TimeoutException e) {
-                    traceEngineClass.getMethod("disable").invoke(null);
-                    future.cancel(true);
+                    Future<?> future = executor.submit(() -> {
+                        try {
+                            Method main = userClass.getMethod("main", String[].class);
+                            main.invoke(null, (Object) new String[0]);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+                    try {
+                        future.get(5, TimeUnit.SECONDS);
+                    } catch (TimeoutException e) {
+                        traceEngineClass.getMethod("disable").invoke(null);
+                        future.cancel(true);
+                        return RunResponse.fail("运行超时（超过5秒）");
+                    }
+                } finally {
                     executor.shutdownNow();
-                    return RunResponse.fail("运行超时（超过5秒）");
                 }
-                executor.shutdownNow();
             } finally {
                 System.setSecurityManager(originalSM);
             }

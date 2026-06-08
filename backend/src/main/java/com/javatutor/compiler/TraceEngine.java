@@ -40,6 +40,15 @@ public class TraceEngine {
         disabled = true;
     }
 
+    // 接受平铺数组 [k1, v1, k2, v2, ...] 构建 Map，突破 Map.of() 的 10 对上限
+    public static Map<String, Object> buildMap(Object... pairs) {
+        LinkedHashMap<String, Object> m = new LinkedHashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            m.put((String) pairs[i], pairs[i + 1]);
+        }
+        return m;
+    }
+
     public static List<Map<String,Object>> getSteps() {
         return steps;
     }

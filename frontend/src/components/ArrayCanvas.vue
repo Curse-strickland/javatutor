@@ -61,7 +61,7 @@ function formatValue(v) {
   box-shadow: 0 6px 14px rgba(255,199,44,0.025);
 }
 .cell-value { font-weight: 600; color: var(--text-h); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.cell-index { font-size: 12px; color: rgba(60,60,67,0.78); margin-top: 6px }
+.cell-index { font-size: 12px; color: var(--text-muted); margin-top: 6px }
 
 @media (max-width: 640px) {
   .cell { min-width: 56px }
