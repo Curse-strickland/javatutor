@@ -22,6 +22,7 @@
         </div>
         <div class="flex-1 p-4 overflow-auto">
           <VariablePanel />
+          <HeapStackPanel />
         </div>
       </div>
     </div>
@@ -34,13 +35,14 @@
       </button>
       <button @click="store.prevStep" class="btn">上一步</button>
       <button @click="store.nextStep" class="btn">下一步</button>
+      <button @click="gotoLastStep" class="btn">跳到最后</button>
       <button @click="toggleAutoPlay" :class="['btn', isAutoPlaying ? '' : 'btn-primary']">
         {{ isAutoPlaying ? '暂停' : '自动播放' }}
       </button>
       <select v-model="speed" class="border rounded px-2 py-1" style="background: var(--card-bg); color: var(--text); border-color: var(--border)">
-        <option value="500">0.5x</option>
+        <option value="500">2x</option>
         <option value="1000">1x</option>
-        <option value="2000">2x</option>
+        <option value="2000">0.5x</option>
       </select>
       <span class="text-sm">步骤: {{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
     </div>
@@ -53,6 +55,7 @@ import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
 import VariablePanel from './components/VariablePanel.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
+import HeapStackPanel from './components/HeapStackPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -144,6 +147,10 @@ const stopAutoPlay = () => {
     timer = null
   }
   isAutoPlaying.value = false
+}
+
+const gotoLastStep = () => {
+  if (store.totalSteps > 0) store.currentStep = store.totalSteps - 1
 }
 
 watch(speed, () => {

@@ -21,12 +21,17 @@
         </transition-group>
       </div>
 
-      <!-- Arrays: each occupies its own row -->
+      <!-- Arrays: each occupies its own row, collapsible -->
       <div v-for="key in arrayKeys" :key="key" :data-key="key" class="array-row card p-3 rounded mb-3" :class="{ flash: flashKeys[key] }">
         <div class="flex items-center justify-between mb-2">
-          <div class="font-medium text-sm" style="color: var(--text-h)">{{ key }}</div>
+          <div class="font-medium text-sm" style="color: var(--text-h)">{{ key }} ({{ (variables[key] || []).length }} 项)</div>
+          <button
+            class="collapse-btn"
+            @click="toggleCollapse(key)"
+            :title="collapsedKeys[key] ? '展开' : '折叠'"
+          >{{ collapsedKeys[key] ? '▸ 展开' : '▾ 折叠' }}</button>
         </div>
-        <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" />
+        <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" :collapsed="!!collapsedKeys[key]" />
       </div>
     </div>
   </div>
@@ -49,7 +54,12 @@ const flashKeys = reactive({})
 const valueFlashKeys = reactive({})
 const changedIndicesMap = reactive({})
 const compareIndicesMap = reactive({})
+const collapsedKeys = reactive({})
 const FLASH_MS = 520
+
+function toggleCollapse(key) {
+  collapsedKeys[key] = !collapsedKeys[key]
+}
 
 watch(
   variables,
@@ -182,6 +192,22 @@ function pretty(v) {
 
 /* Array row minor tweaks */
 .array-row { background: transparent }
+
+/* Collapse button */
+.collapse-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.collapse-btn:hover {
+  color: var(--text-h);
+  border-color: var(--accent-border);
+}
 
 /* When card flash: subtle border + shadow (avoid full background change) */
 .card.flash {
