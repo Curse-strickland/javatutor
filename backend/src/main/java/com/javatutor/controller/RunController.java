@@ -137,7 +137,7 @@ public class RunController {
             System.setSecurityManager(new SafeSecurityManager());
             PrintStream originalOut = System.out;
             ByteArrayOutputStream capturedOut = new ByteArrayOutputStream();
-            System.setOut(new PrintStream(capturedOut));
+            System.setOut(new PrintStream(capturedOut, true));
             traceEngineClass.getMethod("setOutputStream", ByteArrayOutputStream.class).invoke(null, capturedOut);
             String userOutput = "";
             try {
@@ -163,6 +163,7 @@ public class RunController {
                     executor.shutdownNow();
                 }
             } finally {
+                System.out.flush(); // 确保 StreamEncoder 缓冲区全部写入 capturedOut
                 System.setOut(originalOut);
                 userOutput = capturedOut.toString().replace("\r\n", "\n");
                 System.setSecurityManager(originalSM);
