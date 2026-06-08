@@ -261,6 +261,8 @@ public class Instrumenter {
                     || op == UnaryExpr.Operator.POSTFIX_INCREMENT
                     || op == UnaryExpr.Operator.POSTFIX_DECREMENT;
             }
+            // 独立方法调用语句（如 System.out.println()）也需要插桩，否则纯打印代码无步骤
+            if (expr.isMethodCallExpr()) return true;
             return false;
         }
 

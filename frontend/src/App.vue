@@ -23,6 +23,7 @@
         <div class="flex-1 p-4 overflow-auto">
           <VariablePanel />
           <HeapStackPanel />
+          <ConsoleOutput />
         </div>
       </div>
     </div>
@@ -54,6 +55,7 @@ import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
 import VariablePanel from './components/VariablePanel.vue'
+import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
 import HeapStackPanel from './components/HeapStackPanel.vue'
 
