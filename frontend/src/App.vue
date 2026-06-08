@@ -1,13 +1,11 @@
 <template>
-  <div class="flex flex-col h-screen">
+  <div class="app-shell">
     <GlobalStatus />
-    <!-- 主要内容区：左右两栏（支持拖拽调整宽度） -->
-    <div ref="containerRef" class="flex-1 flex min-h-0">
-      <!-- 左侧：代码编辑器（宽度由 leftWidth 控制） -->
-      <div :style="{ width: leftWidth + 'px' }" class="border-r flex flex-col flex-none">
-        <div class="flex-1 min-h-0">
-          <Editor ref="editorRef" class="h-full" />
-        </div>
+    <!-- 主要内容区：左右两张圆角大卡片 -->
+    <div ref="containerRef" class="main-area">
+      <!-- 左侧：代码编辑器卡片 -->
+      <div :style="{ width: leftWidth + 'px' }" class="editor-card card flex-none">
+        <Editor ref="editorRef" class="h-full" />
       </div>
 
       <!-- 可拖拽分割条 -->
@@ -15,34 +13,38 @@
         <div class="splitter-handle" />
       </div>
 
-      <!-- 右侧：变量展示区（F2） -->
-      <div class="flex-1 flex flex-col" style="background: var(--bg)">
-        <div class="p-4 border-b">
+      <!-- 右侧：变量展示卡片 -->
+      <div class="flex-1 right-card card flex flex-col">
+        <div class="right-card-header">
+          <span class="rc-dot" />
           <h3 class="font-bold">变量展示区</h3>
         </div>
-        <div class="flex-1 p-4 overflow-auto">
+        <div class="flex-1 overflow-auto right-card-body">
           <VariablePanel />
+          <HeapStackPanel />
+          <ConsoleOutput />
         </div>
       </div>
     </div>
 
-    <!-- 底部控制栏（Apple 风格） -->
-    <div class="control-bar p-2">
+    <!-- 底部控制栏：浮动圆角 -->
+    <div class="control-bar">
       <button @click="runCode" :disabled="store.isLoading" :class="['btn', store.isLoading ? '' : 'btn-primary']">
         <span v-if="!store.isLoading">运行</span>
         <span v-else>运行中...</span>
       </button>
       <button @click="store.prevStep" class="btn">上一步</button>
       <button @click="store.nextStep" class="btn">下一步</button>
+      <button @click="gotoLastStep" class="btn">跳到最后</button>
       <button @click="toggleAutoPlay" :class="['btn', isAutoPlaying ? '' : 'btn-primary']">
         {{ isAutoPlaying ? '暂停' : '自动播放' }}
       </button>
-      <select v-model="speed" class="border rounded px-2 py-1" style="background: var(--card-bg); color: var(--text); border-color: var(--border)">
-        <option value="500">0.5x</option>
+      <select v-model="speed" class="speed-select">
+        <option value="500">2x</option>
         <option value="1000">1x</option>
-        <option value="2000">2x</option>
+        <option value="2000">0.5x</option>
       </select>
-      <span class="text-sm">步骤: {{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
+      <span class="text-sm step-counter">步骤: {{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
     </div>
   </div>
 </template>
@@ -52,7 +54,9 @@ import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
 import VariablePanel from './components/VariablePanel.vue'
+import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
+import HeapStackPanel from './components/HeapStackPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -146,6 +150,10 @@ const stopAutoPlay = () => {
   isAutoPlaying.value = false
 }
 
+const gotoLastStep = () => {
+  if (store.totalSteps > 0) store.currentStep = store.totalSteps - 1
+}
+
 watch(speed, () => {
   if (isAutoPlaying.value) startAutoPlay()
 })
@@ -159,6 +167,53 @@ watch(() => store.currentLine, async (line) => {
 </script>
 
 <style scoped>
+/* Shell — subtle dot grid texture for depth */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Main area — breathing room between cards */
+.main-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  gap: 0;
+}
+
+/* Editor card — Monaco fills it */
+.editor-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Right card — header + scroll body */
+.right-card {
+  overflow: hidden;
+}
+.right-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.rc-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.8;
+}
+.right-card-body {
+  padding: 12px;
+}
+
+/* Splitter — subtle drag handle between cards */
 .splitter {
   width: 8px;
   cursor: col-resize;
@@ -167,18 +222,45 @@ watch(() => store.currentLine, async (line) => {
   justify-content: center;
   background: transparent;
   user-select: none;
+  flex-shrink: 0;
 }
-.splitter:hover {
-  background-color: rgba(255,255,255,0.06);
-}
+.splitter:hover { background-color: rgba(255,255,255,0.04); }
 .splitter .splitter-handle {
-  width: 2px;
-  height: 40px;
-  background-color: rgba(255,255,255,0.15);
+  width: 2px; height: 40px;
+  background-color: rgba(255,255,255,0.10);
   border-radius: 2px;
 }
-.splitter.dragging {
-  background-color: rgba(255,255,255,0.08);
+.splitter.dragging { background-color: rgba(255,255,255,0.06); }
+
+/* Floating control bar — rounded, no border, subtle lift */
+.control-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 0 12px 12px;
+  padding: 10px 16px;
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  backdrop-filter: blur(8px);
 }
-@media (max-width: 640px) { .splitter .splitter-handle { height: 28px } }
+.speed-select {
+  background: var(--code-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.step-counter {
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .splitter .splitter-handle { height: 28px }
+  .main-area { padding: 8px; gap: 4px }
+  .control-bar { margin: 0 8px 8px; padding: 8px 12px }
+}
 </style>

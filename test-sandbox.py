@@ -149,6 +149,44 @@ test("G3", 'import java.io.File;\nimport java.net.Socket;\npublic class UserCode
 
 # ==============================================
 print("\n" + "=" * 50)
+print("  O 组：控制台输出 (3)")
+print("=" * 50)
+
+def test_output(id, code, expected_kw):
+    """验证 per-step output delta 累积后包含预期字符串"""
+    global PASS, FAIL, TOTAL
+    TOTAL += 1
+    try:
+        body = json.dumps({"code": code}).encode("utf-8")
+        req = urllib.request.Request(BASE, data=body, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        # 累积所有 step 的 output delta
+        accumulated = ""
+        for s in data.get("steps", []):
+            delta = s.get("output", "")
+            if delta:
+                accumulated += delta
+        success = data.get("success", False)
+        if success and expected_kw in accumulated:
+            print(f"  PASS  {id}")
+            PASS += 1
+        else:
+            print(f"  FAIL  {id} — expected '{expected_kw}' in accumulated output, got success={success}, output={repr(accumulated[:100])}")
+            FAIL += 1
+    except Exception as e:
+        print(f"  FAIL  {id} — {e}")
+        FAIL += 1
+
+test_output("O1", """public class UserCode { public static void main(String[] args) { int x = 1; System.out.println("hello"); x = 2; } }""", "hello")
+test_output("O2", """public class UserCode { public static void main(String[] args) { int x = 1; System.out.print("a"); System.out.print("b"); x = 2; } }""", "ab")
+test_output("O3", """public class UserCode { public static void main(String[] args) { int x = 1; for (int i = 1; i <= 3; i++) { System.out.println("line " + i); } x = 2; } }""", "line 1")
+
+# O4: 无 println 的代码 — 控制台不显示
+test("O4", """public class UserCode { public static void main(String[] args) { int[] arr = {5, 3, 8}; int n = arr.length; } }""", {"success": True})
+
+# ==============================================
+print("\n" + "=" * 50)
 executed = TOTAL - SKIP
 print(f"  执行: {TOTAL}  跳过: {SKIP}")
 print(f"  通过: {PASS}/{executed}  失败: {FAIL}/{executed}")

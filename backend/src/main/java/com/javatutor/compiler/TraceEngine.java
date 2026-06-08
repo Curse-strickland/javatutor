@@ -5,10 +5,13 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.lang.reflect.Array;
+import java.io.ByteArrayOutputStream;
 
 public class TraceEngine {
     private static List<Map<String,Object>> steps = new ArrayList<>();
     private static volatile boolean disabled = false;
+    private static ByteArrayOutputStream capturedOutput;
+    private static int lastOutputPos = 0;
 
     public static void record(int step, int line, Map<String,Object> vars) {
         if (disabled) return;
@@ -28,12 +31,27 @@ public class TraceEngine {
             }
         }
         record.put("variables", varsCopy);
+        if (capturedOutput != null) {
+            String outStr = capturedOutput.toString();
+            int pos = outStr.length();
+            if (pos > lastOutputPos) {
+                String raw = outStr.substring(lastOutputPos);
+                record.put("output", raw.replace("\r\n", "\n"));
+                lastOutputPos = pos;
+            }
+        }
         steps.add(record);
+    }
+
+    public static void setOutputStream(ByteArrayOutputStream out) {
+        capturedOutput = out;
+        lastOutputPos = 0;
     }
 
     public static void reset() {
         steps.clear();
         disabled = false;
+        lastOutputPos = 0;
     }
 
     public static void disable() {

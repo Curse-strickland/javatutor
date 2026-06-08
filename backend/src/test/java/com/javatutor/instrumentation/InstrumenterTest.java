@@ -22,18 +22,31 @@ class InstrumenterTest {
 
     private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
+        "import java.io.ByteArrayOutputStream;\n" +
         "public class TraceEngine {\n" +
         "    private static List<Map<String,Object>> steps = new ArrayList<>();\n" +
         "    private static volatile boolean disabled = false;\n" +
+        "    private static ByteArrayOutputStream capturedOutput;\n" +
+        "    private static int lastOutputPos = 0;\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
         "        if (disabled) return;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
         "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
         "        record.put(\"variables\", new LinkedHashMap<>(vars));\n" +
+        "        if (capturedOutput != null) {\n" +
+        "            String outStr = capturedOutput.toString();\n" +
+        "            int pos = outStr.length();\n" +
+        "            if (pos > lastOutputPos) {\n" +
+        "                String raw = outStr.substring(lastOutputPos);\n" +
+        "                record.put(\"output\", raw.replace(\"\\r\\n\", \"\\n\"));\n" +
+        "                lastOutputPos = pos;\n" +
+        "            }\n" +
+        "        }\n" +
         "        steps.add(record);\n" +
         "    }\n" +
-        "    public static void reset() { steps.clear(); disabled = false; }\n" +
+        "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +

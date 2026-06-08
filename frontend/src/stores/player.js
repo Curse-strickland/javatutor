@@ -52,17 +52,27 @@ export const usePlayerStore = defineStore('player', {
     currentStep: 0,
     isLoading: false,
     error: null,
+    output: '',
     runId: null, // 核心修复：暴露出 runId 供队友的 ChatBox.vue 监听
   }),
   getters: {
     currentVariables: (state) => state.steps[state.currentStep]?.variables || {},
     currentLine: (state) => state.steps[state.currentStep]?.line || null,
     totalSteps: (state) => state.steps.length,
+    currentOutput: (state) => {
+      let out = ''
+      for (let i = 0; i <= state.currentStep && i < state.steps.length; i++) {
+        const delta = state.steps[i]?.output
+        if (delta) out += delta
+      }
+      return out.replace(/\r/g, '')
+    },
   },
   actions: {
     async runCode(code) {
       this.isLoading = true
       this.error = null
+      this.output = ''
       this.runId = null // 每次运行前清空旧的 runId，防止队友组件误触发
       try {
         const res = await fetch('/api/run', {
@@ -75,6 +85,7 @@ export const usePlayerStore = defineStore('player', {
         if (data.code === 200 || data.success) {
             this.steps = data.data || data.steps || []
             this.runId = data.runId
+            this.output = data.output || ''
             this.currentStep = 0
             // 简洁日志：打印 steps 长度与首个步骤变量
             console.log('runCode: steps count', (this.steps || []).length)
