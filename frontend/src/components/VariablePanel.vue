@@ -150,8 +150,8 @@ function pretty(v) {
 }
 
 /* Scalars row */
-.scalar-row { overflow: hidden }
-.scalars { display:flex; align-items:center }
+.scalar-row { overflow-x: auto }
+.scalars { display:flex; align-items:center; flex-wrap:wrap; gap:8px }
 .scalar-card {
   min-width: 100px;
   max-width: 220px;
