@@ -4,7 +4,7 @@
     <!-- 主要内容区：左右两张圆角大卡片 -->
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
-      <div :style="{ width: leftWidth + 'px' }" class="editor-card card flex-none">
+      <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none">
         <Editor ref="editorRef" class="h-full" />
       </div>
 
@@ -186,8 +186,12 @@ watch(() => store.currentLine, async (line) => {
   gap: 0;
 }
 
-/* Editor card — Monaco fills it */
+/* Editor card — card visuals inline, Monaco fills it */
 .editor-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   overflow: hidden;
   padding: 0;
 }
