@@ -27,6 +27,30 @@
         </div>
         <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" />
       </div>
+
+      <!-- Linked Lists: detect linked list structures -->
+      <div v-for="key in linkedListKeys" :key="key" :data-key="key" class="linked-list-row card p-3 rounded mb-3" :class="{ flash: flashKeys[key] }">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-medium text-sm text-gray-800 dark:text-gray-100">{{ key }} (链表)</div>
+        </div>
+        <LinkedListCanvas 
+          :nodes="getLinkedListNodes(variables[key])" 
+          :highlightedNodeIds="getHighlightedNodes(key)"
+          :compareNodeIds="getCompareNodes(key)"
+        />
+      </div>
+
+      <!-- Recursion Stack: detect recursion stack structures -->
+      <div v-if="recursionStack" class="recursion-stack-row card p-3 rounded mb-3" :class="{ flash: flashKeys['_recursionStack_'] }">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-medium text-sm text-gray-800 dark:text-gray-100">递归调用栈</div>
+        </div>
+        <RecursionStackCanvas 
+          :stackFrames="recursionStack.frames || []"
+          :activeFrameIndex="recursionStack.activeFrameIndex || 0"
+          :returningFrameIndices="recursionStack.returningFrameIndices || []"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -34,6 +58,8 @@
 <script setup>
 import { computed, reactive, watch, nextTick } from 'vue'
 import ArrayCanvas from './ArrayCanvas.vue'
+import LinkedListCanvas from './LinkedListCanvas.vue'
+import RecursionStackCanvas from './RecursionStackCanvas.vue'
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
@@ -41,8 +67,16 @@ const variables = computed(() => store.currentVariables || {})
 // Filter out internal or uninteresting names (e.g. the `args` parameter)
 
 const displayKeys = computed(() => Object.keys(variables.value).filter(k => k !== 'args'))
-const scalarKeys = computed(() => displayKeys.value.filter(k => !Array.isArray(variables.value[k])))
+const scalarKeys = computed(() => displayKeys.value.filter(k => !Array.isArray(variables.value[k]) && !isLinkedList(variables.value[k])))
 const arrayKeys = computed(() => displayKeys.value.filter(k => Array.isArray(variables.value[k])))
+const linkedListKeys = computed(() => displayKeys.value.filter(k => isLinkedList(variables.value[k])))
+
+// Detect recursion stack structure
+const recursionStack = computed(() => {
+  const stackVar = variables.value._recursionStack_ || variables.value.recursionStack
+  if (!stackVar || !Array.isArray(stackVar.frames)) return null
+  return stackVar
+})
 
 const flashKeys = reactive({})
 const valueFlashKeys = reactive({})
@@ -127,6 +161,74 @@ function pretty(v) {
     return String(v)
   }
 }
+
+// Helper: Check if a value is a linked list node
+function isLinkedList(value) {
+  if (!value || typeof value !== 'object') return false
+  // Check if it has id, val, and next properties (linked list node structure)
+  return value.hasOwnProperty('id') && value.hasOwnProperty('val') && value.hasOwnProperty('next')
+}
+
+// Helper: Convert linked list to array of nodes for visualization
+function getLinkedListNodes(head) {
+  if (!head) return []
+  
+  const nodes = []
+  const visited = new Set()
+  let current = head
+  
+  // Traverse the linked list
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id)
+    nodes.push({
+      id: current.id,
+      val: current.val,
+      next: current.next
+    })
+    // If next is a string (node id), we need to find that node
+    // For now, assume the backend provides the full chain
+    if (typeof current.next === 'string') {
+      // This would require the backend to provide all nodes
+      // For MVP, we'll just show what we have
+      break
+    }
+    current = current.next
+  }
+  
+  return nodes
+}
+
+// Helper: Get highlighted nodes for a linked list variable
+function getHighlightedNodes(key) {
+  // Use common pointer variable names (current, prev, next, etc.)
+  const pointerVars = ['current', 'prev', 'next', 'curr', 'head', 'tail', 'p', 'q']
+  const highlighted = []
+  
+  pointerVars.forEach(varName => {
+    const value = variables.value[varName]
+    if (value && typeof value === 'object' && value.id) {
+      highlighted.push(value.id)
+    }
+  })
+  
+  return highlighted
+}
+
+// Helper: Get compare nodes for a linked list variable
+function getCompareNodes(key) {
+  // Similar to highlighted but for comparison operations
+  const compareVars = ['temp', 'node1', 'node2', 'first', 'second']
+  const compared = []
+  
+  compareVars.forEach(varName => {
+    const value = variables.value[varName]
+    if (value && typeof value === 'object' && value.id) {
+      compared.push(value.id)
+    }
+  })
+  
+  return compared
+}
 </script>
 
 <style scoped>
@@ -181,6 +283,12 @@ function pretty(v) {
 
 /* Array row minor tweaks */
 .array-row { background: transparent }
+
+/* Linked List row */
+.linked-list-row { background: transparent }
+
+/* Recursion Stack row */
+.recursion-stack-row { background: transparent }
 
 /* When card flash: subtle border + shadow (avoid full background change) */
 .card.flash {

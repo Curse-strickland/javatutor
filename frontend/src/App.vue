@@ -26,24 +26,21 @@
       </div>
     </div>
 
-    <!-- 底部控制栏（Apple 风格） -->
-    <div class="control-bar p-2">
-      <button @click="runCode" :disabled="store.isLoading" :class="['btn', store.isLoading ? '' : 'btn-primary']">
-        <span v-if="!store.isLoading">运行</span>
-        <span v-else>运行中...</span>
-      </button>
-      <button @click="store.prevStep" class="btn">上一步</button>
-      <button @click="store.nextStep" class="btn">下一步</button>
-      <button @click="toggleAutoPlay" :class="['btn', isAutoPlaying ? '' : 'btn-primary']">
-        {{ isAutoPlaying ? '暂停' : '自动播放' }}
-      </button>
-      <select v-model="speed" class="border rounded px-2 py-1 bg-white dark:bg-gray-800">
-        <option value="500">0.5x</option>
-        <option value="1000">1x</option>
-        <option value="2000">2x</option>
-      </select>
-      <span class="text-sm">步骤: {{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
-    </div>
+    <!-- 可拖动的图标控件 -->
+    <ControlButtons
+      :is-auto-playing="isAutoPlaying"
+      :is-loading="store.isLoading"
+      :speed="speed"
+      :current-step="store.currentStep"
+      :total-steps="store.totalSteps"
+      @run="runCode"
+      @prev="store.prevStep"
+      @next="store.nextStep"
+      @first="store.goToFirst"
+      @last="store.goToLast"
+      @toggle-auto="toggleAutoPlay"
+      @change-speed="v => speed = v"
+    />
   </div>
 </template>
 
@@ -53,6 +50,7 @@ import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
 import VariablePanel from './components/VariablePanel.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
+import ControlButtons from './components/ControlButtons.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
