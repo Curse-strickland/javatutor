@@ -29,7 +29,12 @@
             class="collapse-btn"
             @click="toggleCollapse(key)"
             :title="collapsedKeys[key] ? '展开' : '折叠'"
-          >{{ collapsedKeys[key] ? '▸ 展开' : '▾ 折叠' }}</button>
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              :style="{ transform: collapsedKeys[key] ? '' : 'rotate(180deg)', transition: 'transform 0.25s ease' }">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         </div>
         <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" :collapsed="!!collapsedKeys[key]" />
       </div>
@@ -145,18 +150,17 @@ function pretty(v) {
 .card { position: relative; overflow: visible; transition: transform .18s ease, box-shadow .22s ease; }
 .card .value-wrap pre { margin: 0; background: transparent; }
 .card.flash {
-  background: var(--card-bg);
-  border-color: rgba(37,99,235,0.10);
-  box-shadow: 0 8px 18px rgba(37,99,235,0.03);
+  border-color: var(--accent-border);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.12);
   z-index: 2;
 }
 
 .value-flash {
-  background: rgba(99,102,241,0.12);
+  background: var(--accent-bg);
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 6px;
-  color: inherit;
+  color: var(--primary);
 }
 
 /* Scalars row */
@@ -176,11 +180,10 @@ function pretty(v) {
 .scalar-card .var-name { color: var(--text); font-size: 12px }
 .scalar-card .var-value { font-size: 16px }
 
-/* Soft fade + slight lift on value change */
+/* Scalar value change — blue accent like array cell.changed */
 .scalar-card.value-flash {
-  background: var(--card-bg);
-  border-color: rgba(255,199,44,0.16);
-  box-shadow: 0 8px 18px rgba(255,199,44,0.035);
+  border-color: var(--accent-border);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.10);
   transform: none;
 }
 
@@ -193,27 +196,22 @@ function pretty(v) {
 /* Array row minor tweaks */
 .array-row { background: transparent }
 
-/* Collapse button */
+/* Collapse button — subtle icon, matches chevron pattern */
 .collapse-btn {
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   color: var(--text-muted);
-  font-size: 12px;
-  padding: 2px 10px;
-  border-radius: 6px;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
+  padding: 2px;
+  display: flex;
+  align-items: center;
 }
-.collapse-btn:hover {
-  color: var(--text-h);
-  border-color: var(--accent-border);
-}
+.collapse-btn:hover { color: var(--text-h) }
 
-/* When card flash: subtle border + shadow (avoid full background change) */
+/* Card flash — match array cell changed style: solid accent border + visible glow */
 .card.flash {
-  background: var(--card-bg);
-  border-color: rgba(37,99,235,0.10);
-  box-shadow: 0 8px 18px rgba(37,99,235,0.03);
+  border-color: var(--accent-border);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.10);
 }
 
 @keyframes slideBar {

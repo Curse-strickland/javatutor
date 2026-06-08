@@ -26,19 +26,11 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
 const collapsed = ref(false)
-
-watch(() => store.currentOutput, (val) => {
-  if (val) {
-    console.log('[ConsoleOutput] raw:', JSON.stringify(val))
-    console.log('[ConsoleOutput] rendered:')
-    console.log(val)
-  }
-})
 </script>
 
 <style scoped>
