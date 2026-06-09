@@ -101,6 +101,96 @@ success=True, steps=8
 ### 嵌套数组深拷贝
 新增 `deepCopyArray()` 递归方法，修复 `int[][]` 内层数组作为引用存储导致快照被污染的问题。
 
+### `allocObject` 使用目标表达式而非构造表达式
+`buildAllocObjectStatement` 改回单参数 `targetExpr`，生成 `allocObject("head.next", head.next)` 而非 `allocObject("head.next", new ListNode(2))`，后者会创建额外对象导致实际引用不匹配。
+
+### `updateHeapFields` 递归 visited set 填充字段
+新增 `updateHeapFields(String name, Object obj, Set<Object> visited)` 重载：
+- 对象字段中已注册的堆条目（如 `head.next`）即使被 `findHeapIdByRef` 找到，也会通过其注册名调用 `updateHeapFields` 填充字段值
+- `visited` 集合防止 `alice↔bob` 循环引用再次触发无限递归
+- `heapObj.get("_objRef") != obj` 检测跳过已被重绑定的旧条目
+
+### `RunController.TRACE_ENGINE_SOURCE` 同步
+嵌入的 TraceEngine 源码字符串同步全部最新逻辑（visited set、`_objRef` 保护、引用重绑定检测）
+
 ## 死代码审查
 
 已审查全部修改文件，无死代码。`heap-stack-plan.md` 同步更新。
+
+## 本轮补充修复（2026-06-09 sprint 3）
+
+### 数组元素引用重复创建堆条目
+
+**问题表现：**
+
+对于测试代码：
+```java
+Node head = new Node(1);
+Node[] arr = new Node[3];
+arr[0] = head;    // arr[0] 应该只是指向 head 的引用
+arr[1] = second;
+arr[2] = fifth;
+```
+
+`arr[0]`、`arr[1]`、`arr[2]` 本应只是引用（指向已有堆对象），但却在堆区创建了名为 `arr[0]`、`arr[1]`、`arr[2]` 的新 Node 条目，然后再同步字段修改。
+
+**根因分析：**
+
+`record()` 方法中数组元素循环的原逻辑：
+
+```java
+boolean existed = heapObjects.containsKey(name);      // false — "arr[0]" 未注册
+String elemId = ensureHeapObject(name, elem);         // ensureHeapObject 通过 findHeapIdByRef(head)
+                                                      // 找到已有 ID，不创建新条目
+copy.add(elemId);
+if (heapObjects.containsKey("arr[0]") && ...) {        // FALSE
+    updateHeapFields(name, elem);
+} else if (!existed) {                                  // TRUE — existed 是 false!
+    updateHeapFields(name, elem);                       // 💥 updateHeapFields 内部:
+}                                                       //   if (!heapObjects.containsKey("arr[0"]))
+                                                        //     allocObject("arr[0]", head)
+                                                        //   → 创建了全新的堆条目！
+```
+
+关键问题在于 **`ensureHeapObject` 和 `updateHeapFields` 的语义不一致**：
+
+- `ensureHeapObject` 通过 `findHeapIdByRef` 发现对象已注册 → **不创建**名为 `"arr[0]"` 的条目，只返回已有 ID
+- 但 `else if (!existed)` 分支无视上述结果，直接调用 `updateHeapFields("arr[0]", head)`
+- `updateHeapFields` 内部 `if (!heapObjects.containsKey(name)) allocObject(name, obj)` → 创建新条目
+
+即引用去重逻辑在 `ensureHeapObject` 中生效了一次，但在 `updateHeapFields` 中被绕过。
+
+**修复：**
+
+删除 `else if (!existed)` 分支，同时删除不再需要的 `existed` 变量。
+
+修改后的逻辑：
+```java
+String elemId = ensureHeapObject(name, elem);
+copy.add(elemId);
+// 只有当堆条目存在且 _objRef 匹配当前对象时，才更新字段
+// ensureHeapObject 若通过 findHeapIdByRef 返回已有 ID，则不会在 heapObjects
+// 中创建名为 name 的条目——此时不应调用 updateHeapFields
+if (heapObjects.containsKey(name) && heapObjects.get(name).get("_objRef") == elem) {
+    updateHeapFields(name, elem);
+}
+```
+
+`ensureHeapObject` 只在两种情况下创建新条目：
+1. `name` 在 heapObjects 中不存在 + `findHeapIdByRef` 找不到 → `allocObject` 创建
+2. `name` 存在但 `_objRef` 不匹配 + `findHeapIdByRef` 找不到 → `heapObjects.remove(name)` + `allocObject` 重新创建
+
+这两种情况下都会在 `heapObjects` 中创建名为 `name` 且 `_objRef == elem` 的条目，所以第一个 `if` 条件自然为 true。
+
+**修改文件：**
+
+| 文件 | 改动 |
+|------|------|
+| `TraceEngine.java` | 删除 `record()` 中数组元素循环的 `else if (!existed)` 分支 |
+| `RunController.java` | 同步删除嵌入的 `TRACE_ENGINE_SOURCE` 中的相同分支 + `existed` 变量声明 |
+
+**验证：**
+
+```
+mvn clean compile → BUILD SUCCESS
+```

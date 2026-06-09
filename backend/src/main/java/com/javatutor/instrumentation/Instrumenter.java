@@ -496,9 +496,10 @@ public class Instrumenter {
         return StaticJavaParser.parseStatement(call);
     }
 
-    // 生成 TraceEngine.allocObject("name", name) 或 TraceEngine.allocObject("arr[0]", arr[0]) 语句
-    private Statement buildAllocObjectStatement(String expr) {
-        String call = "TraceEngine.allocObject(\"" + expr + "\", " + expr + ");";
+    // 生成 TraceEngine.allocObject("name", name) 或 TraceEngine.allocObject("head.next", head.next) 语句
+    // 注意：第二个参数必须是目标表达式自身（引用已赋值的对象），而非 new Xxx() 构造表达式
+    private Statement buildAllocObjectStatement(String targetExpr) {
+        String call = "TraceEngine.allocObject(\"" + targetExpr + "\", " + targetExpr + ");";
         return StaticJavaParser.parseStatement(call);
     }
 
@@ -520,19 +521,17 @@ public class Instrumenter {
             return result;
         }
 
-        // 赋值表达式: arr[0] = new Item(10) 或 p.age = new Person(...)
+        // 赋值表达式: arr[0] = new Point(...) 或 head.next = new ListNode(...)
         if (expr.isAssignExpr()) {
             AssignExpr ae = expr.asAssignExpr();
             if (ae.getValue().isObjectCreationExpr()) {
-                String targetExpr = ae.getTarget().toString();
-                result.add(new String[]{targetExpr});
+                result.add(new String[]{ae.getTarget().toString()});
             }
             return result;
         }
 
         return result;
     }
-
 }
 
 
