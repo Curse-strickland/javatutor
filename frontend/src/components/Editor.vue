@@ -47,6 +47,11 @@ onMounted(() => {
       // 初始布局，避免在 flex/百分比容器中出现渲染偏移
       setTimeout(() => editor.layout(), 50)
 
+      // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
+      editor.onDidChangeModelContent(() => {
+        clearHighlights()
+      })
+
       // 监听容器尺寸变化，重新 layout
       if (window.ResizeObserver) {
         ro = new ResizeObserver(() => {
@@ -81,24 +86,39 @@ const highlightLine = (lineNumber) => {
     editor.deltaDecorations(currentDecorations, [])
     currentDecorations = []
   }
-  if (lineNumber && lineNumber >= 1) {
-    const model = editor.getModel()
-    const maxColumn = model ? model.getLineMaxColumn(lineNumber) : 1
+  if (!lineNumber || lineNumber < 1) return
+  const model = editor.getModel()
+  if (!model) return
+  // 越界检查：行号超出文档行数则跳过
+  if (lineNumber > model.getLineCount()) return
+  try {
+    const maxColumn = model.getLineMaxColumn(lineNumber)
+    // 空行跳过（maxColumn===1 表示只有换行符无内容）
+    if (maxColumn <= 1) return
     const decorations = [{
       range: new monaco.Range(lineNumber, 1, lineNumber, maxColumn),
       options: {
         isWholeLine: true,
         className: 'highlight-line',
-        glyphMarginClassName: 'exec-arrow'  // 添加箭头样式类
+        glyphMarginClassName: 'exec-arrow'
       }
     }]
     currentDecorations = editor.deltaDecorations([], decorations)
-    // 确保高亮后的视图正确
     editor.revealLineInCenter(lineNumber)
+  } catch (_) {
+    // Monaco 内部错误（如行号越界）→ 静默忽略
   }
 }
 
-defineExpose({ getCode, highlightLine })
+const clearHighlights = () => {
+  if (!editor) return
+  if (currentDecorations.length) {
+    editor.deltaDecorations(currentDecorations, [])
+    currentDecorations = []
+  }
+}
+
+defineExpose({ getCode, highlightLine, clearHighlights })
 </script>
 
 <style>
