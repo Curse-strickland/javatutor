@@ -62,7 +62,6 @@ const collapsed = ref(false)
 .console-body {
   margin: 10px 0 0;
   padding: 10px 12px;
-  font-family: var(--mono);
   font-size: 13px;
   line-height: 1.6;
   color: var(--text);
