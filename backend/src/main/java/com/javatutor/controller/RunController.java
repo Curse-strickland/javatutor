@@ -341,6 +341,22 @@ public class RunController {
             CompilationUnit cu = StaticJavaParser.parse(code);
             return cu.getType(0).getNameAsString();
         } catch (Exception e) {
+            if (code.matches("(?s).*\\bpublic\\s+class\\s+\\w+.*")) {
+                // 有 public class 但解析失败 → 语法错误，只取第一行关键信息
+                String msg = e.getMessage();
+                if (msg != null) {
+                    int cut = msg.indexOf("Problem stacktrace");
+                    if (cut < 0) cut = msg.indexOf("\n\tat ");
+                    if (cut < 0) cut = msg.indexOf("\n\n");
+                    if (cut > 0) msg = msg.substring(0, cut).trim();
+                    // 去掉 "(line X,col Y) Parse error. Found ...expected one of..." 中冗余的 expected 列表
+                    int exp = msg.indexOf("expected");
+                    if (exp > 0) msg = msg.substring(0, exp).trim();
+                    // 去掉开头的 "Parse error. " 冗余前缀
+                    msg = msg.replaceAll("^(Parse error\\.\\s*)+", "");
+                }
+                throw new RuntimeException("代码语法错误：" + (msg != null ? msg : "解析失败"));
+            }
             throw new RuntimeException("代码格式错误：缺少 public class 声明，请确保代码包含完整的类定义");
         }
     }
