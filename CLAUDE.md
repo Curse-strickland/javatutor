@@ -18,13 +18,29 @@ Java 算法可视化教学工具。用户在浏览器写 Java 代码 → 后端 
 
 ## 启动/停止
 
+### 一键启动
+
+```bash
+./start.sh          # bash 终端
+# 或双击
+start.bat           # Windows 资源管理器
+```
+
+浏览器自动打开 `localhost:5173`。`start.bat` 在单独窗口启动前后端，关闭启动器窗口不影响服务。
+
+### 一键停止
+
+```bash
+./stop.bat          # 或双击 stop.bat
+```
+
 ### 环境
 
 - **JDK 17**: `C:/Users/h2624/.jdks/ms-17.0.19` (系统默认是 JDK 8，必须手动重写 JAVA_HOME)
 - **Maven**: `C:/Users/h2624/apache-maven-3.9.9` (手装，无全局 PATH)
 - **Node**: `C:/Program Files/nodejs` (全局可用)
 
-### 启动后端
+### 手动启动后端
 
 ```bash
 export JAVA_HOME="C:/Users/h2624/.jdks/ms-17.0.19" && export PATH="C:/Users/h2624/.jdks/ms-17.0.19/bin:$PATH" && cd "d:/CHome/Documents/EL/JavaTutor/backend" && "C:/Users/h2624/apache-maven-3.9.9/bin/mvn" clean compile && "C:/Users/h2624/apache-maven-3.9.9/bin/mvn" spring-boot:run
@@ -32,19 +48,13 @@ export JAVA_HOME="C:/Users/h2624/.jdks/ms-17.0.19" && export PATH="C:/Users/h262
 
 端口 8080。`pom.xml` 配置了 `-Djava.security.manager=allow`（SecurityManager 必需）。
 
-### 启动前端
+### 手动启动前端
 
 ```bash
 cd "d:/CHome/Documents/EL/JavaTutor/frontend" && npm run dev
 ```
 
 端口 5173，`/api` 请求代理到 localhost:8080。
-
-### 停止后端
-
-```bash
-netstat -ano | grep ":8080" | grep LISTENING | awk '{print $NF}' | head -1 | xargs -I {} taskkill //PID {} //F
-```
 
 ### 仅编译检查
 
