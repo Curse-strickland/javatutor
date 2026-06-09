@@ -117,35 +117,36 @@ Vite HMR 热更新时组件重新 `onMounted`，在同一个 DOM 上创建第二
 
 ---
 
-# 2026-06-09 Monaco Editor 键盘输入问题（待修复 🐛）
+# 2026-06-09 Monaco Editor 键盘输入问题（已确认 ✅）
 
 ## 状态
 
-**未解决** — 已撤销所有尝试，回退到原始代码。
+**已确认根因** — 非代码 bug，无需修改前端代码。
 
 ## 现象
 
-代码编辑区键盘需要按两次才会键出字符。
+代码编辑区键盘需要按两次才会键出字符。仅在一台设备上出现，组员相同代码无此问题。
 
-## 已知约束
+## 根因
 
-原始 `Editor.vue` 中 `.editor-container` 的 CSS：
-```css
-direction: ltr;
-text-align: left;
-transform: none !important;
-```
+**第三方输入法（Rime/小狼毫）与 Monaco Editor 冲突。**
 
-- **保留这 3 条 CSS**：代码显示正确，键盘有问题（按两次）
-- **移除这 3 条 CSS**：键盘正常，但代码显示右偏
-- **只用 `text-align: left`（无 `direction`）**：显示正确，键盘有问题
-- **`dir="ltr"` HTML 属性**：显示和键盘都有问题
-- **`lineNumbers: 'off'`**：显示和键盘都有问题
-- **JS 后置 `direction`**：显示正确，键盘有问题
+Rime 输入法即使在英文模式下，底层仍然 hook 键盘事件，与 Monaco Editor 内部隐藏 textarea 的键盘事件捕获机制冲突。按键事件被输入法拦截后未正确派发到 Monaco 的 textarea，导致第一次按键"丢失"，需要按第二次才能输入。
 
-核心矛盾：`direction: ltr`（无论 CSS/JS/属性形式）和 Monaco 键盘输入不可兼得。
+## 验证
 
-## 尝试过但无效的方案
+- 切换到系统自带输入法（微软拼音英文模式）→ 键盘正常 ✅
+- 组员使用系统输入法 → 无此 bug ✅
+
+## 结论
+
+这不是代码问题，是 Monaco Editor + 第三方输入法的已知兼容性问题。解决方案：使用 Monaco 时切换到系统自带输入法。
+
+---
+
+## 附录：排查过程（保留供参考）
+
+排查阶段曾怀疑 CSS `direction: ltr` 与 Monaco 冲突，尝试了以下方案：
 
 | 方案 | 显示 | 键盘 |
 |------|:--:|:--:|
@@ -155,12 +156,4 @@ transform: none !important;
 | `dir="ltr"` HTML 属性 | ❌ | ❌ |
 | `lineNumbers: 'off'` + `glyphMargin: false` | ❌ | ❌ |
 
-## 当前代码状态
-
-`Editor.vue` 已回退到原始版本：
-- `automaticLayout: false` + 手动 `ResizeObserver`
-- `.editor-container` 保留 `direction: ltr; text-align: left; transform: none !important`
-
-## 下一步方向
-
-需要找到一种不依赖 CSS `direction` 的方式修复代码右偏显示，或找到让 Monaco 在 `direction: ltr` 下正常处理键盘输入的方法。
+所有方案均无效，原因是根本矛盾不在 CSS，而在输入法层面。最终回退到原始代码（`automaticLayout: false` + `ResizeObserver`），确认组员代码相同无 bug 后才锁定输入法为根因。
