@@ -40,7 +40,8 @@ onMounted(() => {
         theme: 'vs-dark',
         automaticLayout: false,
         fontSize: 14,
-        minimap: { enabled: false }
+        minimap: { enabled: false },
+        glyphMargin: true  // 启用字形边距以显示箭头
       })
 
       // 初始布局，避免在 flex/百分比容器中出现渲染偏移
@@ -85,7 +86,11 @@ const highlightLine = (lineNumber) => {
     const maxColumn = model ? model.getLineMaxColumn(lineNumber) : 1
     const decorations = [{
       range: new monaco.Range(lineNumber, 1, lineNumber, maxColumn),
-      options: { isWholeLine: true, className: 'highlight-line' }
+      options: {
+        isWholeLine: true,
+        className: 'highlight-line',
+        glyphMarginClassName: 'exec-arrow'  // 添加箭头样式类
+      }
     }]
     currentDecorations = editor.deltaDecorations([], decorations)
     // 确保高亮后的视图正确
@@ -110,6 +115,13 @@ defineExpose({ getCode, highlightLine })
 }
 .highlight-line {
   background-color: rgba(255, 255, 0, 0.25);
+}
+.exec-arrow::before {
+  content: '▶';
+  color: #fbbf24;
+  font-size: 12px;
+  position: absolute;
+  left: 2px;
 }
 .editor-textarea {
   width: 100%;

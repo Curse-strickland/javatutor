@@ -121,5 +121,17 @@ export const usePlayerStore = defineStore('player', {
     prevStep() {
       if (this.currentStep > 0) this.currentStep--
     }    
+    ,
+    goToFirst() {
+      this.currentStep = 0
+    },
+    goToLast() {
+      if (this.totalSteps > 0) this.currentStep = Math.max(0, this.totalSteps - 1)
+    },
+    goToStep(step) {
+      if (this.totalSteps > 0) {
+        this.currentStep = Math.max(0, Math.min(step, this.totalSteps - 1))
+      }
+    }
   }
 })
