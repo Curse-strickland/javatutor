@@ -55,6 +55,11 @@ public class Instrumenter {
                 // super.visit 会先递归处理 block 里的所有子节点
                 BlockStmt newBlock = (BlockStmt) super.visit(block , arg);
 
+                // 跳过内部类构造函数等（块属于非 main 方法，且所在类是嵌套类则跳过）
+                if (isInnerClassBlock(block)) {
+                    return newBlock;
+                }
+
                 /**
                  * 为什么需要递归处理：存在内层BlockStmt
                  * 用户代码:
@@ -195,7 +200,17 @@ public class Instrumenter {
                             newStatements.add(buildRecordStatement(line, visibleBefore, counter));
                             newStatements.add(stmt);
                         } else {
+                            // 检测数组创建，在语句前插入 allocArray（不需要变量引用，只需长度）
+                            List<String[]> arrayAllocs = detectArrayAllocations(stmt);
+                            for (String[] alloc : arrayAllocs) {
+                                newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1]));
+                            }
                             newStatements.add(stmt);
+                            // 检测对象创建，在语句后插入 allocObject（需要变量已声明）
+                            List<String[]> objAllocs = detectObjectAllocations(stmt);
+                            for (String[] alloc : objAllocs) {
+                                newStatements.add(buildAllocObjectStatement(alloc[0]));
+                            }
                             List<String> visibleAfter = collectVisibleVariables(block, i);
                             newStatements.add(buildRecordStatement(line, visibleAfter, counter));
                         }
@@ -249,6 +264,21 @@ public class Instrumenter {
     └── ReturnStmt               ← return 语句
 
      */
+    // 判断 BlockStmt 是否属于内部类（如 Person）的方法/构造函数
+    private boolean isInnerClassBlock(BlockStmt block) {
+        Node parent = block.getParentNode().orElse(null);
+        // 往上找到所属的类声明
+        while (parent != null && !(parent instanceof CompilationUnit)) {
+            if (parent instanceof ClassOrInterfaceDeclaration) {
+                // 如果这个类声明的父节点不是 CompilationUnit（即它是嵌套类），则是内部类
+                Node clsParent = parent.getParentNode().orElse(null);
+                return !(clsParent instanceof CompilationUnit);
+            }
+            parent = parent.getParentNode().orElse(null);
+        }
+        return false;
+    }
+
     private boolean shouldInstrument(Statement stmt) {
         // 情况1：表达式语句 → 往里看是不是赋值或变量声明
         if (stmt.isExpressionStmt()) {
@@ -389,6 +419,11 @@ public class Instrumenter {
             return;
         }
 
+        // 如果是类/接口声明（内部类），跳过——其字段不属于当前作用域
+        if (node instanceof ClassOrInterfaceDeclaration || node instanceof CompilationUnit) {
+            return;
+        }
+
         // 情况 A：node 是一个顶层语句（BlockStmt 的直接子语句）——只收集直接在该语句声明的变量，
         // 例如 "int x = 1;"（ExpressionStmt 包含 VariableDeclarationExpr）
         if (node instanceof Statement) {
@@ -423,6 +458,79 @@ public class Instrumenter {
                 }
             }
         }
+    }
+
+    // 检测语句中的数组创建表达式，返回 [变量名, 长度表达式] 列表
+    // 例如 int[] arr = {5,3,8} → [["arr", "3"]]
+    //       int[] arr = new int[n] → [["arr", "n"]]
+    private List<String[]> detectArrayAllocations(Statement stmt) {
+        List<String[]> result = new ArrayList<>();
+        if (!stmt.isExpressionStmt()) return result;
+        Expression expr = stmt.asExpressionStmt().getExpression();
+        if (!expr.isVariableDeclarationExpr()) return result;
+        for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
+            if (!vd.getInitializer().isPresent()) continue;
+            Expression init = vd.getInitializer().get();
+            if (init.isArrayCreationExpr()) {
+                // new int[n]
+                ArrayCreationExpr ace = init.asArrayCreationExpr();
+                String name = vd.getNameAsString();
+                String lenExpr = ace.getLevels().get(0).getDimension()
+                    .map(dim -> dim.toString())
+                    .orElse("0");
+                result.add(new String[]{name, lenExpr});
+            } else if (init.isArrayInitializerExpr()) {
+                // {5, 3, 8}
+                ArrayInitializerExpr aie = init.asArrayInitializerExpr();
+                String name = vd.getNameAsString();
+                int len = aie.getValues().size();
+                result.add(new String[]{name, String.valueOf(len)});
+            }
+        }
+        return result;
+    }
+
+    // 生成 TraceEngine.allocArray("arr", n) 或 TraceEngine.allocArray("arr", 3) 语句
+    private Statement buildAllocArrayStatement(String name, String lenExpr) {
+        String call = "TraceEngine.allocArray(\"" + name + "\", " + lenExpr + ");";
+        return StaticJavaParser.parseStatement(call);
+    }
+
+    // 生成 TraceEngine.allocObject("name", name) 或 TraceEngine.allocObject("arr[0]", arr[0]) 语句
+    private Statement buildAllocObjectStatement(String expr) {
+        String call = "TraceEngine.allocObject(\"" + expr + "\", " + expr + ");";
+        return StaticJavaParser.parseStatement(call);
+    }
+
+    // 检测语句中的对象创建表达式，返回 [变量名/表达式] 列表
+    // 支持: Person alice = new Person(...) 和 arr[0] = new Item(...)
+    private List<String[]> detectObjectAllocations(Statement stmt) {
+        List<String[]> result = new ArrayList<>();
+        if (!stmt.isExpressionStmt()) return result;
+        Expression expr = stmt.asExpressionStmt().getExpression();
+
+        // 变量声明: Person alice = new Person(...)
+        if (expr.isVariableDeclarationExpr()) {
+            for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
+                if (!vd.getInitializer().isPresent()) continue;
+                if (vd.getInitializer().get().isObjectCreationExpr()) {
+                    result.add(new String[]{vd.getNameAsString()});
+                }
+            }
+            return result;
+        }
+
+        // 赋值表达式: arr[0] = new Item(10) 或 p.age = new Person(...)
+        if (expr.isAssignExpr()) {
+            AssignExpr ae = expr.asAssignExpr();
+            if (ae.getValue().isObjectCreationExpr()) {
+                String targetExpr = ae.getTarget().toString();
+                result.add(new String[]{targetExpr});
+            }
+            return result;
+        }
+
+        return result;
     }
 
 }

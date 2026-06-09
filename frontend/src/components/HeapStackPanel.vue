@@ -24,17 +24,17 @@
       <!-- Stack -->
       <div class="stack-area">
         <div class="hs-label">栈 Stack</div>
-        <div class="stack-frame">
-          <div class="frame-title">main(String[] args)</div>
+        <div v-if="stackFrames.length === 0" class="hs-empty">暂无栈帧</div>
+        <div v-for="(frame, fi) in stackFrames" :key="'f'+fi" class="stack-frame">
+          <div class="frame-title">{{ frame.method }}(..)</div>
           <div class="frame-vars">
-            <div v-for="item in stackItems" :key="item.name" class="stack-item" :class="{ 'is-ref': item.isRef }">
+            <div v-for="item in getFrameItems(frame, fi)" :key="item.name" class="stack-item" :class="{ 'is-ref': item.isRef }">
               <span class="si-name">{{ item.name }}</span>
               <span class="si-eq">=</span>
               <span v-if="item.isRef" class="si-ref">→ {{ item.refLabel }}</span>
               <span v-else class="si-value">{{ item.value }}</span>
             </div>
           </div>
-          <div v-if="stackItems.length === 0" class="hs-empty">暂无局部变量</div>
         </div>
       </div>
 
@@ -45,18 +45,28 @@
 
       <!-- Heap -->
       <div class="heap-area">
-        <div class="hs-label">堆 Heap <span style="font-weight:400;font-size:11px">(示意图)</span></div>
-        <div v-if="heapItems.length === 0" class="hs-empty">暂无对象 / 数组</div>
-        <div v-for="item in heapItems" :key="item.name" class="heap-object">
+        <div class="hs-label">堆 Heap</div>
+        <div v-if="heapObjects.length === 0" class="hs-empty">暂无对象 / 数组</div>
+        <div v-for="obj in heapObjects" :key="obj.name" class="heap-object">
           <div class="ho-header">
-            <span class="ho-ref">{{ item.refLabel }}</span>
-            <span class="ho-type">{{ item.typeLabel }}</span>
+            <span class="ho-ref">{{ obj.id }}</span>
+            <span class="ho-type">{{ obj.type }}</span>
+            <span class="ho-name">({{ obj.name }})</span>
           </div>
           <div class="ho-cells">
-            <div v-for="(v, idx) in item.data" :key="idx" class="ho-cell">
-              <span class="hoc-idx">[{{ idx }}]</span>
-              <span class="hoc-val">{{ formatVal(v) }}</span>
-            </div>
+            <template v-if="obj.slots && obj.slots.length">
+              <div v-for="slot in obj.slots" :key="'s'+slot.index" class="ho-cell">
+                <span class="hoc-idx">[{{ slot.index }}]</span>
+                <span class="hoc-val">{{ slot.value }}</span>
+              </div>
+            </template>
+            <template v-else-if="obj.fields && Object.keys(obj.fields).length">
+              <div v-for="(fv, fk) in obj.fields" :key="'f'+fk" class="ho-cell ho-field">
+                <span class="hoc-idx">{{ fk }}</span>
+                <span v-if="fv && fv.ref" class="si-ref">→ {{ fv.ref }}</span>
+                <span v-else class="hoc-val">{{ formatVal(fv) }}</span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -71,37 +81,61 @@ import { usePlayerStore } from '../stores/player'
 const store = usePlayerStore()
 const isOpen = ref(true)
 
-const variables = computed(() => store.currentVariables || {})
-const displayKeys = computed(() => Object.keys(variables.value).filter(k => k !== 'args'))
+// 从后端堆快照读取真实堆对象
+const heapMap = computed(() => store.currentHeap || {})
 
-const hasData = computed(() => displayKeys.value.length > 0)
+// 从后端栈帧读取真实栈帧数组
+const stackFrames = computed(() => {
+  const frames = store.activeStackFrames
+  if (frames && frames.length) return frames
+  const sf = store.currentStackFrame
+  return sf ? [sf] : []
+})
 
-const stackItems = computed(() =>
-  displayKeys.value
-    .filter(k => !Array.isArray(variables.value[k]))
-    .map(k => ({ name: k, value: formatVal(variables.value[k]), isRef: false }))
-)
+// 堆中的变量名集合（用于判断栈变量是否为引用）
+const heapNames = computed(() => new Set(Object.keys(heapMap.value)))
 
-const heapItems = computed(() =>
-  displayKeys.value
-    .filter(k => Array.isArray(variables.value[k]))
-    .map(k => {
-      const arr = variables.value[k]
-      const refAddr = '0x' + hashCode(k).toString(16).padStart(4, '0').toUpperCase()
-      return { name: k, refLabel: refAddr, typeLabel: `int[${arr.length}]`, data: arr }
+const hasData = computed(() => stackFrames.value.length > 0 || Object.keys(heapMap.value).length > 0)
+
+// 每个栈帧的局部变量
+function getFrameItems(frame, frameIndex) {
+  const items = []
+  const locals = frame.locals || {}
+  for (const name of Object.keys(locals)) {
+    if (name === 'args' && Array.isArray(locals[name]) && locals[name].length === 0) continue
+    const val = locals[name]
+    if (heapNames.value.has(name)) {
+      const heapObj = heapMap.value[name]
+      items.push({ name, isRef: true, refLabel: heapObj?.id || '0x????' })
+    } else {
+      items.push({ name, isRef: false, value: formatVal(val) })
+    }
+  }
+  // 最新栈帧（数组最后一项）从下往上显示
+  return frameIndex === stackFrames.value.length - 1 ? items.reverse() : items
+}
+
+// 堆对象：从 heap 快照直接读取
+const heapObjects = computed(() => {
+  const objs = []
+  const heap = heapMap.value
+  for (const name of Object.keys(heap)) {
+    const obj = heap[name]
+    objs.push({
+      name: obj.name || name,
+      id: obj.id || '0x????',
+      type: obj.type || 'unknown',
+      slots: obj.slots || [],
+      fields: obj.fields || {}
     })
-)
+  }
+  return objs
+})
 
 function formatVal(v) {
   if (v === undefined || v === null) return String(v)
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
-}
-
-function hashCode(s) {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
-  return Math.abs(h % 65536)
 }
 </script>
 
@@ -212,6 +246,11 @@ function hashCode(s) {
   font-size: 12px;
   color: var(--text-muted);
 }
+.ho-name {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
 .ho-cells {
   display: flex;
   flex-wrap: wrap;
@@ -233,7 +272,7 @@ function hashCode(s) {
 .hs-empty {
   font-size: 12px;
   color: var(--text-muted);
-  padding: 12px;
+  padding: 8px;
   text-align: center;
 }
 

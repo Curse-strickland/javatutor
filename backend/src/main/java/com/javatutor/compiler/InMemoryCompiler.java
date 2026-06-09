@@ -35,11 +35,9 @@ public class InMemoryCompiler {
             sourceFiles.add(new SourceFileObject(entry.getKey() , entry.getValue()));
         }
 
-        //创建新的classFileObject承接编译的字节码输出
-        //注意：这里用Map不是List，因为后面拦截器需要靠类名查找桶
+        //创建新的classFileObject承接编译的字节码输出 — 内部类（如 UserCode$Person）会动态添加
         Map<String, ClassFileObject> classFileMap = new HashMap<>();
         for(String className : sources.keySet()){
-            //根据每一个className,创建对应的".class"容器
             classFileMap.put(className, new ClassFileObject(className));
         }
 
@@ -62,7 +60,8 @@ public class InMemoryCompiler {
                     String shortName = className.contains(".")
                     ? className.substring(className.lastIndexOf(".") + 1)
                     : className;
-                    return classFileMap.get(shortName);
+                    // 对于内部类（如 UserCode$Person），动态创建 ClassFileObject
+                    return classFileMap.computeIfAbsent(shortName, ClassFileObject::new);
                 }
         };
 
@@ -84,10 +83,13 @@ public class InMemoryCompiler {
             throw new RuntimeException("编译失败：\n" + errors.toString());
         }
 
-        //返回
+        //返回 — 包含所有顶级类和内部类（如 UserCode$Person）
         Map<String , byte[]> result = new HashMap<>();
         for(Map.Entry<String , ClassFileObject> entry : classFileMap.entrySet()){
-            result.put(entry.getKey() , entry.getValue().getBytes());
+            byte[] bytes = entry.getValue().getBytes();
+            if (bytes != null && bytes.length > 0) {
+                result.put(entry.getKey() , bytes);
+            }
         }
         return result;
 
