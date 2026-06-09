@@ -172,7 +172,7 @@ function formatVal(v) {
 
 /* Labels */
 .hs-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 6px;
@@ -187,7 +187,7 @@ function formatVal(v) {
   border: 1px solid var(--border);
 }
 .frame-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--primary);
   margin-bottom: 8px;
@@ -199,14 +199,14 @@ function formatVal(v) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   padding: 3px 6px;
   border-radius: 5px;
 }
 .si-name { color: var(--text-h); font-weight: 500; min-width: 24px }
-.si-eq   { color: var(--text-muted); font-size: 12px }
-.si-value { color: var(--text); font-size: 12px }
-.si-ref   { color: var(--primary); font-size: 11px }
+.si-eq   { color: var(--text-muted); font-size: 13px }
+.si-value { color: var(--text); font-size: 13px }
+.si-ref   { color: var(--primary); font-size: 12px }
 .stack-item.is-ref { background: var(--accent-bg) }
 
 /* Divider */
@@ -236,18 +236,18 @@ function formatVal(v) {
   border-bottom: 1px solid var(--border);
 }
 .ho-ref {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--primary);
   background: var(--accent-bg);
   padding: 1px 6px;
   border-radius: 4px;
 }
 .ho-type {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
 }
 .ho-name {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   opacity: 0.7;
 }
@@ -264,13 +264,13 @@ function formatVal(v) {
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 3px 7px;
-  font-size: 12px;
+  font-size: 13px;
 }
-.hoc-idx { color: var(--text-muted); font-size: 11px }
+.hoc-idx { color: var(--text-muted); font-size: 12px }
 .hoc-val { color: var(--text-h); font-weight: 500 }
 
 .hs-empty {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   padding: 8px;
   text-align: center;
