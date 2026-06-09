@@ -171,8 +171,8 @@ function hashCode(s) {
 }
 .si-name { color: var(--text-h); font-weight: 500; min-width: 24px }
 .si-eq   { color: var(--text-muted); font-size: 12px }
-.si-value { color: var(--text); font-family: var(--mono); font-size: 12px }
-.si-ref   { color: var(--primary); font-family: var(--mono); font-size: 11px }
+.si-value { color: var(--text); font-size: 12px }
+.si-ref   { color: var(--primary); font-size: 11px }
 .stack-item.is-ref { background: var(--accent-bg) }
 
 /* Divider */
@@ -202,7 +202,6 @@ function hashCode(s) {
   border-bottom: 1px solid var(--border);
 }
 .ho-ref {
-  font-family: var(--mono);
   font-size: 11px;
   color: var(--primary);
   background: var(--accent-bg);
@@ -229,7 +228,7 @@ function hashCode(s) {
   font-size: 12px;
 }
 .hoc-idx { color: var(--text-muted); font-size: 11px }
-.hoc-val { color: var(--text-h); font-family: var(--mono); font-weight: 500 }
+.hoc-val { color: var(--text-h); font-weight: 500 }
 
 .hs-empty {
   font-size: 12px;
