@@ -279,8 +279,8 @@ function getCompareNodes(key) {
   align-items:flex-start;
   transition: background 520ms cubic-bezier(.22,.9,.27,1), transform 320ms cubic-bezier(.22,.9,.27,1), box-shadow 320ms ease, opacity 200ms;
 }
-.scalar-card .var-name { color: var(--text); font-size: 12px }
-.scalar-card .var-value { font-size: 16px }
+.scalar-card .var-name { color: var(--text); font-size: 13px }
+.scalar-card .var-value { font-size: 17px }
 
 /* Scalar value change — blue accent like array cell.changed */
 .scalar-card.value-flash {

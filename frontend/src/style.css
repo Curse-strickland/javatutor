@@ -2,6 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Maple Mono font */
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('./assets/fonts/MapleMonoNormalNL-NF-CN-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('./assets/fonts/MapleMonoNormalNL-NF-CN-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('./assets/fonts/MapleMonoNormalNL-NF-CN-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('./assets/fonts/MapleMonoNormalNL-NF-CN-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('./assets/fonts/MapleMonoNormalNL-NF-CN-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('./assets/fonts/MapleMonoNormalNL-NF-CN-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --text: #d4d4d8;
   --text-h: #f0f0f4;
@@ -18,12 +67,13 @@
   --accent-border: rgba(10,132,255,0.20);
   --shadow: 0 8px 30px rgba(0,0,0,0.5);
 
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
+  /* Use Maple Mono for all text */
+  --sans: 'Maple Mono', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --heading: 'Maple Mono', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
 
-  font: 16px/1.5 var(--sans);
-  letter-spacing: 0.13px;
+  font: 17px/1.6 var(--sans);
+  letter-spacing: 0.15px;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -49,7 +99,7 @@
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
   border: 1px solid transparent;
   transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
   cursor: pointer;
@@ -87,21 +137,21 @@ h2 {
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
+  font-size: 60px;
+  letter-spacing: -1.8px;
   margin: 32px 0;
   @media (max-width: 1024px) {
-    font-size: 36px;
+    font-size: 38px;
     margin: 20px 0;
   }
 }
 h2 {
-  font-size: 24px;
+  font-size: 26px;
   line-height: 118%;
-  letter-spacing: -0.24px;
+  letter-spacing: -0.26px;
   margin: 0 0 8px;
   @media (max-width: 1024px) {
-    font-size: 20px;
+    font-size: 22px;
   }
 }
 p {
@@ -117,7 +167,7 @@ code,
 }
 
 code {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
@@ -334,4 +384,14 @@ code {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.22);
+}
+
+/* Ensure all input elements use Maple Mono font */
+input, textarea, select {
+  font-family: var(--sans) !important;
+}
+
+/* Monaco Editor will keep its own font, but override if needed */
+.monaco-editor, .monaco-editor-background {
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace !important;
 }

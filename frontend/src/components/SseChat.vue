@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.sse-chat { position: fixed; right: 12px; bottom: 12px; z-index: 80; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial }
+.sse-chat { position: fixed; right: 12px; bottom: 12px; z-index: 80; font-family: 'Maple Mono', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial }
 .toggle-btn { background:#2563eb; color:white; padding:8px 10px; border-radius:8px; cursor:pointer }
 .panel { width:340px; max-height:480px; background:white; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); overflow:hidden; display:flex; flex-direction:column; margin-top:8px }
 .header { padding:8px 12px; border-bottom:1px solid #eee; font-weight:600 }

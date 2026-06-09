@@ -210,7 +210,7 @@ function explainTag(tagName) {
 }
 .ai-step-badge {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--code-bg);
   border-radius: 5px;
@@ -231,7 +231,7 @@ function explainTag(tagName) {
   cursor: pointer;
   margin: 0;
 }
-.auto-label { font-size: 12px; color: var(--text-muted); transition: color 0.2s; }
+.auto-label { font-size: 13px; color: var(--text-muted); transition: color 0.2s; }
 .auto-toggle input:checked ~ .auto-label { color: var(--primary); }
 
 /* Close */
@@ -257,7 +257,7 @@ function explainTag(tagName) {
   border: none;
   padding: 4px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
@@ -279,15 +279,15 @@ function explainTag(tagName) {
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.65;
   color: var(--text);
   scroll-behavior: smooth;
 }
-.ai-hint { color: var(--text-muted); font-size: 13px; text-align: center; padding: 8px 0; }
-.ai-loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+.ai-hint { color: var(--text-muted); font-size: 14px; text-align: center; padding: 8px 0; }
+.ai-loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); font-size: 14px; padding: 8px 0; }
 .ai-loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: ai-blink 1.2s ease-in-out infinite; }
-.ai-error { margin-top: 8px; padding: 6px 10px; font-size: 12px; color: #e57373; background: rgba(229,115,115,0.08); border-radius: 6px; border-left: 2px solid #e57373; }
+.ai-error { margin-top: 8px; padding: 6px 10px; font-size: 13px; color: #e57373; background: rgba(229,115,115,0.08); border-radius: 6px; border-left: 2px solid #e57373; }
 
 /* --- Complexity view --- */
 .complexity-view { display: flex; flex-direction: column; gap: 10px; }
@@ -299,25 +299,25 @@ function explainTag(tagName) {
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
 }
-.complexity-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.complexity-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
 .complexity-value {
   font-family: var(--mono);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--primary);
   margin-bottom: 6px;
 }
-.complexity-desc { font-size: 12px; color: var(--text); line-height: 1.5; }
+.complexity-desc { font-size: 13px; color: var(--text); line-height: 1.5; }
 
 /* --- Algorithm tags --- */
 .tag-group { margin-bottom: 12px; }
 .tag-group:last-child { margin-bottom: 0; }
-.tag-group-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.tag-group-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .ai-tag {
   padding: 4px 10px;
   border-radius: 14px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   border: none;
   cursor: pointer;
@@ -347,7 +347,7 @@ function explainTag(tagName) {
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);
   color: var(--primary);
-  font-size: 13px; font-weight: 600;
+  font-size: 14px; font-weight: 600;
   cursor: pointer;
   transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
 }
@@ -361,8 +361,8 @@ function explainTag(tagName) {
 .ai-text :deep(p) { margin: 0 0 6px; }
 .ai-text :deep(p:last-child) { margin-bottom: 0; }
 .ai-text :deep(strong) { font-weight: 600; color: var(--text-h); }
-.ai-text :deep(code) { font-family: var(--mono); font-size: 12px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: var(--primary); }
-.ai-text :deep(pre) { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; overflow-x: auto; white-space: pre; font-size: 12px; }
+.ai-text :deep(code) { font-family: var(--mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: var(--primary); }
+.ai-text :deep(pre) { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; overflow-x: auto; white-space: pre; font-size: 13px; }
 .ai-text :deep(pre code) { background: none; padding: 0; color: var(--text); }
 .ai-text :deep(ul), .ai-text :deep(ol) { margin: 4px 0; padding-left: 18px; }
 .ai-text :deep(li) { margin-bottom: 2px; }

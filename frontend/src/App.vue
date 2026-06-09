@@ -694,7 +694,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   transform: translate(-50%, -50%) scale(1.15);
 }
 .progress-label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   white-space: nowrap;
   min-width: 52px;
@@ -713,7 +713,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   justify-content: center;
 }
 .speed-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -732,7 +732,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border: none;
   padding: 6px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;

@@ -34,33 +34,54 @@ const fallbackCode = ref(`public class UserCode {
 onMounted(() => {
   if (editorContainer.value) {
     try {
-      editor = monaco.editor.create(editorContainer.value, {
-        value: fallbackCode.value,
-        language: 'java',
-        theme: 'vs-dark',
-        automaticLayout: false,
-        fontSize: 14,
-        minimap: { enabled: false },
-        glyphMargin: true  // 启用字形边距以显示箭头
-      })
-
-      // 初始布局，避免在 flex/百分比容器中出现渲染偏移
-      setTimeout(() => editor.layout(), 50)
-
-      // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
-      editor.onDidChangeModelContent(() => {
-        clearHighlights()
-      })
-
-      // 监听容器尺寸变化，重新 layout
-      if (window.ResizeObserver) {
-        ro = new ResizeObserver(() => {
-          if (editor) editor.layout()
+      // 等待字体加载完成后再初始化编辑器
+      document.fonts.ready.then(() => {
+        editor = monaco.editor.create(editorContainer.value, {
+          value: fallbackCode.value,
+          language: 'java',
+          theme: 'vs-dark',
+          automaticLayout: false,
+          fontSize: 16,
+          fontFamily: 'Maple Mono, ui-monospace, Consolas, monospace',
+          fontLigatures: false,
+          letterSpacing: 0.5,
+          cursorBlinking: 'smooth',
+          cursorStyle: 'line',
+          lineHeight: 24,
+          useTabStops: true,
+          renderWhitespace: 'none',
+          minimap: { enabled: false },
+          glyphMargin: true  // 启用字形边距以显示箭头
         })
-        ro.observe(root.value)
-      } else {
-        window.addEventListener('resize', () => editor.layout())
-      }
+
+        // 强制重新计算布局以确保光标位置正确
+        setTimeout(() => {
+          if (editor) {
+            editor.layout()
+            // 触发一次内容更新以刷新光标位置
+            const model = editor.getModel()
+            if (model) {
+              const value = model.getValue()
+              model.setValue(value)
+            }
+          }
+        }, 100)
+
+        // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
+        editor.onDidChangeModelContent(() => {
+          clearHighlights()
+        })
+
+        // 监听容器尺寸变化，重新 layout
+        if (window.ResizeObserver) {
+          ro = new ResizeObserver(() => {
+            if (editor) editor.layout()
+          })
+          ro.observe(root.value)
+        } else {
+          window.addEventListener('resize', () => editor.layout())
+        }
+      })
     } catch (e) {
       // Monaco 加载或初始化失败时，回退到可编辑的 textarea
       console.error('Monaco init failed, falling back to textarea:', e)
@@ -148,7 +169,7 @@ defineExpose({ getCode, highlightLine, clearHighlights })
   height: 100%;
   box-sizing: border-box;
   padding: 12px;
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: 'Maple Mono', ui-monospace, Consolas, monospace;
   font-size: 13px;
   background: var(--code-bg, #1f2028);
   color: var(--text-h, #f3f4f6);
