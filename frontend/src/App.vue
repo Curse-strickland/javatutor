@@ -1,7 +1,6 @@
 <template>
   <div class="app-shell">
     <GlobalStatus />
-    <!-- 主要内容区：左右两张圆角大卡片 -->
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
       <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none">
@@ -27,98 +26,124 @@
       </div>
     </div>
 
-    <!-- 底部控制栏：浮动可拖动 -->
+    <!-- 底部控制栏：浮动可拖动，默认位于编辑区底部 -->
     <div
+      ref="controlBarRef"
       class="control-bar"
+      :class="{ 'has-panel': store.explainExpanded }"
       :style="{ left: barPos.x + 'px', top: barPos.y + 'px' }"
       @pointerdown.stop
     >
-      <!-- 拖动手柄 -->
-      <div class="drag-handle" @pointerdown.prevent="startBarDrag" title="拖动控制栏">
-        <svg viewBox="0 0 16 24" width="10" height="16" fill="currentColor" opacity="0.4">
-          <circle cx="4" cy="4" r="1.5"/>
-          <circle cx="12" cy="4" r="1.5"/>
-          <circle cx="4" cy="12" r="1.5"/>
-          <circle cx="12" cy="12" r="1.5"/>
-          <circle cx="4" cy="20" r="1.5"/>
-          <circle cx="12" cy="20" r="1.5"/>
-        </svg>
-      </div>
-
-      <!-- 左侧：播放控制按钮组 -->
-      <div class="ctrl-btn-group">
-        <!-- 跳到第一步 -->
-        <button class="ctrl-btn" @click="store.goToFirst" title="跳到第一步" :disabled="store.totalSteps === 0">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <rect x="4" y="5" width="2.5" height="14" rx="0.5"/>
-            <polygon points="20,5 9,12 20,19"/>
-          </svg>
-        </button>
-        <!-- 上一步 -->
-        <button class="ctrl-btn" @click="store.prevStep" title="上一步" :disabled="store.currentStep <= 0">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <polygon points="15,5 6,12 15,19"/>
-          </svg>
-        </button>
-        <!-- 运行 / 运行中指示 -->
-        <button class="ctrl-btn run-btn" @click="runCode" :disabled="store.isLoading" title="运行代码">
-          <svg v-if="!store.isLoading" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <polygon points="6,3 21,12 6,21"/>
-          </svg>
-          <svg v-else class="spin" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5">
-            <circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14"/>
-          </svg>
-        </button>
-        <!-- 下一步 -->
-        <button class="ctrl-btn" @click="store.nextStep" title="下一步" :disabled="store.currentStep >= store.totalSteps - 1">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <polygon points="9,5 18,12 9,19"/>
-          </svg>
-        </button>
-        <!-- 跳到最后一步 -->
-        <button class="ctrl-btn" @click="store.goToLast" title="跳到最后" :disabled="store.totalSteps === 0">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <polygon points="4,5 15,12 4,19"/>
-            <rect x="17.5" y="5" width="2.5" height="14" rx="0.5"/>
-          </svg>
-        </button>
-      </div>
-
-      <!-- 中间：可拖动进度条 -->
-      <div class="progress-wrapper" ref="progressRef">
-        <div class="progress-track" @click="onProgressClick">
-          <div class="progress-fill" :style="{ width: progressPercent + '%' }"/>
-          <div
-            class="progress-thumb"
-            :style="{ left: progressPercent + '%' }"
-            @pointerdown.stop="startProgressDrag"
-          />
+      <!-- AI Tutor 面板 — 从控制栏上方滑出 -->
+      <transition name="panel-slide">
+        <div v-if="store.explainExpanded" class="ai-panel-wrapper">
+          <AiTutorPanel />
         </div>
-        <div class="progress-label">
-          {{ displayStep }}
-        </div>
-      </div>
+      </transition>
 
-      <!-- 右侧：自动播放 + 速度选择 -->
-      <div class="ctrl-right-group">
-        <!-- 自动播放 / 暂停 -->
-        <button class="ctrl-btn" @click="toggleAutoPlay" :title="isAutoPlaying ? '暂停自动播放' : '开始自动播放'" :disabled="store.totalSteps === 0">
-          <!-- 暂停图标：两竖 -->
-          <svg v-if="isAutoPlaying" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <rect x="5" y="4" width="5" height="16" rx="1"/>
-            <rect x="14" y="4" width="5" height="16" rx="1"/>
+      <!-- 控件行：拖动句柄 + 播放按钮 + 进度条 + 右侧按钮组 -->
+      <div class="control-bar-top">
+        <!-- 拖动手柄 -->
+        <div class="drag-handle" @pointerdown.prevent="startBarDrag" title="拖动控制栏">
+          <svg viewBox="0 0 16 24" width="10" height="16" fill="currentColor" opacity="0.4">
+            <circle cx="4" cy="4" r="1.5"/>
+            <circle cx="12" cy="4" r="1.5"/>
+            <circle cx="4" cy="12" r="1.5"/>
+            <circle cx="12" cy="12" r="1.5"/>
+            <circle cx="4" cy="20" r="1.5"/>
+            <circle cx="12" cy="20" r="1.5"/>
           </svg>
-          <!-- 播放图标：三角形 -->
-          <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <polygon points="7,4 19,12 7,20"/>
-          </svg>
-        </button>
-        <!-- 速度选择 -->
-        <select v-model="speed" class="speed-select" title="播放速度">
-          <option value="500">2x</option>
-          <option value="1000">1x</option>
-          <option value="2000">0.5x</option>
-        </select>
+        </div>
+
+        <!-- 播放控制按钮组 -->
+        <div class="ctrl-btn-group">
+          <button class="ctrl-btn" @click="store.goToFirst" title="跳到第一步" :disabled="store.totalSteps === 0">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <rect x="4" y="5" width="2.5" height="14" rx="0.5"/>
+              <polygon points="20,5 9,12 20,19"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" @click="store.prevStep" title="上一步" :disabled="store.currentStep <= 0">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <polygon points="15,5 6,12 15,19"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn run-btn" @click="runCode" :disabled="store.isLoading" title="运行代码">
+            <svg v-if="!store.isLoading" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <polygon points="6,3 21,12 6,21"/>
+            </svg>
+            <svg v-else class="spin" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" @click="store.nextStep" title="下一步" :disabled="store.currentStep >= store.totalSteps - 1">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <polygon points="9,5 18,12 9,19"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" @click="store.goToLast" title="跳到最后" :disabled="store.totalSteps === 0">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <polygon points="4,5 15,12 4,19"/>
+              <rect x="17.5" y="5" width="2.5" height="14" rx="0.5"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="progress-wrapper" ref="progressRef">
+          <div class="progress-track" @click="onProgressClick">
+            <div class="progress-fill" :style="{ width: progressPercent + '%' }"/>
+            <div
+              class="progress-thumb"
+              :style="{ left: progressPercent + '%' }"
+              @pointerdown.stop="startProgressDrag"
+            />
+          </div>
+          <div class="progress-label">
+            {{ displayStep }}
+          </div>
+        </div>
+
+        <!-- 右侧：自动播放 + 速度 + AI -->
+        <div class="ctrl-right-group">
+          <button class="ctrl-btn" @click="toggleAutoPlay" :title="isAutoPlaying ? '暂停自动播放' : '开始自动播放'" :disabled="store.totalSteps === 0">
+            <svg v-if="isAutoPlaying" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <rect x="5" y="4" width="5" height="16" rx="1"/>
+              <rect x="14" y="4" width="5" height="16" rx="1"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <polygon points="7,4 19,12 7,20"/>
+            </svg>
+          </button>
+          <!-- 自定义速度选择器 -->
+          <div class="speed-picker" ref="speedPickerRef">
+            <button class="ctrl-btn speed-btn" @click="toggleSpeedMenu" title="播放速度">
+              <span class="speed-label">{{ speedLabel }}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" :style="{ transform: speedOpen ? 'rotate(180deg)' : '', transition: 'transform 0.25s ease' }">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <transition name="speed-drop">
+              <div v-if="speedOpen" class="speed-menu card">
+                <button v-for="opt in speedOptions" :key="opt.value"
+                  class="speed-option" :class="{ active: speed === opt.value }"
+                  @click="selectSpeed(opt.value)">{{ opt.label }}</button>
+              </div>
+            </transition>
+          </div>
+          <!-- AI 解说切换按钮 -->
+          <button
+            class="ctrl-btn ai-toggle-btn"
+            :class="{ active: store.explainExpanded, pulsing: store.isExplaining }"
+            @click="toggleAiPanel"
+            title="AI 解说"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2l1.2 4.8L19 8l-5.8 1.2L12 15l-1.2-5.8L5 8l5.8-1.2z" />
+              <path d="M12 22l-.5-2.5L9 18.5l2.5-.5.5-2 .5 2 2.5.5-2.5.5z" opacity="0.5" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -132,24 +157,51 @@ import VariablePanel from './components/VariablePanel.vue'
 import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
 import HeapStackPanel from './components/HeapStackPanel.vue'
+import AiTutorPanel from './components/AiTutorPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
 const containerRef = ref(null)
 const progressRef = ref(null)
+const controlBarRef = ref(null)
 const leftWidth = ref(0)
 const isDragging = ref(false)
 const MIN_LEFT = 200
 const MIN_RIGHT = 200
 const isAutoPlaying = ref(false)
 const speed = ref(1000)
+const speedOpen = ref(false)
+const speedPickerRef = ref(null)
+const speedOptions = [
+  { label: '2x', value: 500 },
+  { label: '1x', value: 1000 },
+  { label: '0.5x', value: 2000 }
+]
+const speedLabel = computed(() => speedOptions.find(o => o.value === speed.value)?.label || '1x')
+
+function toggleSpeedMenu() {
+  speedOpen.value = !speedOpen.value
+  if (speedOpen.value) {
+    setTimeout(() => document.addEventListener('click', onSpeedOutside))
+  }
+}
+function selectSpeed(val) {
+  speed.value = val
+  speedOpen.value = false
+}
+function onSpeedOutside(e) {
+  if (speedPickerRef.value && !speedPickerRef.value.contains(e.target)) {
+    speedOpen.value = false
+    document.removeEventListener('click', onSpeedOutside)
+  }
+}
+
 let timer = null
 
 // 控制栏拖动
 const barPos = ref({ x: 0, y: 0 })
 const barDragging = ref(false)
 let barOffset = { x: 0, y: 0 }
-const controlBarRef = ref(null)
 
 const startBarDrag = (e) => {
   barDragging.value = true
@@ -161,8 +213,11 @@ const startBarDrag = (e) => {
 }
 const onBarMove = (e) => {
   if (!barDragging.value) return
-  const maxX = window.innerWidth - 480
-  const maxY = window.innerHeight - 60
+  const barEl = controlBarRef.value
+  const barW = barEl ? barEl.offsetWidth : 520
+  const barH = barEl ? barEl.offsetHeight : 56
+  const maxX = window.innerWidth - barW
+  const maxY = window.innerHeight - barH
   barPos.value.x = Math.max(0, Math.min(e.clientX - barOffset.x, maxX))
   barPos.value.y = Math.max(0, Math.min(e.clientY - barOffset.y, maxY))
 }
@@ -215,8 +270,9 @@ const onProgressClick = (e) => {
 }
 
 const runCode = () => {
+  if (editorRef.value) editorRef.value.clearHighlights()
   const code = editorRef.value?.getCode() || ''
-  store.runCode(code)   // （已改）暂时使用 mock，后续改为真实 API
+  store.runCode(code)
   if (isAutoPlaying.value) stopAutoPlay()
 }
 
@@ -254,19 +310,32 @@ const onWindowResize = () => {
   if (!rect) return
   const max = rect.width - MIN_RIGHT
   if (leftWidth.value > max) leftWidth.value = Math.max(MIN_LEFT, Math.round(max))
+  // 防止控制栏拖出窗口
+  const barEl = controlBarRef.value
+  if (barEl) {
+    const maxX = window.innerWidth - barEl.offsetWidth
+    const maxY = window.innerHeight - barEl.offsetHeight
+    if (barPos.value.x > maxX) barPos.value.x = Math.max(0, maxX)
+    if (barPos.value.y > maxY) barPos.value.y = Math.max(0, maxY)
+  }
 }
 
-onMounted(() => {
-  nextTick(() => {
-    const rect = containerRef.value?.getBoundingClientRect()
-    if (rect) leftWidth.value = Math.round(rect.width / 2)
-    // 初始化控制栏位置：底部居中
-    const barW = Math.min(520, window.innerWidth - 40)
-    barPos.value = {
-      x: Math.round((window.innerWidth - barW) / 2),
-      y: window.innerHeight - 70
-    }
-  })
+onMounted(async () => {
+  await nextTick()
+  const rect = containerRef.value?.getBoundingClientRect()
+  if (rect) leftWidth.value = Math.round(rect.width / 2)
+
+  // 控制栏默认居中于编辑区底部
+  await nextTick()
+  const barEl = controlBarRef.value
+  const barW = barEl ? barEl.offsetWidth : 400
+  const mainRect = containerRef.value?.getBoundingClientRect()
+  const editorLeft = mainRect ? mainRect.left : 12
+  const editorCenter = editorLeft + leftWidth.value / 2
+  barPos.value = {
+    x: Math.max(0, Math.round(editorCenter - barW / 2)),
+    y: window.innerHeight - 80
+  }
   window.addEventListener('resize', onWindowResize)
 })
 
@@ -276,6 +345,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('mouseup', onMouseUp)
   window.removeEventListener('pointermove', onProgressMove)
 })
+
+// --- 自动播放 ---
 
 const toggleAutoPlay = () => {
   if (isAutoPlaying.value) stopAutoPlay()
@@ -287,6 +358,9 @@ const startAutoPlay = () => {
   timer = setInterval(() => {
     if (store.currentStep + 1 >= store.totalSteps) {
       stopAutoPlay()
+    } else if (store.autoExplain && store.isExplaining) {
+      // 等待 AI 解说生成完毕再进入下一步
+      return
     } else {
       store.nextStep()
     }
@@ -310,12 +384,36 @@ watch(() => store.currentLine, async (line) => {
   if (line && editorRef.value) {
     await nextTick()
     editorRef.value.highlightLine(line)
+  } else if (!line && editorRef.value) {
+    editorRef.value.clearHighlights()
+  }
+})
+
+// --- AI 解说 ---
+
+function toggleAiPanel() {
+  store.toggleExplainPanel()
+}
+
+// 步骤切换：自动模式请求解说，手动模式优先从历史恢复
+watch(() => store.currentStep, (newVal, oldVal) => {
+  if (newVal === oldVal) return
+  if (store.autoExplain && store.explainExpanded) {
+    store.requestExplain()
+  } else if (!store.isExplaining) {
+    const cached = store.explainHistory[newVal]
+    if (cached) {
+      store.explainText = cached
+      store.explainError = null
+    } else {
+      store.explainText = ''
+      store.explainError = null
+    }
   }
 })
 </script>
 
 <style scoped>
-/* Shell — subtle dot grid texture for depth */
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -325,7 +423,6 @@ watch(() => store.currentLine, async (line) => {
   background-size: 24px 24px;
 }
 
-/* Main area — breathing room between cards */
 .main-area {
   display: flex;
   flex: 1;
@@ -334,7 +431,6 @@ watch(() => store.currentLine, async (line) => {
   gap: 0;
 }
 
-/* Editor card — card visuals inline, Monaco fills it */
 .editor-card {
   background: var(--card-bg);
   border-radius: 12px;
@@ -344,7 +440,6 @@ watch(() => store.currentLine, async (line) => {
   padding: 0;
 }
 
-/* Right card — header + scroll body */
 .right-card {
   overflow: hidden;
 }
@@ -365,7 +460,7 @@ watch(() => store.currentLine, async (line) => {
   padding: 12px;
 }
 
-/* Splitter — subtle drag handle between cards */
+/* Splitter */
 .splitter {
   width: 8px;
   cursor: col-resize;
@@ -384,13 +479,12 @@ watch(() => store.currentLine, async (line) => {
 }
 .splitter.dragging { background-color: rgba(255,255,255,0.06); }
 
-/* Floating control bar — fixed, draggable */
+/* --- Floating control bar --- */
 .control-bar {
   position: fixed;
   z-index: 100;
   display: flex;
-  gap: 10px;
-  align-items: center;
+  flex-direction: column;
   padding: 8px 14px;
   background: var(--card-bg);
   border-radius: 16px;
@@ -398,14 +492,67 @@ watch(() => store.currentLine, async (line) => {
   box-shadow: 0 8px 32px rgba(0,0,0,0.35);
   backdrop-filter: blur(12px);
   width: fit-content;
-  max-width: calc(100vw - 24px);
+  max-width: calc(100vw - 40px);
+  min-width: 380px;
   transition: box-shadow 0.2s;
+  overflow: visible;
 }
 .control-bar:has(.drag-handle:active) {
   box-shadow: 0 12px 40px rgba(0,0,0,0.45);
 }
 
-/* 拖动手柄 */
+/* Control row */
+.control-bar-top {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+/* AI panel wrapper — floating above the control bar with gap */
+.ai-panel-wrapper {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  overflow: hidden;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  backdrop-filter: blur(12px);
+  padding: 10px 15px;
+}
+
+/* Panel slide transition (expands upward) */
+.panel-slide-enter-active {
+  transition: max-height 0.28s cubic-bezier(.22,.9,.27,1), opacity 0.25s, padding 0.25s;
+}
+.panel-slide-leave-active {
+  transition: max-height 0.22s cubic-bezier(.22,.9,.27,1), opacity 0.2s, padding 0.2s;
+}
+.panel-slide-enter-from,
+.panel-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+}
+.panel-slide-enter-to,
+.panel-slide-leave-from {
+  max-height: 400px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-slide-enter-active,
+  .panel-slide-leave-active {
+    transition: none;
+  }
+}
+
+/* Drag handle */
 .drag-handle {
   cursor: grab;
   display: flex;
@@ -424,14 +571,12 @@ watch(() => store.currentLine, async (line) => {
   cursor: grabbing;
 }
 
-/* 按钮组 */
+/* Button groups */
 .ctrl-btn-group {
   display: flex;
   align-items: center;
   gap: 2px;
 }
-
-/* 右侧功能组（自动播放 + 速度） */
 .ctrl-right-group {
   display: flex;
   align-items: center;
@@ -439,7 +584,7 @@ watch(() => store.currentLine, async (line) => {
   margin-left: auto;
 }
 
-/* 控制按钮基础样式 */
+/* Control buttons */
 .ctrl-btn {
   background: transparent;
   border: none;
@@ -463,7 +608,6 @@ watch(() => store.currentLine, async (line) => {
   cursor: not-allowed;
 }
 
-/* 运行按钮特殊样式 */
 .ctrl-btn.run-btn {
   color: #10b981;
   padding: 8px;
@@ -474,7 +618,24 @@ watch(() => store.currentLine, async (line) => {
   color: #34d399;
 }
 
-/* 旋转动画（运行中） */
+/* AI toggle button */
+.ai-toggle-btn {
+  position: relative;
+  transition: color 0.2s, background 0.15s;
+}
+.ai-toggle-btn.active {
+  color: var(--primary);
+  background: var(--accent-bg);
+}
+.ai-toggle-btn.pulsing {
+  animation: ai-pulse 1.5s ease-in-out infinite;
+}
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Spin animation */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -482,7 +643,7 @@ watch(() => store.currentLine, async (line) => {
   animation: spin 0.8s linear infinite;
 }
 
-/* 进度条 */
+/* Progress bar */
 .progress-wrapper {
   flex: 1;
   display: flex;
@@ -499,9 +660,7 @@ watch(() => store.currentLine, async (line) => {
   cursor: pointer;
   transition: height 0.15s;
 }
-.progress-track:hover {
-  height: 8px;
-}
+.progress-track:hover { height: 8px; }
 .progress-fill {
   position: absolute;
   top: 0;
@@ -543,22 +702,82 @@ watch(() => store.currentLine, async (line) => {
   font-variant-numeric: tabular-nums;
 }
 
-.speed-select {
-  background: var(--code-bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 5px 8px;
+/* Custom speed picker */
+.speed-picker {
+  position: relative;
+}
+.speed-btn {
+  gap: 5px;
+  padding: 6px 8px;
+  min-width: 52px;
+  justify-content: center;
+}
+.speed-label {
   font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.speed-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  z-index: 110;
+}
+.speed-option {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
   cursor: pointer;
+  text-align: center;
+  transition: color 0.15s, background 0.15s;
+}
+.speed-option:hover {
+  color: var(--text-h);
+  background: rgba(255,255,255,0.06);
+}
+.speed-option.active {
+  color: var(--primary);
+  background: var(--accent-bg);
+}
+
+/* Speed dropdown transition */
+.speed-drop-enter-active {
+  transition: opacity 0.15s ease, transform 0.18s cubic-bezier(.22,.9,.27,1);
+}
+.speed-drop-leave-active {
+  transition: opacity 0.12s ease, transform 0.14s cubic-bezier(.22,.9,.27,1);
+}
+.speed-drop-enter-from,
+.speed-drop-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 @media (max-width: 640px) {
   .splitter .splitter-handle { height: 28px }
-  .main-area { padding: 8px; gap: 4px }
-  .control-bar { padding: 6px 10px; gap: 6px; max-width: calc(100vw - 16px); }
+  .main-area { padding: 8px; }
+  .control-bar {
+    padding: 6px 10px;
+    min-width: 0;
+    max-width: calc(100vw - 16px);
+  }
+  .control-bar.has-panel { min-width: 0; }
+  .control-bar-top { gap: 6px; }
   .ctrl-btn { padding: 5px; }
   .ctrl-btn.run-btn { padding: 6px; }
-  .progress-wrapper { min-width: 80px; }
+  .progress-wrapper { min-width: 60px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-toggle-btn.pulsing { animation: none; }
+  .spin { animation: none; }
 }
 </style>
