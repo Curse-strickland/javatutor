@@ -112,8 +112,14 @@ public class RunController {
         "        obj.put(\"slots\", slots);\n" +
         "    }\n" +
         "    private static void updateHeapFields(String name, Object obj) {\n" +
+        "        updateHeapFields(name, obj, new java.util.HashSet<>());\n" +
+        "    }\n" +
+        "    private static void updateHeapFields(String name, Object obj, java.util.Set<Object> visited) {\n" +
+        "        if (visited.contains(obj)) return;\n" +
+        "        visited.add(obj);\n" +
         "        if (!heapObjects.containsKey(name)) allocObject(name, obj);\n" +
         "        Map<String,Object> heapObj = heapObjects.get(name);\n" +
+        "        if (heapObj.get(\"_objRef\") != obj) { visited.remove(obj); return; }\n" +
         "        LinkedHashMap<String,Object> fields = new LinkedHashMap<>();\n" +
         "        Class<?> cls = obj.getClass();\n" +
         "        while (cls != null && cls != Object.class) {\n" +
@@ -135,23 +141,28 @@ public class RunController {
         "                    } else if (isComplexObject(fv)) {\n" +
         "                        String existingId = findHeapIdByRef(fv);\n" +
         "                        if (existingId != null) {\n" +
-        "                            LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
-        "                            ref.put(\"ref\", existingId);\n" +
-        "                            fields.put(f.getName(), ref);\n" +
+        "                            for (Map.Entry<String,Map<String,Object>> he : heapObjects.entrySet()) {\n" +
+        "                                if (he.getValue().get(\"_objRef\") == fv) {\n" +
+        "                                    updateHeapFields(he.getKey(), fv, visited);\n" +
+        "                                    break;\n" +
+        "                                }\n" +
+        "                            }\n" +
         "                        } else {\n" +
         "                            String refName = name + \".\" + f.getName();\n" +
         "                            ensureHeapObject(refName, fv);\n" +
-        "                            updateHeapFields(refName, fv);\n" +
-        "                            LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
-        "                            ref.put(\"ref\", heapObjects.get(refName).get(\"id\"));\n" +
-        "                            fields.put(f.getName(), ref);\n" +
+        "                            updateHeapFields(refName, fv, visited);\n" +
         "                        }\n" +
+        "                        String refId = findHeapIdByRef(fv);\n" +
+        "                        LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
+        "                        ref.put(\"ref\", refId != null ? refId : \"0x????\");\n" +
+        "                        fields.put(f.getName(), ref);\n" +
         "                    } else { fields.put(f.getName(), fv); }\n" +
         "                } catch (Exception ex) { fields.put(f.getName(), \"<error>\"); }\n" +
         "            }\n" +
         "            cls = cls.getSuperclass();\n" +
         "        }\n" +
         "        heapObj.put(\"fields\", fields);\n" +
+        "        visited.remove(obj);\n" +
         "    }\n" +
         "    private static LinkedHashMap<String,Object> deepCopyHeap() {\n" +
         "        LinkedHashMap<String,Object> copy = new LinkedHashMap<>();\n" +
@@ -178,12 +189,9 @@ public class RunController {
         "                    Object elem = Array.get(v, i);\n" +
         "                    if (elem != null && isComplexObject(elem)) {\n" +
         "                        String name = e.getKey() + \"[\" + i + \"]\";\n" +
-        "                        boolean existed = heapObjects.containsKey(name);\n" +
         "                        String elemId = ensureHeapObject(name, elem);\n" +
         "                        copy.add(elemId);\n" +
         "                        if (heapObjects.containsKey(name) && heapObjects.get(name).get(\"_objRef\") == elem) {\n" +
-        "                            updateHeapFields(name, elem);\n" +
-        "                        } else if (!existed) {\n" +
         "                            updateHeapFields(name, elem);\n" +
         "                        }\n" +
         "                    } else if (elem != null && elem.getClass().isArray()) {\n" +
