@@ -101,6 +101,18 @@ success=True, steps=8
 ### 嵌套数组深拷贝
 新增 `deepCopyArray()` 递归方法，修复 `int[][]` 内层数组作为引用存储导致快照被污染的问题。
 
+### `allocObject` 使用目标表达式而非构造表达式
+`buildAllocObjectStatement` 改回单参数 `targetExpr`，生成 `allocObject("head.next", head.next)` 而非 `allocObject("head.next", new ListNode(2))`，后者会创建额外对象导致实际引用不匹配。
+
+### `updateHeapFields` 递归 visited set 填充字段
+新增 `updateHeapFields(String name, Object obj, Set<Object> visited)` 重载：
+- 对象字段中已注册的堆条目（如 `head.next`）即使被 `findHeapIdByRef` 找到，也会通过其注册名调用 `updateHeapFields` 填充字段值
+- `visited` 集合防止 `alice↔bob` 循环引用再次触发无限递归
+- `heapObj.get("_objRef") != obj` 检测跳过已被重绑定的旧条目
+
+### `RunController.TRACE_ENGINE_SOURCE` 同步
+嵌入的 TraceEngine 源码字符串同步全部最新逻辑（visited set、`_objRef` 保护、引用重绑定检测）
+
 ## 死代码审查
 
 已审查全部修改文件，无死代码。`heap-stack-plan.md` 同步更新。

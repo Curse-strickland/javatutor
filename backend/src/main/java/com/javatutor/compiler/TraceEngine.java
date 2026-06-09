@@ -1,9 +1,11 @@
 package com.javatutor.compiler;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -167,10 +169,18 @@ public class TraceEngine {
 
     // 快照对象字段：只取浅层字段值，引用型字段存目标堆 ID 打断循环
     private static void updateHeapFields(String name, Object obj) {
+        updateHeapFields(name, obj, new HashSet<>());
+    }
+
+    private static void updateHeapFields(String name, Object obj, Set<Object> visited) {
+        if (visited.contains(obj)) return; // 打断循环引用
+        visited.add(obj);
         if (!heapObjects.containsKey(name)) {
             allocObject(name, obj);
         }
         Map<String, Object> heapObj = heapObjects.get(name);
+        // 如果该条目已注册不同对象，跳过（由引用去重逻辑处理）
+        if (heapObj.get("_objRef") != obj) { visited.remove(obj); return; }
         LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
         Class<?> cls = obj.getClass();
         while (cls != null && cls != Object.class) {
@@ -195,22 +205,25 @@ public class TraceEngine {
                         refEntry.put("ref", arrId);
                         fields.put(f.getName(), refEntry);
                     } else if (isComplexObject(fv)) {
-                        // 引用型字段：先查是否已注册（打断循环），再决定是否递归
+                        // 引用型字段：确保目标对象字段已填充，同时用 visited 打断循环
                         String existingId = findHeapIdByRef(fv);
                         if (existingId != null) {
-                            // 对象已存在 → 只存引用，不递归
-                            LinkedHashMap<String, Object> refEntry = new LinkedHashMap<>();
-                            refEntry.put("ref", existingId);
-                            fields.put(f.getName(), refEntry);
+                            // 找到该对象在堆中的注册名，填充字段（若 visited 中已有则跳过）
+                            for (Map.Entry<String, Map<String, Object>> he : heapObjects.entrySet()) {
+                                if (he.getValue().get("_objRef") == fv) {
+                                    updateHeapFields(he.getKey(), fv, visited);
+                                    break;
+                                }
+                            }
                         } else {
-                            // 新对象 → 递归注册
                             String refName = name + "." + f.getName();
-                            String refId = ensureHeapObject(refName, fv);
-                            updateHeapFields(refName, fv);
-                            LinkedHashMap<String, Object> refEntry = new LinkedHashMap<>();
-                            refEntry.put("ref", refId);
-                            fields.put(f.getName(), refEntry);
+                            ensureHeapObject(refName, fv);
+                            updateHeapFields(refName, fv, visited);
                         }
+                        String refId = findHeapIdByRef(fv);
+                        LinkedHashMap<String, Object> refEntry = new LinkedHashMap<>();
+                        refEntry.put("ref", refId != null ? refId : "0x????");
+                        fields.put(f.getName(), refEntry);
                     } else {
                         fields.put(f.getName(), fv);
                     }
@@ -221,6 +234,7 @@ public class TraceEngine {
             cls = cls.getSuperclass();
         }
         heapObj.put("fields", fields);
+        visited.remove(obj);
     }
 
     // 分配数组到堆，返回伪地址 ID
