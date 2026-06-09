@@ -5,10 +5,13 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.lang.reflect.Array;
+import java.io.ByteArrayOutputStream;
 
 public class TraceEngine {
     private static List<Map<String,Object>> steps = new ArrayList<>();
     private static volatile boolean disabled = false;
+    private static ByteArrayOutputStream capturedOutput;
+    private static int lastOutputPos = 0;
 
     public static void record(int step, int line, Map<String,Object> vars) {
         if (disabled) return;
@@ -28,16 +31,40 @@ public class TraceEngine {
             }
         }
         record.put("variables", varsCopy);
+        if (capturedOutput != null) {
+            String outStr = capturedOutput.toString();
+            int pos = outStr.length();
+            if (pos > lastOutputPos) {
+                String raw = outStr.substring(lastOutputPos);
+                record.put("output", raw.replace("\r\n", "\n"));
+                lastOutputPos = pos;
+            }
+        }
         steps.add(record);
+    }
+
+    public static void setOutputStream(ByteArrayOutputStream out) {
+        capturedOutput = out;
+        lastOutputPos = 0;
     }
 
     public static void reset() {
         steps.clear();
         disabled = false;
+        lastOutputPos = 0;
     }
 
     public static void disable() {
         disabled = true;
+    }
+
+    // 接受平铺数组 [k1, v1, k2, v2, ...] 构建 Map，突破 Map.of() 的 10 对上限
+    public static Map<String, Object> buildMap(Object... pairs) {
+        LinkedHashMap<String, Object> m = new LinkedHashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            m.put((String) pairs[i], pairs[i + 1]);
+        }
+        return m;
     }
 
     public static List<Map<String,Object>> getSteps() {

@@ -12,6 +12,10 @@ Java 算法可视化教学工具。用户在浏览器写 Java 代码 → 后端 
 | 前端 | Vue 3.5, Pinia 3, Monaco Editor 0.55, Tailwind CSS 3, Vite 8 |
 | 通信 | REST (`POST /api/run`), SSE (`GET /api/explain/{runId}/{step}`) |
 
+## 设计系统
+
+前端设计规范见 [DESIGN.md](DESIGN.md)。核心原则：深灰调 + 蓝色单一 accent、卡片统一用 `.card p-3 mb-3`、可折叠面板用蓝色圆点+chevron SVG、不用琥珀色/绿色、不用 uppercase 标签、不用裸 border-top 分割。
+
 ## 启动/停止
 
 ### 环境

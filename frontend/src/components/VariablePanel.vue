@@ -2,30 +2,41 @@
   <div class="variable-panel">
     <div class="mb-3">
       <h4 class="text-lg font-semibold">变量卡片</h4>
-      <p class="text-sm text-gray-500">只读展示当前步骤变量，值变化会短暂高亮。</p>
+      <p class="text-sm" style="color: var(--text-muted)">只读展示当前步骤变量，值变化会短暂高亮。</p>
     </div>
 
-    <div v-if="displayKeys.length === 0" class="text-sm text-gray-500">暂无变量</div>
+    <div v-if="displayKeys.length === 0" class="text-sm" style="color: var(--text-muted)">暂无变量</div>
 
     <div v-else>
       <!-- Scalars: horizontal small cards -->
       <div v-if="scalarKeys.length" class="scalar-row card p-3 mb-3">
         <transition-group name="scalar" tag="div" class="scalars flex gap-3 overflow-auto">
           <div v-for="key in scalarKeys" :key="key" :data-key="key"
-            class="scalar-card p-2 bg-white dark:bg-gray-800 rounded border flex-shrink-0"
+            class="scalar-card p-2 rounded border flex-shrink-0"
+            style="background: var(--card-bg); border-color: var(--border)"
             :class="[{ flash: flashKeys[key] }, valueFlashKeys[key] ? 'value-flash' : '']">
-            <div class="var-name text-xs text-gray-500">{{ key }}</div>
-            <div class="var-value font-semibold text-lg text-gray-900 dark:text-gray-100">{{ pretty(variables[key]) }}</div>
+            <div class="var-name text-xs" style="color: var(--text-muted)">{{ key }}</div>
+            <div class="var-value font-semibold text-lg" style="color: var(--text-h)">{{ pretty(variables[key]) }}</div>
           </div>
         </transition-group>
       </div>
 
-      <!-- Arrays: each occupies its own row -->
+      <!-- Arrays: each occupies its own row, collapsible -->
       <div v-for="key in arrayKeys" :key="key" :data-key="key" class="array-row card p-3 rounded mb-3" :class="{ flash: flashKeys[key] }">
         <div class="flex items-center justify-between mb-2">
-          <div class="font-medium text-sm text-gray-800 dark:text-gray-100">{{ key }}</div>
+          <div class="font-medium text-sm" style="color: var(--text-h)">{{ key }} ({{ (variables[key] || []).length }} 项)</div>
+          <button
+            class="collapse-btn"
+            @click="toggleCollapse(key)"
+            :title="collapsedKeys[key] ? '展开' : '折叠'"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              :style="{ transform: collapsedKeys[key] ? '' : 'rotate(180deg)', transition: 'transform 0.25s ease' }">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         </div>
-        <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" />
+        <ArrayCanvas :arr="variables[key]" :changedIndices="changedIndicesMap[key] || []" :compareIndices="compareIndicesMap[key] || []" :collapsed="!!collapsedKeys[key]" />
       </div>
 
       <!-- Linked Lists: detect linked list structures -->
@@ -82,7 +93,12 @@ const flashKeys = reactive({})
 const valueFlashKeys = reactive({})
 const changedIndicesMap = reactive({})
 const compareIndicesMap = reactive({})
+const collapsedKeys = reactive({})
 const FLASH_MS = 520
+
+function toggleCollapse(key) {
+  collapsedKeys[key] = !collapsedKeys[key]
+}
 
 watch(
   variables,
@@ -236,23 +252,22 @@ function getCompareNodes(key) {
 .card { position: relative; overflow: visible; transition: transform .18s ease, box-shadow .22s ease; }
 .card .value-wrap pre { margin: 0; background: transparent; }
 .card.flash {
-  background: var(--card-bg);
-  border-color: rgba(37,99,235,0.10);
-  box-shadow: 0 8px 18px rgba(37,99,235,0.03);
+  border-color: var(--accent-border);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.12);
   z-index: 2;
 }
 
 .value-flash {
-  background: rgba(99,102,241,0.12);
+  background: var(--accent-bg);
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 6px;
-  color: inherit;
+  color: var(--primary);
 }
 
 /* Scalars row */
-.scalar-row { overflow: hidden }
-.scalars { display:flex; align-items:center }
+.scalar-row { overflow-x: auto }
+.scalars { display:flex; align-items:center; flex-wrap:wrap; gap:8px }
 .scalar-card {
   min-width: 100px;
   max-width: 220px;
@@ -267,11 +282,10 @@ function getCompareNodes(key) {
 .scalar-card .var-name { color: var(--text); font-size: 12px }
 .scalar-card .var-value { font-size: 16px }
 
-/* Soft fade + slight lift on value change */
+/* Scalar value change — blue accent like array cell.changed */
 .scalar-card.value-flash {
-  background: var(--card-bg);
-  border-color: rgba(255,199,44,0.16);
-  box-shadow: 0 8px 18px rgba(255,199,44,0.035);
+  border-color: var(--accent-border);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.10);
   transform: none;
 }
 
@@ -292,9 +306,8 @@ function getCompareNodes(key) {
 
 /* When card flash: subtle border + shadow (avoid full background change) */
 .card.flash {
-  background: var(--card-bg);
-  border-color: rgba(37,99,235,0.10);
-  box-shadow: 0 8px 18px rgba(37,99,235,0.03);
+  border-color: var(--accent-border);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.10);
 }
 
 @keyframes slideBar {

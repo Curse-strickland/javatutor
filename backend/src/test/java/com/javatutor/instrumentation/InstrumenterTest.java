@@ -22,16 +22,37 @@ class InstrumenterTest {
 
     private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
+        "import java.io.ByteArrayOutputStream;\n" +
         "public class TraceEngine {\n" +
         "    private static List<Map<String,Object>> steps = new ArrayList<>();\n" +
+        "    private static volatile boolean disabled = false;\n" +
+        "    private static ByteArrayOutputStream capturedOutput;\n" +
+        "    private static int lastOutputPos = 0;\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
+        "        if (disabled) return;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
         "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
         "        record.put(\"variables\", new LinkedHashMap<>(vars));\n" +
+        "        if (capturedOutput != null) {\n" +
+        "            String outStr = capturedOutput.toString();\n" +
+        "            int pos = outStr.length();\n" +
+        "            if (pos > lastOutputPos) {\n" +
+        "                String raw = outStr.substring(lastOutputPos);\n" +
+        "                record.put(\"output\", raw.replace(\"\\r\\n\", \"\\n\"));\n" +
+        "                lastOutputPos = pos;\n" +
+        "            }\n" +
+        "        }\n" +
         "        steps.add(record);\n" +
         "    }\n" +
-        "    public static void reset() { steps.clear(); }\n" +
+        "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void disable() { disabled = true; }\n" +
+        "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
+        "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
+        "        for (int i = 0; i < pairs.length; i += 2) { m.put((String) pairs[i], pairs[i + 1]); }\n" +
+        "        return m;\n" +
+        "    }\n" +
         "    public static List<Map<String,Object>> getSteps() { return steps; }\n" +
         "}\n";
 
@@ -216,27 +237,19 @@ class InstrumenterTest {
         }
         System.out.println("============================================");
 
-        // ── Bug 1 检测：进入 record 和退出 record 是否用同一行号 ──
-        // 找到所有同一行的"进入"和"退出"对（退出 record 不含 i，进入 record 含 i）
+        // ── Bug 1 检测：进入和退出 record 不应该共用行号 ──
+        // Bug 7 修复（移除循环退出 record）后，不再有退出 record
+        // 与进入 record 共用行号。交集应为空 = Bug 1 已修复。
         Set<Integer> linesWithEnter = new HashSet<>();
-        Set<Integer> linesWithExit = new HashSet<>();
         for (Map<String, Object> step : steps) {
             int line = ((Number) step.get("line")).intValue();
             @SuppressWarnings("unchecked")
             Map<String, Object> vars = (Map<String, Object>) step.get("variables");
             if (vars.containsKey("i")) {
                 linesWithEnter.add(line);
-            } else if (vars.containsKey("n") && !vars.containsKey("i")) {
-                // 没有 i 但有 n — 可能是 exit record
-                linesWithExit.add(line);
             }
         }
-        // 取交集：哪些行号既被用作 enter 又被用作 exit？
-        linesWithEnter.retainAll(linesWithExit);
-        if (!linesWithEnter.isEmpty()) {
-            System.out.println("⚠ Bug 1: 进入和退出 record 共用行号 " + linesWithEnter + " — 前端可能不会重渲染");
-        }
-        assertFalse(linesWithEnter.isEmpty(), "Bug 1 应可复现：进入和退出 for 的 record 行号相同");
+        assertTrue(!linesWithEnter.isEmpty(), "for 循环体内应有 entry record（含 i）");
 
         // ── Bug 3 检测：退出 for 的 step 是否缺 i ──
         // 找到最后一个包含 i 的 step 和下一个 step

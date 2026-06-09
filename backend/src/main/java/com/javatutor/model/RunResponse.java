@@ -13,9 +13,10 @@ import java.util.Map;
 
 public class RunResponse {
     private boolean success;
-    private String runId;    
+    private String runId;
     private List<Map<String, Object>> steps;
     private String error;
+    private String output;
     //构造
     public RunResponse() {
     }
@@ -42,6 +43,12 @@ public class RunResponse {
     public String getError() {
         return error;
     }
+    public String getOutput() {
+        return output;
+    }
+    public void setOutput(String output) {
+        this.output = output;
+    }
     public void setSuccess(boolean success) {
         this.success = success;
     }
@@ -57,11 +64,12 @@ public class RunResponse {
 
     //方法
     //两种状态 ok / fail 下快速创建 RunResponse 对象的方法
-    public static RunResponse ok(String runId, List<Map<String, Object>> steps) {
+    public static RunResponse ok(String runId, List<Map<String, Object>> steps, String output) {
         RunResponse response = new RunResponse();
         response.setSuccess(true);
         response.setRunId(runId);
         response.setSteps(steps);
+        response.setOutput(output);
         return response;
     }
 
