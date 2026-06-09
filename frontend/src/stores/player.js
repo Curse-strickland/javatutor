@@ -59,6 +59,9 @@ export const usePlayerStore = defineStore('player', {
     currentVariables: (state) => state.steps[state.currentStep]?.variables || {},
     currentLine: (state) => state.steps[state.currentStep]?.line || null,
     totalSteps: (state) => state.steps.length,
+    currentHeap: (state) => state.steps[state.currentStep]?.heap || {},
+    currentStackFrame: (state) => state.steps[state.currentStep]?.stackFrame || null,
+    activeStackFrames: (state) => state.steps[state.currentStep]?.stackFrames || [],
     currentOutput: (state) => {
       let out = ''
       for (let i = 0; i <= state.currentStep && i < state.steps.length; i++) {

@@ -30,22 +30,137 @@ public class RunController {
     private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
         "import java.lang.reflect.Array;\n" +
+        "import java.lang.reflect.Field;\n" +
+        "import java.lang.reflect.Modifier;\n" +
         "import java.io.ByteArrayOutputStream;\n" +
         "public class TraceEngine {\n" +
         "    private static List<Map<String,Object>> steps = new ArrayList<>();\n" +
         "    private static volatile boolean disabled = false;\n" +
         "    private static ByteArrayOutputStream capturedOutput;\n" +
         "    private static int lastOutputPos = 0;\n" +
-        "    private static Object deepCopyValue(Object v) {\n" +
-        "        if (v == null) return null;\n" +
-        "        Class<?> cls = v.getClass();\n" +
-        "        if (cls.isArray()) {\n" +
-        "            int len = Array.getLength(v);\n" +
-        "            List<Object> copy = new ArrayList<>(len);\n" +
-        "            for (int i = 0; i < len; i++) { copy.add(Array.get(v, i)); }\n" +
-        "            return copy;\n" +
+        "    private static LinkedHashMap<String,Map<String,Object>> heapObjects = new LinkedHashMap<>();\n" +
+        "    private static List<Object> deepCopyArray(Object arr) {\n" +
+        "        int len = Array.getLength(arr);\n" +
+        "        List<Object> copy = new ArrayList<>(len);\n" +
+        "        for (int i = 0; i < len; i++) {\n" +
+        "            Object elem = Array.get(arr, i);\n" +
+        "            if (elem != null && elem.getClass().isArray()) {\n" +
+        "                copy.add(deepCopyArray(elem));\n" +
+        "            } else if (elem != null && isComplexObject(elem)) {\n" +
+        "                copy.add(ensureHeapObject(\"nested[\" + i + \"]\", elem));\n" +
+        "            } else { copy.add(elem); }\n" +
         "        }\n" +
-        "        return v;\n" +
+        "        return copy;\n" +
+        "    }\n" +
+        "    private static boolean isComplexObject(Object v) {\n" +
+        "        if (v == null) return false;\n" +
+        "        Class<?> cls = v.getClass();\n" +
+        "        return !cls.isPrimitive() && !cls.isArray() && cls != String.class && !Number.class.isAssignableFrom(cls) && cls != Boolean.class && cls != Character.class;\n" +
+        "    }\n" +
+        "    private static String ensureHeapObject(String name, Object obj) {\n" +
+        "        if (heapObjects.containsKey(name)) {\n" +
+        "            if (heapObjects.get(name).get(\"_objRef\") == obj) return (String) heapObjects.get(name).get(\"id\");\n" +
+        "            String existingId = findHeapIdByRef(obj);\n" +
+        "            if (existingId != null) return existingId;\n" +
+        "            heapObjects.remove(name);\n" +
+        "            return allocObject(name, obj);\n" +
+        "        }\n" +
+        "        String existingId = findHeapIdByRef(obj);\n" +
+        "        if (existingId != null) return existingId;\n" +
+        "        return allocObject(name, obj);\n" +
+        "    }\n" +
+        "    private static String findHeapIdByRef(Object obj) {\n" +
+        "        for (Map.Entry<String,Map<String,Object>> e : heapObjects.entrySet()) {\n" +
+        "            if (e.getValue().get(\"_objRef\") == obj) return (String) e.getValue().get(\"id\");\n" +
+        "        }\n" +
+        "        return null;\n" +
+        "    }\n" +
+        "    public static String allocArray(String name, int length) {\n" +
+        "        if (disabled) return \"0x0000\";\n" +
+        "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
+        "        LinkedHashMap<String,Object> obj = new LinkedHashMap<>();\n" +
+        "        obj.put(\"type\", \"int[\" + length + \"]\");\n" +
+        "        obj.put(\"length\", length);\n" +
+        "        obj.put(\"id\", id);\n" +
+        "        obj.put(\"name\", name);\n" +
+        "        obj.put(\"slots\", new ArrayList<>());\n" +
+        "        heapObjects.put(name, obj);\n" +
+        "        return id;\n" +
+        "    }\n" +
+        "    public static String allocObject(String name, Object obj) {\n" +
+        "        if (disabled) return \"0x0000\";\n" +
+        "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
+        "        LinkedHashMap<String,Object> heapObj = new LinkedHashMap<>();\n" +
+        "        heapObj.put(\"type\", obj.getClass().getSimpleName());\n" +
+        "        heapObj.put(\"id\", id);\n" +
+        "        heapObj.put(\"name\", name);\n" +
+        "        heapObj.put(\"fields\", new LinkedHashMap<>());\n" +
+        "        heapObj.put(\"_objRef\", obj);\n" +
+        "        heapObjects.put(name, heapObj);\n" +
+        "        return id;\n" +
+        "    }\n" +
+        "    private static void updateHeapSlots(String name, List<Object> arrayCopy) {\n" +
+        "        if (!heapObjects.containsKey(name)) { allocArray(name, arrayCopy.size()); }\n" +
+        "        Map<String,Object> obj = heapObjects.get(name);\n" +
+        "        List<Map<String,Object>> slots = new ArrayList<>();\n" +
+        "        for (int i = 0; i < arrayCopy.size(); i++) {\n" +
+        "            LinkedHashMap<String,Object> slot = new LinkedHashMap<>();\n" +
+        "            slot.put(\"index\", i);\n" +
+        "            slot.put(\"value\", arrayCopy.get(i));\n" +
+        "            slots.add(slot);\n" +
+        "        }\n" +
+        "        obj.put(\"slots\", slots);\n" +
+        "    }\n" +
+        "    private static void updateHeapFields(String name, Object obj) {\n" +
+        "        if (!heapObjects.containsKey(name)) allocObject(name, obj);\n" +
+        "        Map<String,Object> heapObj = heapObjects.get(name);\n" +
+        "        LinkedHashMap<String,Object> fields = new LinkedHashMap<>();\n" +
+        "        Class<?> cls = obj.getClass();\n" +
+        "        while (cls != null && cls != Object.class) {\n" +
+        "            for (Field f : cls.getDeclaredFields()) {\n" +
+        "                if (Modifier.isStatic(f.getModifiers())) continue;\n" +
+        "                f.setAccessible(true);\n" +
+        "                try {\n" +
+        "                    Object fv = f.get(obj);\n" +
+        "                    if (fv == null) { fields.put(f.getName(), null); }\n" +
+        "                    else if (fv.getClass().isArray()) {\n" +
+        "                        String arrName = name + \".\" + f.getName();\n" +
+        "                        if (!heapObjects.containsKey(arrName)) allocArray(arrName, Array.getLength(fv));\n" +
+        "                        List<Object> arrCopy = new ArrayList<>();\n" +
+        "                        for (int i = 0; i < Array.getLength(fv); i++) arrCopy.add(Array.get(fv, i));\n" +
+        "                        updateHeapSlots(arrName, arrCopy);\n" +
+        "                        LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
+        "                        ref.put(\"ref\", heapObjects.get(arrName).get(\"id\"));\n" +
+        "                        fields.put(f.getName(), ref);\n" +
+        "                    } else if (isComplexObject(fv)) {\n" +
+        "                        String existingId = findHeapIdByRef(fv);\n" +
+        "                        if (existingId != null) {\n" +
+        "                            LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
+        "                            ref.put(\"ref\", existingId);\n" +
+        "                            fields.put(f.getName(), ref);\n" +
+        "                        } else {\n" +
+        "                            String refName = name + \".\" + f.getName();\n" +
+        "                            ensureHeapObject(refName, fv);\n" +
+        "                            updateHeapFields(refName, fv);\n" +
+        "                            LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
+        "                            ref.put(\"ref\", heapObjects.get(refName).get(\"id\"));\n" +
+        "                            fields.put(f.getName(), ref);\n" +
+        "                        }\n" +
+        "                    } else { fields.put(f.getName(), fv); }\n" +
+        "                } catch (Exception ex) { fields.put(f.getName(), \"<error>\"); }\n" +
+        "            }\n" +
+        "            cls = cls.getSuperclass();\n" +
+        "        }\n" +
+        "        heapObj.put(\"fields\", fields);\n" +
+        "    }\n" +
+        "    private static LinkedHashMap<String,Object> deepCopyHeap() {\n" +
+        "        LinkedHashMap<String,Object> copy = new LinkedHashMap<>();\n" +
+        "        for (Map.Entry<String,Map<String,Object>> e : heapObjects.entrySet()) {\n" +
+        "            LinkedHashMap<String,Object> shallow = new LinkedHashMap<>(e.getValue());\n" +
+        "            shallow.remove(\"_objRef\");\n" +
+        "            copy.put(e.getKey(), shallow);\n" +
+        "        }\n" +
+        "        return copy;\n" +
         "    }\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
         "        if (disabled) return;\n" +
@@ -54,17 +169,47 @@ public class RunController {
         "        record.put(\"line\", line);\n" +
         "        LinkedHashMap<String,Object> varsCopy = new LinkedHashMap<>();\n" +
         "        for (Map.Entry<String,Object> e : vars.entrySet()) {\n" +
-        "            varsCopy.put(e.getKey(), deepCopyValue(e.getValue()));\n" +
+        "            Object v = e.getValue();\n" +
+        "            if (v == null) { varsCopy.put(e.getKey(), null); }\n" +
+        "            else if (v.getClass().isArray()) {\n" +
+        "                int len = Array.getLength(v);\n" +
+        "                List<Object> copy = new ArrayList<>(len);\n" +
+        "                for (int i = 0; i < len; i++) {\n" +
+        "                    Object elem = Array.get(v, i);\n" +
+        "                    if (elem != null && isComplexObject(elem)) {\n" +
+        "                        String name = e.getKey() + \"[\" + i + \"]\";\n" +
+        "                        boolean existed = heapObjects.containsKey(name);\n" +
+        "                        String elemId = ensureHeapObject(name, elem);\n" +
+        "                        copy.add(elemId);\n" +
+        "                        if (heapObjects.containsKey(name) && heapObjects.get(name).get(\"_objRef\") == elem) {\n" +
+        "                            updateHeapFields(name, elem);\n" +
+        "                        } else if (!existed) {\n" +
+        "                            updateHeapFields(name, elem);\n" +
+        "                        }\n" +
+        "                    } else if (elem != null && elem.getClass().isArray()) {\n" +
+        "                        copy.add(deepCopyArray(elem));\n" +
+        "                    } else { copy.add(elem); }\n" +
+        "                }\n" +
+        "                varsCopy.put(e.getKey(), copy);\n" +
+        "                updateHeapSlots(e.getKey(), copy);\n" +
+        "            } else if (isComplexObject(v)) {\n" +
+        "                String id = ensureHeapObject(e.getKey(), v);\n" +
+        "                varsCopy.put(e.getKey(), id);\n" +
+        "                if (heapObjects.containsKey(e.getKey())) {\n" +
+        "                    updateHeapFields(e.getKey(), v);\n" +
+        "                }\n" +
+        "            } else { varsCopy.put(e.getKey(), v); }\n" +
         "        }\n" +
         "        record.put(\"variables\", varsCopy);\n" +
+        "        record.put(\"heap\", deepCopyHeap());\n" +
+        "        LinkedHashMap<String,Object> stackFrame = new LinkedHashMap<>();\n" +
+        "        stackFrame.put(\"method\", \"main\");\n" +
+        "        stackFrame.put(\"locals\", new LinkedHashMap<>(varsCopy));\n" +
+        "        record.put(\"stackFrame\", stackFrame);\n" +
         "        if (capturedOutput != null) {\n" +
         "            String outStr = capturedOutput.toString();\n" +
         "            int pos = outStr.length();\n" +
-        "            if (pos > lastOutputPos) {\n" +
-        "                String raw = outStr.substring(lastOutputPos);\n" +
-        "                record.put(\"output\", raw.replace(\"\\r\\n\", \"\\n\"));\n" +
-        "                lastOutputPos = pos;\n" +
-        "            }\n" +
+        "            if (pos > lastOutputPos) { record.put(\"output\", outStr.substring(lastOutputPos).replace(\"\\r\\n\",\"\\n\")); lastOutputPos = pos; }\n" +
         "        }\n" +
         "        steps.add(record);\n" +
         "    }\n" +
@@ -76,7 +221,7 @@ public class RunController {
         "        return cond;\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
-        "    public static void reset() { steps.clear(); disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); heapObjects.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
@@ -180,7 +325,12 @@ public class RunController {
             return RunResponse.ok(runId, steps, userOutput);
 
         }catch(Exception e){
-            return RunResponse.fail(e.getMessage());
+            // 解包 InvocationTargetException 以获取根因
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            return RunResponse.fail(root.getClass().getSimpleName() + ": " + root.getMessage());
         }
     }
 

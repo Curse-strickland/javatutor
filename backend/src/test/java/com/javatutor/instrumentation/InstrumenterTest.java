@@ -23,11 +23,55 @@ class InstrumenterTest {
     private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
         "import java.io.ByteArrayOutputStream;\n" +
+        "import java.lang.reflect.Array;\n" +
         "public class TraceEngine {\n" +
         "    private static List<Map<String,Object>> steps = new ArrayList<>();\n" +
         "    private static volatile boolean disabled = false;\n" +
         "    private static ByteArrayOutputStream capturedOutput;\n" +
         "    private static int lastOutputPos = 0;\n" +
+        "    private static LinkedHashMap<String,Map<String,Object>> heapObjects = new LinkedHashMap<>();\n" +
+        "    public static String allocArray(String name, int length) {\n" +
+        "        if (disabled) return \"0x0000\";\n" +
+        "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
+        "        LinkedHashMap<String,Object> obj = new LinkedHashMap<>();\n" +
+        "        obj.put(\"type\", \"int[\" + length + \"]\");\n" +
+        "        obj.put(\"length\", length);\n" +
+        "        obj.put(\"id\", id);\n" +
+        "        obj.put(\"name\", name);\n" +
+        "        obj.put(\"slots\", new ArrayList<>());\n" +
+        "        heapObjects.put(name, obj);\n" +
+        "        return id;\n" +
+        "    }\n" +
+        "    public static String allocObject(String name, Object obj) {\n" +
+        "        if (disabled) return \"0x0000\";\n" +
+        "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
+        "        LinkedHashMap<String,Object> heapObj = new LinkedHashMap<>();\n" +
+        "        heapObj.put(\"type\", obj.getClass().getSimpleName());\n" +
+        "        heapObj.put(\"id\", id);\n" +
+        "        heapObj.put(\"name\", name);\n" +
+        "        heapObj.put(\"fields\", new LinkedHashMap<>());\n" +
+        "        heapObjects.put(name, heapObj);\n" +
+        "        return id;\n" +
+        "    }\n" +
+        "    private static void updateHeapSlots(String name, List<Object> arrayCopy) {\n" +
+        "        if (!heapObjects.containsKey(name)) { allocArray(name, arrayCopy.size()); }\n" +
+        "        Map<String,Object> obj = heapObjects.get(name);\n" +
+        "        List<Map<String,Object>> slots = new ArrayList<>();\n" +
+        "        for (int i = 0; i < arrayCopy.size(); i++) {\n" +
+        "            LinkedHashMap<String,Object> slot = new LinkedHashMap<>();\n" +
+        "            slot.put(\"index\", i);\n" +
+        "            slot.put(\"value\", arrayCopy.get(i));\n" +
+        "            slots.add(slot);\n" +
+        "        }\n" +
+        "        obj.put(\"slots\", slots);\n" +
+        "    }\n" +
+        "    private static LinkedHashMap<String,Object> deepCopyHeap() {\n" +
+        "        LinkedHashMap<String,Object> copy = new LinkedHashMap<>();\n" +
+        "        for (Map.Entry<String,Map<String,Object>> e : heapObjects.entrySet()) {\n" +
+        "            copy.put(e.getKey(), new LinkedHashMap<>(e.getValue()));\n" +
+        "        }\n" +
+        "        return copy;\n" +
+        "    }\n" +
         "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
         "        if (disabled) return;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
@@ -46,7 +90,7 @@ class InstrumenterTest {
         "        steps.add(record);\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
-        "    public static void reset() { steps.clear(); disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); heapObjects.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
@@ -131,8 +175,75 @@ class InstrumenterTest {
     }
 
     /**
-     * 极端情况：最深嵌套里的变量（temp）不应泄露到外层。
+     * 验证 Person 内部类代码的插桩不会引入编译错误
      */
+    @Test
+    void testPersonCodeInstrumentationCompilesAndRuns() throws Exception {
+        String personCode =
+            "public class UserCode {\n" +
+            "    static class Person {\n" +
+            "        String name;\n" +
+            "        int age;\n" +
+            "        Person friend;\n" +
+            "        Person(String name, int age) {\n" +
+            "            this.name = name;\n" +
+            "            this.age = age;\n" +
+            "        }\n" +
+            "    }\n" +
+            "    public static void main(String[] args) {\n" +
+            "        int x = 10;\n" +
+            "        Person alice = new Person(\"Alice\", 25);\n" +
+            "        Person bob = new Person(\"Bob\", 30);\n" +
+            "        alice.friend = bob;\n" +
+            "        bob.friend = alice;\n" +
+            "        int[] scores = {95, 88, 76};\n" +
+            "        x = x + 1;\n" +
+            "        System.out.println(\"done\");\n" +
+            "    }\n" +
+            "}\n";
+
+        Instrumenter instrumenter = new Instrumenter();
+        String result = instrumenter.instrument(personCode);
+        System.out.println("=== Person Instrumented ===");
+        System.out.println(result);
+        System.out.println("=========================");
+        result = removePackageDeclaration(result);
+
+        InMemoryCompiler compiler = new InMemoryCompiler();
+        Map<String, String> sources = new LinkedHashMap<>();
+        sources.put("TraceEngine", TRACE_ENGINE_SOURCE);
+        sources.put("UserCode", result);
+        Map<String, byte[]> bytecodeMap;
+        try {
+            bytecodeMap = compiler.compile(sources);
+        } catch (RuntimeException e) {
+            fail("Person 代码编译失败: " + e.getMessage());
+            return;
+        }
+
+        // 加载并运行
+        ClassLoader cl = new InMemoryClassLoader(bytecodeMap);
+        Class<?> traceEngineClass = cl.loadClass("TraceEngine");
+        Class<?> userClass = cl.loadClass("UserCode");
+
+        traceEngineClass.getMethod("reset").invoke(null);
+        Method main = userClass.getMethod("main", String[].class);
+        main.invoke(null, (Object) new String[0]);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> steps =
+            (List<Map<String, Object>>) traceEngineClass.getMethod("getSteps").invoke(null);
+
+        assertFalse(steps.isEmpty(), "应该有步骤产出");
+        System.out.println("=== Steps (" + steps.size() + " total) ===");
+        for (Map<String, Object> step : steps) {
+            System.out.println("  step=" + step.get("step") + " line=" + step.get("line")
+                + " vars=" + step.get("variables"));
+        }
+        System.out.println("=========================");
+    }
+
+
     @Test
     void testDeepNestedVariableNotLeakedToOuterScope() {
         String code =
