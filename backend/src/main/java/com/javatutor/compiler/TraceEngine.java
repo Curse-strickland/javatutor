@@ -37,15 +37,12 @@ public class TraceEngine {
                     Object elem = Array.get(v, i);
                     if (elem != null && isComplexObject(elem)) {
                         String name = e.getKey() + "[" + i + "]";
-                        boolean existed = heapObjects.containsKey(name);
                         String elemId = ensureHeapObject(name, elem);
                         copy.add(elemId);
                         // 只有当堆条目存在且 _objRef 匹配当前对象时，才更新字段
-                        // 如果引用被重新绑定（arr[0] = arr[1]），旧条目不应被更新
+                        // ensureHeapObject 若通过 findHeapIdByRef 返回已有 ID，则不会在 heapObjects 创建名为 name 的条目
+                        // 此时不应调用 updateHeapFields（否则 updateHeapFields 内部 allocObject 会新建堆条目）
                         if (heapObjects.containsKey(name) && heapObjects.get(name).get("_objRef") == elem) {
-                            updateHeapFields(name, elem);
-                        } else if (!existed) {
-                            // 新注册的条目（ensureHeapObject 中 allocObject 创建的）
                             updateHeapFields(name, elem);
                         }
                     } else if (elem != null && elem.getClass().isArray()) {

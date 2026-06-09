@@ -189,12 +189,9 @@ public class RunController {
         "                    Object elem = Array.get(v, i);\n" +
         "                    if (elem != null && isComplexObject(elem)) {\n" +
         "                        String name = e.getKey() + \"[\" + i + \"]\";\n" +
-        "                        boolean existed = heapObjects.containsKey(name);\n" +
         "                        String elemId = ensureHeapObject(name, elem);\n" +
         "                        copy.add(elemId);\n" +
         "                        if (heapObjects.containsKey(name) && heapObjects.get(name).get(\"_objRef\") == elem) {\n" +
-        "                            updateHeapFields(name, elem);\n" +
-        "                        } else if (!existed) {\n" +
         "                            updateHeapFields(name, elem);\n" +
         "                        }\n" +
         "                    } else if (elem != null && elem.getClass().isArray()) {\n" +
