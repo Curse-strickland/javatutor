@@ -43,9 +43,6 @@ public class TraceEngine {
                         if (heapObjects.containsKey(name) && heapObjects.get(name).get("_objRef") == elem) {
                             updateHeapFields(name, elem);
                         } else if (!existed) {
-                            // 新注册的条目（ensureHeapObject 中 allocObject 创建的）.get(name).get("_objRef") == elem) {
-                            updateHeapFields(name, elem);
-                        } else if (!existed) {
                             // 新注册的条目（ensureHeapObject 中 allocObject 创建的）
                             updateHeapFields(name, elem);
                         }
