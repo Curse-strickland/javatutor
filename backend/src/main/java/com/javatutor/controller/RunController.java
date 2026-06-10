@@ -125,8 +125,8 @@ public class RunController {
         "        while (cls != null && cls != Object.class) {\n" +
         "            for (Field f : cls.getDeclaredFields()) {\n" +
         "                if (Modifier.isStatic(f.getModifiers())) continue;\n" +
-        "                f.setAccessible(true);\n" +
         "                try {\n" +
+        "                    f.setAccessible(true);\n" +
         "                    Object fv = f.get(obj);\n" +
         "                    if (fv == null) { fields.put(f.getName(), null); }\n" +
         "                    else if (fv.getClass().isArray()) {\n" +

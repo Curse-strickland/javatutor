@@ -62,7 +62,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <jvmArguments>-Djava.security.manager=allow</jvmArguments>
+                    <jvmArguments>-Djava.security.manager=allow --add-opens java.base/java.util=ALL-UNNAMED</jvmArguments>
                 </configuration>
             </plugin>
         </plugins>

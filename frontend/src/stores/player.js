@@ -20,6 +20,8 @@ export const usePlayerStore = defineStore('player', {
     // Code analysis state
     analysisData: null,
     isAnalyzing: false,
+    controlFlowData: null,
+    cfViewStack: [],
     activeAiTab: 'explain',
     // File upload state
     rightTab: 'variables',
@@ -75,6 +77,8 @@ export const usePlayerStore = defineStore('player', {
           this.output = data.output || ''
           this.currentStep = 0
           this.requestAnalysis()
+          this.cfViewStack = []
+          this.requestControlFlow()
         } else {
           this.error = data.error || data.msg || '未知错误'
         }
@@ -229,6 +233,19 @@ export const usePlayerStore = defineStore('player', {
 
     switchRightTab(tab) {
       this.rightTab = tab
+    },
+
+    async requestControlFlow() {
+      if (!this.code) return
+      try {
+        const res = await fetch('/api/controlflow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: this.code })
+        })
+        const data = await res.json()
+        if (!data.error) this.controlFlowData = data
+      } catch (e) { console.warn('ControlFlow failed:', e.message) }
     },
 
     addUploadRecord(name, code) {

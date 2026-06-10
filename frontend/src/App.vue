@@ -48,6 +48,11 @@
           >变量</button>
           <button
             class="right-tab"
+            :class="{ active: store.rightTab === 'flow' }"
+            @click="store.switchRightTab('flow')"
+          >流程</button>
+          <button
+            class="right-tab"
             :class="{ active: store.rightTab === 'files' }"
             @click="store.switchRightTab('files')"
           >经典</button>
@@ -58,9 +63,8 @@
             <HeapStackPanel />
             <ConsoleOutput />
           </template>
-          <div v-else class="placeholder-tab">
-            <ClassicCodePanel @loadCode="onClassicLoad" />
-          </div>
+          <ControlFlowPanel v-else-if="store.rightTab === 'flow'" />
+          <ClassicCodePanel v-else @loadCode="onClassicLoad" />
         </div>
       </div>
     </div>
@@ -200,17 +204,23 @@ import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
 import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'
+import ControlFlowPanel from './components/ControlFlowPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
 const containerRef = ref(null)
 const progressRef = ref(null)
 const controlBarRef = ref(null)
-const leftWidth = ref(0)
+const containerWidth = ref(0)
+const splitRatio = ref(0.5)
 const isDragging = ref(false)
 const uploadOpen = ref(false)
 const MIN_LEFT = 200
 const MIN_RIGHT = 200
+const leftWidth = computed(() => {
+  const raw = containerWidth.value * splitRatio.value
+  return Math.round(Math.max(MIN_LEFT, Math.min(raw, containerWidth.value - MIN_RIGHT)))
+})
 const isAutoPlaying = ref(false)
 const speed = ref(1000)
 const speedOpen = ref(false)
@@ -346,11 +356,8 @@ const onMouseMove = (e) => {
   if (!isDragging.value) return
   const rect = containerRef.value?.getBoundingClientRect()
   if (!rect) return
-  let newWidth = e.clientX - rect.left
-  const max = rect.width - MIN_RIGHT
-  if (newWidth < MIN_LEFT) newWidth = MIN_LEFT
-  if (newWidth > max) newWidth = max
-  leftWidth.value = Math.round(newWidth)
+  containerWidth.value = rect.width
+  splitRatio.value = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
 }
 
 const onMouseUp = () => {
@@ -365,8 +372,7 @@ const onMouseUp = () => {
 const onWindowResize = () => {
   const rect = containerRef.value?.getBoundingClientRect()
   if (!rect) return
-  const max = rect.width - MIN_RIGHT
-  if (leftWidth.value > max) leftWidth.value = Math.max(MIN_LEFT, Math.round(max))
+  containerWidth.value = rect.width
   // 防止控制栏拖出窗口
   const barEl = controlBarRef.value
   if (barEl) {
@@ -380,7 +386,10 @@ const onWindowResize = () => {
 onMounted(async () => {
   await nextTick()
   const rect = containerRef.value?.getBoundingClientRect()
-  if (rect) leftWidth.value = Math.round(rect.width / 2)
+  if (rect) {
+    containerWidth.value = rect.width
+    splitRatio.value = 0.5
+  }
 
   // 控制栏默认居中于编辑区底部
   await nextTick()
