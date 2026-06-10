@@ -96,6 +96,37 @@
       <div v-else class="ai-hint">运行代码后自动分析。</div>
     </div>
 
+    <!-- 自定义 API Key（可折叠） -->
+    <div class="api-key-section">
+      <div class="api-key-header" @click="apiOpen = !apiOpen">
+        <svg class="api-chevron" :class="{ rotated: apiOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <span class="api-key-label">自定义 API</span>
+        <span v-if="store.userApiKey" class="api-status-saved">已保存</span>
+        <span v-else class="api-status-default">默认</span>
+      </div>
+      <div v-show="apiOpen" class="api-key-body">
+        <div class="api-key-row">
+          <input
+            type="password"
+            class="api-key-input"
+            v-model="apiKeyInput"
+            placeholder="sk-xxxxxxxxxxxxxxxx"
+            autocomplete="off"
+            @keyup.enter="saveApiKey"
+          />
+          <button class="api-save-btn" @click="saveApiKey">保存</button>
+        </div>
+        <div v-if="apiKeyError" class="api-key-error">{{ apiKeyError }}</div>
+        <div v-if="store.userApiKey" class="api-key-row">
+          <span class="api-key-saved-hint">已保存自定义 Key（仅本次会话）</span>
+          <button class="api-clear-btn" @click="clearApiKey">清除</button>
+        </div>
+        <p v-else class="api-key-hint">使用自己的 Key 调用模型。留空则使用默认服务。</p>
+      </div>
+    </div>
+
     <!-- Footer: manual explain button (解说 tab only) -->
     <div v-if="!store.autoExplain && store.activeAiTab === 'explain'" class="ai-footer">
       <button
@@ -121,6 +152,32 @@ import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
 const bodyRef = ref(null)
+const apiOpen = ref(false)
+const apiKeyInput = ref('')
+const apiKeyError = ref('')
+
+const KEY_PATTERN = /^[a-zA-Z0-9\-_.]{1,128}$/
+
+function saveApiKey() {
+  const val = apiKeyInput.value.trim()
+  if (!val) {
+    store.userApiKey = ''
+    apiKeyError.value = ''
+    return
+  }
+  if (!KEY_PATTERN.test(val)) {
+    apiKeyError.value = '格式无效：仅允许字母、数字、连字符、下划线和点号，长度 1-128'
+    return
+  }
+  store.userApiKey = val
+  apiKeyError.value = ''
+}
+
+function clearApiKey() {
+  store.userApiKey = ''
+  apiKeyInput.value = ''
+  apiKeyError.value = ''
+}
 
 const tabs = [
   { id: 'explain', label: '解说' },
@@ -287,7 +344,7 @@ function explainTag(tagName) {
 .ai-hint { color: var(--text-muted); font-size: 14px; text-align: center; padding: 8px 0; }
 .ai-loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); font-size: 14px; padding: 8px 0; }
 .ai-loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: ai-blink 1.2s ease-in-out infinite; }
-.ai-error { margin-top: 8px; padding: 6px 10px; font-size: 13px; color: #e57373; background: rgba(229,115,115,0.08); border-radius: 6px; border-left: 2px solid #e57373; }
+.ai-error { margin-top: 8px; padding: 6px 10px; font-size: 12px; color: #e57373; background: rgba(229,115,115,0.08); border-radius: 6px; border-left: 2px solid #e57373; word-break: break-all; max-height: 80px; overflow-y: auto; }
 
 /* --- Complexity view --- */
 .complexity-view { display: flex; flex-direction: column; gap: 10px; }
@@ -370,6 +427,116 @@ function explainTag(tagName) {
 
 @keyframes ai-blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Custom API Key --- */
+.api-key-section {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.api-key-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.api-chevron {
+  color: var(--text-muted);
+  transition: transform 0.25s ease;
+}
+.api-chevron.rotated {
+  transform: rotate(90deg);
+}
+.api-key-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.api-status-saved {
+  font-size: 10px;
+  color: var(--primary);
+  background: var(--accent-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.api-status-default {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.api-key-body {
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.api-key-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.api-key-input {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.api-key-input:focus {
+  border-color: var(--accent-border);
+}
+.api-key-input::placeholder {
+  color: var(--text-muted);
+}
+.api-save-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.api-save-btn:hover {
+  background: rgba(10,132,255,0.18);
+}
+.api-clear-btn {
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.api-clear-btn:hover {
+  color: #e57373;
+}
+.api-key-error {
+  font-size: 11px;
+  color: #e57373;
+  padding: 4px 8px;
+  background: rgba(229,115,115,0.08);
+  border-radius: 5px;
+  border-left: 2px solid #e57373;
+  word-break: break-all;
+}
+.api-key-saved-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.api-key-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 0;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ai-loading-dot, .ai-spin { animation: none; }

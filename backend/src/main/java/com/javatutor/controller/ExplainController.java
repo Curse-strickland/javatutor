@@ -43,7 +43,8 @@ public class ExplainController {
                         } catch (IOException e) {
                             throw new RuntimeException("Client disconnected", e);
                         }
-                    }
+                    },
+                    request.getApiKey()
                 );
                 emitter.complete();
             } catch (Exception e) {
@@ -66,7 +67,7 @@ public class ExplainController {
             return Map.of("error", "代码不能为空");
         }
         try {
-            return analyzeService.analyze(code);
+            return analyzeService.analyze(code, request.get("apiKey"));
         } catch (Exception e) {
             return Map.of("error", e.getMessage() != null ? e.getMessage() : "分析失败");
         }

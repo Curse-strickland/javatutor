@@ -34,9 +34,17 @@ public class DeepSeekService {
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private static final java.util.regex.Pattern SAFE_KEY = java.util.regex.Pattern.compile("^[a-zA-Z0-9\\-_.]{1,128}$");
+
     public void explainStream(String code, int step, int totalSteps,
                               int currentLine, Map<String, Object> variables,
                               Consumer<String> onChunk) throws IOException, InterruptedException {
+        explainStream(code, step, totalSteps, currentLine, variables, onChunk, null);
+    }
+
+    public void explainStream(String code, int step, int totalSteps,
+                              int currentLine, Map<String, Object> variables,
+                              Consumer<String> onChunk, String userApiKey) throws IOException, InterruptedException {
 
         List<Map<String, String>> messages = buildMessages(code, step, totalSteps, currentLine, variables);
 
@@ -49,10 +57,12 @@ public class DeepSeekService {
 
         String jsonBody = objectMapper.writeValueAsString(body);
 
+        String effectiveKey = resolveKey(userApiKey);
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + effectiveKey)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
@@ -61,8 +71,9 @@ public class DeepSeekService {
 
         int status = response.statusCode();
         if (status != 200) {
-            String errorBody = new String(response.body().readAllBytes());
-            throw new IOException("DeepSeek API error " + status + ": " + errorBody);
+            byte[] errorBytes = response.body().readAllBytes();
+            System.err.println("DeepSeek API error " + status + ": " + new String(errorBytes, StandardCharsets.UTF_8));
+            throw new IOException("API 调用失败 (HTTP " + status + ")，请检查 API Key 是否正确");
         }
 
         try (BufferedReader reader = new BufferedReader(
@@ -141,5 +152,15 @@ public class DeepSeekService {
             return lines[lineNumber - 1].trim();
         }
         return "(未知)";
+    }
+
+    private String resolveKey(String userApiKey) {
+        if (userApiKey != null && !userApiKey.isBlank()) {
+            if (!SAFE_KEY.matcher(userApiKey).matches()) {
+                throw new IllegalArgumentException("API Key 格式无效，仅允许字母、数字、连字符、下划线和点号，长度 1-128");
+            }
+            return userApiKey;
+        }
+        return apiKey;
     }
 }
