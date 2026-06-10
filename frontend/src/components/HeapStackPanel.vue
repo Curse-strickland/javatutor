@@ -67,6 +67,13 @@
                 <span v-else class="hoc-val">{{ formatVal(fv) }}</span>
               </div>
             </template>
+            <template v-else-if="obj.fields && Object.keys(obj.fields).length">
+              <div v-for="(fv, fk) in obj.fields" :key="'f'+fk" class="ho-cell ho-field">
+                <span class="hoc-idx">{{ fk }}</span>
+                <span v-if="fv && fv.ref" class="si-ref">→ {{ fv.ref }}</span>
+                <span v-else class="hoc-val">{{ formatVal(fv) }}</span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -85,9 +92,10 @@ const isOpen = ref(true)
 const heapMap = computed(() => store.currentHeap || {})
 
 // 从后端栈帧读取真实栈帧数组
+// 栈帧反转：后端追加新帧到数组末尾，前端需要最新帧显示在顶部
 const stackFrames = computed(() => {
   const frames = store.activeStackFrames
-  if (frames && frames.length) return frames
+  if (frames && frames.length) return [...frames].reverse()
   const sf = store.currentStackFrame
   return sf ? [sf] : []
 })
@@ -98,6 +106,8 @@ const heapNames = computed(() => new Set(Object.keys(heapMap.value)))
 const hasData = computed(() => stackFrames.value.length > 0 || Object.keys(heapMap.value).length > 0)
 
 // 每个栈帧的局部变量
+// 后端 collectVisibleVariables 按内层→外层的顺序收集，内层变量排在前面
+// 前端直接保持原顺序：内层（最新）变量在顶部，参数在底部 → 栈从下往上生长
 function getFrameItems(frame, frameIndex) {
   const items = []
   const locals = frame.locals || {}
@@ -111,8 +121,7 @@ function getFrameItems(frame, frameIndex) {
       items.push({ name, isRef: false, value: formatVal(val) })
     }
   }
-  // 最新栈帧（数组最后一项）从下往上显示
-  return frameIndex === stackFrames.value.length - 1 ? items.reverse() : items
+  return items
 }
 
 // 堆对象：从 heap 快照直接读取

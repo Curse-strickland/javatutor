@@ -36,6 +36,10 @@
 | 内部类跳桩 | `isMainMethodBlock`（太严格） | `isInnerClassBlock`（只跳嵌套类的构造函数，不影响 main 内的 for/if） |
 | 异常报告 | 只返回外层消息 | 解包 `InvocationTargetException` 显示根因 |
 | InMemoryCompiler | `classFileMap.get()` | `computeIfAbsent` 动态创建内部类 ClassFileObject |
+| 栈帧变量持久化 | 每次内存实时快照 | `frameLocals` + `merged` 持久化，新变量在前 |
+| 引用共享 | 未处理 | `findHeapNameByRef` 更新源堆条目字段（`p`→`c`） |
+| JDK 类 | 反射报错 | `isComplexObject` 排除 `java.*`/`jdk.*`/`sun.*` 包 |
+| 静态字段 | 不可见 | `collectVisibleVariables` 收集最外层类 `static` 字段 |
 
 ## 测试
 

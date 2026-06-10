@@ -20,6 +20,23 @@ public class TraceEngine {
     // 堆对象注册表：变量名 → 对象信息（类型、ID、slots数组）
     private static LinkedHashMap<String, Map<String, Object>> heapObjects = new LinkedHashMap<>();
 
+    // 调用栈：方法名列表
+    private static List<String> callStack = new ArrayList<>();
+    // 每层栈帧的持久化局部变量
+    private static List<LinkedHashMap<String, Object>> frameLocals = new ArrayList<>();
+
+    public static String pushFrame(String methodName) {
+        callStack.add(methodName);
+        frameLocals.add(new LinkedHashMap<>());
+        return methodName;
+    }
+
+    public static String popFrame() {
+        if (callStack.isEmpty()) return "???";
+        frameLocals.remove(frameLocals.size() - 1);
+        return callStack.remove(callStack.size() - 1);
+    }
+
     public static void record(int step, int line, Map<String,Object> vars) {
         if (disabled) return;
         LinkedHashMap<String,Object> record = new LinkedHashMap<String, Object>();
@@ -59,10 +76,25 @@ public class TraceEngine {
                 // 复杂对象：注册到堆，栈里只存引用 ID
                 String id = ensureHeapObject(e.getKey(), v);
                 varsCopy.put(e.getKey(), id);
-                // 只有当对象真正新注册时才更新字段（复用的引用不重复创建堆条目）
+                // 如果是新注册的堆条目，更新字段
                 if (heapObjects.containsKey(e.getKey())) {
                     updateHeapFields(e.getKey(), v);
+                } else {
+                    // 如果是通过复用已有引用找到的（如 p 指向 c），更新源堆条目的字段
+                    String existingName = findHeapNameByRef(v);
+                    if (existingName != null) {
+                        updateHeapFields(existingName, v);
+                    }
                 }
+            } else if (v instanceof java.util.Collection<?>) {
+                // JDK 集合类（如 Stack、Queue、ArrayList）：浅拷贝为数组，存入堆中可视化
+                java.util.Collection<?> coll = (java.util.Collection<?>) v;
+                List<Object> copy = new ArrayList<>(coll.size());
+                for (Object elem : coll) {
+                    copy.add(elem);
+                }
+                varsCopy.put(e.getKey(), copy);
+                updateHeapSlots(e.getKey(), copy);
             } else {
                 varsCopy.put(e.getKey(), v);
             }
@@ -70,11 +102,18 @@ public class TraceEngine {
         record.put("variables", varsCopy);
         // 堆快照
         record.put("heap", deepCopyHeap());
-        // 栈帧信息
-        LinkedHashMap<String, Object> stackFrame = new LinkedHashMap<>();
-        stackFrame.put("method", "main");
-        stackFrame.put("locals", new LinkedHashMap<>(varsCopy));
-        record.put("stackFrame", stackFrame);
+        // 持久化：用当前步骤变量替换帧 locals（已过期变量自然消失）
+        if (!callStack.isEmpty()) {
+            frameLocals.set(frameLocals.size() - 1, new LinkedHashMap<>(varsCopy));
+        }
+        // 栈帧列表：每层调用一个帧，携带持久化的局部变量
+        List<Map<String, Object>> stackFrames = new ArrayList<>();
+        for (int i = 0; i < callStack.size(); i++) {
+            LinkedHashMap<String, Object> frame = new LinkedHashMap<>();
+            frame.put("method", callStack.get(i));
+            frame.put("locals", new LinkedHashMap<>(frameLocals.get(i)));
+            stackFrames.add(frame);
+        }
         // 输出捕获
         if (capturedOutput != null) {
             String outStr = capturedOutput.toString();
@@ -105,16 +144,17 @@ public class TraceEngine {
         return copy;
     }
 
-    // 判断是否为复杂对象（非基本类型、非包装类、非 String、非数组）
+    // 判断是否为复杂对象（非基本类型、非包装类、非 String、非数组、非 JDK 标准库类）
     private static boolean isComplexObject(Object v) {
         if (v == null) return false;
         Class<?> cls = v.getClass();
-        return !cls.isPrimitive()
-            && !cls.isArray()
-            && cls != String.class
-            && !Number.class.isAssignableFrom(cls)
-            && cls != Boolean.class
-            && cls != Character.class;
+        if (cls.isPrimitive() || cls.isArray()) return false;
+        if (cls == String.class || Number.class.isAssignableFrom(cls)
+            || cls == Boolean.class || cls == Character.class) return false;
+        // 排除 JDK 标准库类（反射访问 module 内部字段会抛出 InaccessibleObjectException）
+        String pkg = cls.getPackageName();
+        if (pkg.startsWith("java.") || pkg.startsWith("jdk.") || pkg.startsWith("sun.")) return false;
+        return true;
     }
 
     // 确保对象在堆中已注册，返回堆 ID
@@ -164,6 +204,16 @@ public class TraceEngine {
         return null;
     }
 
+    // 按对象引用查找已注册堆条目的名称（key）
+    private static String findHeapNameByRef(Object obj) {
+        for (Map.Entry<String, Map<String, Object>> e : heapObjects.entrySet()) {
+            if (e.getValue().get("_objRef") == obj) {
+                return e.getKey();
+            }
+        }
+        return null;
+    }
+
     // 快照对象字段：只取浅层字段值，引用型字段存目标堆 ID 打断循环
     private static void updateHeapFields(String name, Object obj) {
         updateHeapFields(name, obj, new HashSet<>());
@@ -202,10 +252,10 @@ public class TraceEngine {
                         refEntry.put("ref", arrId);
                         fields.put(f.getName(), refEntry);
                     } else if (isComplexObject(fv)) {
-                        // 引用型字段：确保目标对象字段已填充，同时用 visited 打断循环
+                        // 引用型字段：用 visited 防循环，同时确保字段被填充
                         String existingId = findHeapIdByRef(fv);
                         if (existingId != null) {
-                            // 找到该对象在堆中的注册名，填充字段（若 visited 中已有则跳过）
+                            // 对象已注册：找到其堆条目名，调用 updateHeapFields 填充字段
                             for (Map.Entry<String, Map<String, Object>> he : heapObjects.entrySet()) {
                                 if (he.getValue().get("_objRef") == fv) {
                                     updateHeapFields(he.getKey(), fv, visited);
@@ -286,6 +336,8 @@ public class TraceEngine {
     public static void reset() {
         steps.clear();
         heapObjects.clear();
+        callStack.clear();
+        frameLocals.clear();
         disabled = false;
         lastOutputPos = 0;
     }

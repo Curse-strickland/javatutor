@@ -31,7 +31,15 @@ export const usePlayerStore = defineStore('player', {
     })(),
   }),
   getters: {
-    currentVariables: (state) => state.steps[state.currentStep]?.variables || {},
+    currentVariables: (state) => {
+      // 合并所有栈帧的局部变量，使变量面板在函数调用时也显示外层变量
+      const frames = state.steps[state.currentStep]?.stackFrames || []
+      const merged = {}
+      for (const f of frames) {
+        if (f.locals) Object.assign(merged, f.locals)
+      }
+      return Object.keys(merged).length > 0 ? merged : (state.steps[state.currentStep]?.variables || {})
+    },
     currentLine: (state) => state.steps[state.currentStep]?.line || null,
     totalSteps: (state) => state.steps.length,
     currentHeap: (state) => state.steps[state.currentStep]?.heap || {},

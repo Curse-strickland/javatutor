@@ -39,6 +39,10 @@ public class RunController {
         "    private static ByteArrayOutputStream capturedOutput;\n" +
         "    private static int lastOutputPos = 0;\n" +
         "    private static LinkedHashMap<String,Map<String,Object>> heapObjects = new LinkedHashMap<>();\n" +
+        "    private static List<String> callStack = new ArrayList<>();\n" +
+        "    private static List<LinkedHashMap<String,Object>> frameLocals = new ArrayList<>();\n" +
+        "    public static String pushFrame(String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); return name; }\n" +
+        "    public static String popFrame() { if (callStack.isEmpty()) return \"???\"; frameLocals.remove(frameLocals.size()-1); return callStack.remove(callStack.size()-1); }\n" +
         "    private static List<Object> deepCopyArray(Object arr) {\n" +
         "        int len = Array.getLength(arr);\n" +
         "        List<Object> copy = new ArrayList<>(len);\n" +
@@ -55,7 +59,11 @@ public class RunController {
         "    private static boolean isComplexObject(Object v) {\n" +
         "        if (v == null) return false;\n" +
         "        Class<?> cls = v.getClass();\n" +
-        "        return !cls.isPrimitive() && !cls.isArray() && cls != String.class && !Number.class.isAssignableFrom(cls) && cls != Boolean.class && cls != Character.class;\n" +
+        "        if (cls.isPrimitive() || cls.isArray()) return false;\n" +
+        "        if (cls == String.class || Number.class.isAssignableFrom(cls) || cls == Boolean.class || cls == Character.class) return false;\n" +
+        "        String pkg = cls.getPackageName();\n" +
+        "        if (pkg.startsWith(\"java.\") || pkg.startsWith(\"jdk.\") || pkg.startsWith(\"sun.\")) return false;\n" +
+        "        return true;\n" +
         "    }\n" +
         "    private static String ensureHeapObject(String name, Object obj) {\n" +
         "        if (heapObjects.containsKey(name)) {\n" +
@@ -72,6 +80,12 @@ public class RunController {
         "    private static String findHeapIdByRef(Object obj) {\n" +
         "        for (Map.Entry<String,Map<String,Object>> e : heapObjects.entrySet()) {\n" +
         "            if (e.getValue().get(\"_objRef\") == obj) return (String) e.getValue().get(\"id\");\n" +
+        "        }\n" +
+        "        return null;\n" +
+        "    }\n" +
+        "    private static String findHeapNameByRef(Object obj) {\n" +
+        "        for (Map.Entry<String,Map<String,Object>> e : heapObjects.entrySet()) {\n" +
+        "            if (e.getValue().get(\"_objRef\") == obj) return e.getKey();\n" +
         "        }\n" +
         "        return null;\n" +
         "    }\n" +
@@ -205,15 +219,33 @@ public class RunController {
         "                varsCopy.put(e.getKey(), id);\n" +
         "                if (heapObjects.containsKey(e.getKey())) {\n" +
         "                    updateHeapFields(e.getKey(), v);\n" +
+        "                } else {\n" +
+        "                    String existingName = findHeapNameByRef(v);\n" +
+        "                    if (existingName != null) {\n" +
+        "                        updateHeapFields(existingName, v);\n" +
+        "                    }\n" +
         "                }\n" +
+        "            } else if (v instanceof java.util.Collection<?>) {\n" +
+        "                java.util.Collection<?> coll = (java.util.Collection<?>) v;\n" +
+        "                List<Object> copy = new ArrayList<>(coll.size());\n" +
+        "                for (Object elem : coll) { copy.add(elem); }\n" +
+        "                varsCopy.put(e.getKey(), copy);\n" +
+        "                updateHeapSlots(e.getKey(), copy);\n" +
         "            } else { varsCopy.put(e.getKey(), v); }\n" +
         "        }\n" +
         "        record.put(\"variables\", varsCopy);\n" +
         "        record.put(\"heap\", deepCopyHeap());\n" +
-        "        LinkedHashMap<String,Object> stackFrame = new LinkedHashMap<>();\n" +
-        "        stackFrame.put(\"method\", \"main\");\n" +
-        "        stackFrame.put(\"locals\", new LinkedHashMap<>(varsCopy));\n" +
-        "        record.put(\"stackFrame\", stackFrame);\n" +
+        "        if (!callStack.isEmpty()) {\n" +
+        "            frameLocals.set(frameLocals.size()-1, new LinkedHashMap<>(varsCopy));\n" +
+        "        }\n" +
+        "        java.util.List<Map<String,Object>> stackFrames = new java.util.ArrayList<>();\n" +
+        "        for (int i = 0; i < callStack.size(); i++) {\n" +
+        "            LinkedHashMap<String,Object> frame = new LinkedHashMap<>();\n" +
+        "            frame.put(\"method\", callStack.get(i));\n" +
+        "            frame.put(\"locals\", new LinkedHashMap<>(frameLocals.get(i)));\n" +
+        "            stackFrames.add(frame);\n" +
+        "        }\n" +
+        "        record.put(\"stackFrames\", stackFrames);\n" +
         "        if (capturedOutput != null) {\n" +
         "            String outStr = capturedOutput.toString();\n" +
         "            int pos = outStr.length();\n" +
@@ -229,7 +261,7 @@ public class RunController {
         "        return cond;\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
-        "    public static void reset() { steps.clear(); heapObjects.clear(); disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); heapObjects.clear(); callStack.clear(); frameLocals.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
