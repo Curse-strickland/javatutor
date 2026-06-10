@@ -3,8 +3,33 @@
     <GlobalStatus />
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
-      <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none">
-        <Editor ref="editorRef" class="h-full" />
+      <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none flex flex-col">
+        <div class="editor-card-header">
+          <span class="rc-dot" />
+          <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
+          <button
+            class="upload-toggle-btn"
+            :class="{ active: uploadOpen }"
+            @click="toggleUpload"
+            title="导入文件"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span class="upload-toggle-label">导入</span>
+          </button>
+        </div>
+        <!-- 文件上传面板（向下滑出） -->
+        <transition name="upload-slide">
+          <div v-if="uploadOpen" class="upload-panel-wrapper">
+            <FileUploadPanel @loadCode="onFileLoad" />
+          </div>
+        </transition>
+        <div class="flex-1 min-h-0">
+          <Editor ref="editorRef" class="h-full" />
+        </div>
       </div>
 
       <!-- 可拖拽分割条 -->
@@ -12,16 +37,30 @@
         <div class="splitter-handle" />
       </div>
 
-      <!-- 右侧：变量展示卡片 -->
+      <!-- 右侧：标签页卡片 -->
       <div class="flex-1 right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
-          <h3 class="font-bold">变量展示区</h3>
+          <button
+            class="right-tab"
+            :class="{ active: store.rightTab === 'variables' }"
+            @click="store.switchRightTab('variables')"
+          >变量</button>
+          <button
+            class="right-tab"
+            :class="{ active: store.rightTab === 'files' }"
+            @click="store.switchRightTab('files')"
+          >经典</button>
         </div>
         <div class="flex-1 overflow-auto right-card-body">
-          <VariablePanel />
-          <HeapStackPanel />
-          <ConsoleOutput />
+          <template v-if="store.rightTab === 'variables'">
+            <VariablePanel />
+            <HeapStackPanel />
+            <ConsoleOutput />
+          </template>
+          <div v-else class="placeholder-tab">
+            <ClassicCodePanel @loadCode="onClassicLoad" />
+          </div>
         </div>
       </div>
     </div>
@@ -138,9 +177,10 @@
             @click="toggleAiPanel"
             title="AI 解说"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l1.2 4.8L19 8l-5.8 1.2L12 15l-1.2-5.8L5 8l5.8-1.2z" />
-              <path d="M12 22l-.5-2.5L9 18.5l2.5-.5.5-2 .5 2 2.5.5-2.5.5z" opacity="0.5" />
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+              <path d="M15.5 2C8.6 2 3 7.6 3 14.5S8.6 27 15.5 27c.8 0 1.5-.1 2.3-.3l4.2 3.7c.3.3.8.4 1.2.2.4-.2.6-.6.6-1v-4c4-2.2 6.7-6.5 6.7-11.3C30.5 7.6 24.9 2 17.5 2h-2z" fill="currentColor"/>
+              <circle cx="12" cy="14" r="2" fill="var(--card-bg)"/>
+              <circle cx="19" cy="14" r="2" fill="var(--card-bg)"/>
             </svg>
           </button>
         </div>
@@ -158,6 +198,8 @@ import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
 import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
+import FileUploadPanel from './components/FileUploadPanel.vue'
+import ClassicCodePanel from './components/ClassicCodePanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -166,6 +208,7 @@ const progressRef = ref(null)
 const controlBarRef = ref(null)
 const leftWidth = ref(0)
 const isDragging = ref(false)
+const uploadOpen = ref(false)
 const MIN_LEFT = 200
 const MIN_RIGHT = 200
 const isAutoPlaying = ref(false)
@@ -274,6 +317,20 @@ const runCode = () => {
   const code = editorRef.value?.getCode() || ''
   store.runCode(code)
   if (isAutoPlaying.value) stopAutoPlay()
+}
+
+function toggleUpload() {
+  uploadOpen.value = !uploadOpen.value
+}
+
+const onFileLoad = ({ name, code }) => {
+  editorRef.value?.setCode(code)
+  store.addUploadRecord(name, code)
+}
+
+const onClassicLoad = ({ name, code }) => {
+  editorRef.value?.setCode(code)
+  store.addUploadRecord(name, code)
 }
 
 const startDrag = (e) => {
@@ -437,7 +494,71 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  padding: 0;
+}
+.editor-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Upload toggle button in editor header */
+.upload-toggle-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.15s, border-color 0.2s;
+}
+.upload-toggle-btn:hover {
+  color: var(--text-h);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.upload-toggle-btn.active {
+  color: var(--primary);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.upload-toggle-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Upload panel wrapper — slides down from header */
+.upload-panel-wrapper {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  max-height: 360px;
+  overflow-y: auto;
+  border-radius: 0 0 12px 12px;
+}
+.upload-slide-enter-active {
+  transition: max-height 0.3s cubic-bezier(.22,.9,.27,1), opacity 0.25s, padding 0.25s;
+}
+.upload-slide-leave-active {
+  transition: max-height 0.22s cubic-bezier(.22,.9,.27,1), opacity 0.2s, padding 0.2s;
+}
+.upload-slide-enter-from,
+.upload-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.upload-slide-enter-to,
+.upload-slide-leave-from {
+  max-height: 360px;
+  opacity: 1;
 }
 
 .right-card {
@@ -458,6 +579,24 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 .right-card-body {
   padding: 12px;
+}
+
+/* Right card tabs — matches AiTutorPanel tab style */
+.right-tab {
+  background: none;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.15s;
+}
+.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.right-tab.active {
+  color: var(--primary);
+  background: var(--accent-bg);
 }
 
 /* Splitter */
@@ -621,11 +760,23 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 /* AI toggle button */
 .ai-toggle-btn {
   position: relative;
-  transition: color 0.2s, background 0.15s;
+  gap: 4px;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  transition: color 0.2s, background 0.15s, border-color 0.2s;
+}
+.ai-toggle-btn:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
 }
 .ai-toggle-btn.active {
   color: var(--primary);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
+}
+.ai-toggle-btn:hover circle,
+.ai-toggle-btn.active circle {
+  fill: var(--accent-bg);
 }
 .ai-toggle-btn.pulsing {
   animation: ai-pulse 1.5s ease-in-out infinite;
@@ -707,9 +858,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
 }
 .speed-btn {
-  gap: 5px;
-  padding: 6px 8px;
-  min-width: 52px;
+  gap: 4px;
+  padding: 6px 10px;
+  min-width: 62px;
   justify-content: center;
 }
 .speed-label {

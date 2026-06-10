@@ -21,6 +21,14 @@ export const usePlayerStore = defineStore('player', {
     analysisData: null,
     isAnalyzing: false,
     activeAiTab: 'explain',
+    // File upload state
+    rightTab: 'variables',
+    userApiKey: '',
+    pendingFiles: [],
+    uploadHistory: (() => {
+      try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
+      catch { return [] }
+    })(),
   }),
   getters: {
     currentVariables: (state) => state.steps[state.currentStep]?.variables || {},
@@ -122,7 +130,8 @@ export const usePlayerStore = defineStore('player', {
             step: this.currentStep,
             totalSteps: this.totalSteps,
             currentLine: this.currentLine,
-            variables: vars
+            variables: vars,
+            apiKey: this.userApiKey || ''
           }),
           signal: this.explainAbortController.signal
         })
@@ -134,6 +143,7 @@ export const usePlayerStore = defineStore('player', {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let currentEvent = ''
 
         while (true) {
           const { done, value } = await reader.read()
@@ -144,9 +154,19 @@ export const usePlayerStore = defineStore('player', {
           buffer = lines.pop() || ''
 
           for (const line of lines) {
-            if (!line.startsWith('data:')) continue
-            const data = line.slice(5).trim()
-            if (data) this.explainText += data
+            if (line.startsWith('event:')) {
+              currentEvent = line.slice(6).trim()
+            } else if (line.startsWith('data:')) {
+              const data = line.slice(5).trim()
+              if (!data) continue
+              if (currentEvent === 'error') {
+                this.explainError = data
+                currentEvent = ''
+                return  // 出错立即结束
+              }
+              this.explainText += data
+              currentEvent = ''
+            }
           }
         }
       } catch (e) {
@@ -190,7 +210,7 @@ export const usePlayerStore = defineStore('player', {
         const res = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: this.code })
+          body: JSON.stringify({ code: this.code, apiKey: this.userApiKey || '' })
         })
         const data = await res.json()
         if (data.error) {
@@ -203,6 +223,26 @@ export const usePlayerStore = defineStore('player', {
       } finally {
         this.isAnalyzing = false
       }
+    },
+
+    // --- File upload actions ---
+
+    switchRightTab(tab) {
+      this.rightTab = tab
+    },
+
+    addUploadRecord(name, code) {
+      // 去重：同名文件替换旧记录
+      const filtered = this.uploadHistory.filter(r => r.name !== name)
+      filtered.unshift({ name, code, time: Date.now() })
+      // 最多保留 20 条
+      this.uploadHistory = filtered.slice(0, 20)
+      localStorage.setItem('javatutor-uploads', JSON.stringify(this.uploadHistory))
+    },
+
+    removeUploadRecord(name) {
+      this.uploadHistory = this.uploadHistory.filter(r => r.name !== name)
+      localStorage.setItem('javatutor-uploads', JSON.stringify(this.uploadHistory))
     }
   }
 })
