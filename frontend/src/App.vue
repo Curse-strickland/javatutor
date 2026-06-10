@@ -50,7 +50,7 @@
             class="right-tab"
             :class="{ active: store.rightTab === 'files' }"
             @click="store.switchRightTab('files')"
-          >文件</button>
+          >经典</button>
         </div>
         <div class="flex-1 overflow-auto right-card-body">
           <template v-if="store.rightTab === 'variables'">
@@ -59,7 +59,7 @@
             <ConsoleOutput />
           </template>
           <div v-else class="placeholder-tab">
-            <p class="placeholder-text">更多功能即将上线</p>
+            <ClassicCodePanel @loadCode="onClassicLoad" />
           </div>
         </div>
       </div>
@@ -177,9 +177,10 @@
             @click="toggleAiPanel"
             title="AI 解说"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l1.2 4.8L19 8l-5.8 1.2L12 15l-1.2-5.8L5 8l5.8-1.2z" />
-              <path d="M12 22l-.5-2.5L9 18.5l2.5-.5.5-2 .5 2 2.5.5-2.5.5z" opacity="0.5" />
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+              <path d="M15.5 2C8.6 2 3 7.6 3 14.5S8.6 27 15.5 27c.8 0 1.5-.1 2.3-.3l4.2 3.7c.3.3.8.4 1.2.2.4-.2.6-.6.6-1v-4c4-2.2 6.7-6.5 6.7-11.3C30.5 7.6 24.9 2 17.5 2h-2z" fill="currentColor"/>
+              <circle cx="12" cy="14" r="2" fill="var(--card-bg)"/>
+              <circle cx="19" cy="14" r="2" fill="var(--card-bg)"/>
             </svg>
           </button>
         </div>
@@ -198,6 +199,7 @@ import GlobalStatus from './components/GlobalStatus.vue'
 import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
 import FileUploadPanel from './components/FileUploadPanel.vue'
+import ClassicCodePanel from './components/ClassicCodePanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -322,6 +324,11 @@ function toggleUpload() {
 }
 
 const onFileLoad = ({ name, code }) => {
+  editorRef.value?.setCode(code)
+  store.addUploadRecord(name, code)
+}
+
+const onClassicLoad = ({ name, code }) => {
   editorRef.value?.setCode(code)
   store.addUploadRecord(name, code)
 }
@@ -592,19 +599,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   background: var(--accent-bg);
 }
 
-.placeholder-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 120px;
-}
-.placeholder-text {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
 /* Splitter */
 .splitter {
   width: 8px;
@@ -766,11 +760,23 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 /* AI toggle button */
 .ai-toggle-btn {
   position: relative;
-  transition: color 0.2s, background 0.15s;
+  gap: 4px;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  transition: color 0.2s, background 0.15s, border-color 0.2s;
+}
+.ai-toggle-btn:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
 }
 .ai-toggle-btn.active {
   color: var(--primary);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
+}
+.ai-toggle-btn:hover circle,
+.ai-toggle-btn.active circle {
+  fill: var(--accent-bg);
 }
 .ai-toggle-btn.pulsing {
   animation: ai-pulse 1.5s ease-in-out infinite;

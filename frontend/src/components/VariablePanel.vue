@@ -140,7 +140,7 @@ watch(
         nextTick(() => {
           try {
             const el = document.querySelector(`[data-key="${k}"]`)
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
           } catch (e) { /* ignore selector issues */ }
         })
       }
