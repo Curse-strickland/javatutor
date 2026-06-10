@@ -2,6 +2,7 @@ package com.javatutor.controller;
 
 import com.javatutor.model.ExplainRequest;
 import com.javatutor.service.AnalyzeService;
+import com.javatutor.service.ControlFlowService;
 import com.javatutor.service.DeepSeekService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -17,10 +18,13 @@ public class ExplainController {
 
     private final DeepSeekService deepSeekService;
     private final AnalyzeService analyzeService;
+    private final ControlFlowService controlFlowService;
 
-    public ExplainController(DeepSeekService deepSeekService, AnalyzeService analyzeService) {
+    public ExplainController(DeepSeekService deepSeekService, AnalyzeService analyzeService,
+                             ControlFlowService controlFlowService) {
         this.deepSeekService = deepSeekService;
         this.analyzeService = analyzeService;
+        this.controlFlowService = controlFlowService;
     }
 
     @PostMapping("/explain")
@@ -68,6 +72,19 @@ public class ExplainController {
         }
         try {
             return analyzeService.analyze(code, request.get("apiKey"));
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage() != null ? e.getMessage() : "分析失败");
+        }
+    }
+
+    @PostMapping("/controlflow")
+    public Map<String, Object> controlFlow(@RequestBody Map<String, String> request) {
+        String code = request.get("code");
+        if (code == null || code.isBlank()) {
+            return Map.of("error", "代码不能为空");
+        }
+        try {
+            return controlFlowService.analyze(code);
         } catch (Exception e) {
             return Map.of("error", e.getMessage() != null ? e.getMessage() : "分析失败");
         }

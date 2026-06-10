@@ -48,6 +48,11 @@
           >变量</button>
           <button
             class="right-tab"
+            :class="{ active: store.rightTab === 'flow' }"
+            @click="store.switchRightTab('flow')"
+          >流程</button>
+          <button
+            class="right-tab"
             :class="{ active: store.rightTab === 'files' }"
             @click="store.switchRightTab('files')"
           >经典</button>
@@ -58,9 +63,8 @@
             <HeapStackPanel />
             <ConsoleOutput />
           </template>
-          <div v-else class="placeholder-tab">
-            <ClassicCodePanel @loadCode="onClassicLoad" />
-          </div>
+          <ControlFlowPanel v-else-if="store.rightTab === 'flow'" />
+          <ClassicCodePanel v-else @loadCode="onClassicLoad" />
         </div>
       </div>
     </div>
@@ -200,6 +204,7 @@ import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
 import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'
+import ControlFlowPanel from './components/ControlFlowPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
