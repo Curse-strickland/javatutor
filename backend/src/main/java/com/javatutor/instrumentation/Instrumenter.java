@@ -50,6 +50,52 @@ public class Instrumenter {
         cu.accept(new ModifierVisitor<Void>(){ //Void 无需额外参数
             //父类也可以实现visit()方法，但是不能修改
             //ModifierVister 可以修改（插桩），所以在此处创建一个匿名的内部类，直接define并使用
+
+            // 方法级别插桩：try-pushFrame ... finally-popFrame
+            // 用 try-finally 确保递归调用时帧正确叠加/回收
+            @Override
+            public Visitable visit(MethodDeclaration md, Void arg) {
+                String methodName = md.getNameAsString();
+
+                // 跳过内部类的方法
+                Node parent = md.getParentNode().orElse(null);
+                while (parent != null && !(parent instanceof CompilationUnit)) {
+                    if (parent instanceof ClassOrInterfaceDeclaration) {
+                        Node clsParent = parent.getParentNode().orElse(null);
+                        if (!(clsParent instanceof CompilationUnit)) {
+                            return super.visit(md, arg);
+                        }
+                        break;
+                    }
+                    parent = parent.getParentNode().orElse(null);
+                }
+
+                MethodDeclaration newMd = (MethodDeclaration) super.visit(md, arg);
+                BlockStmt oldBody = newMd.getBody().orElse(null);
+                if (oldBody == null) return newMd;
+
+                // 构造 try { pushFrame; ...body... } finally { popFrame; }
+                BlockStmt tryBlock = new BlockStmt();
+                tryBlock.addStatement(StaticJavaParser.parseStatement(
+                    "TraceEngine.pushFrame(\"" + methodName + "\");"));
+                for (Statement s : oldBody.getStatements()) {
+                    tryBlock.addStatement(s);
+                }
+
+                BlockStmt finallyBlock = new BlockStmt();
+                finallyBlock.addStatement(StaticJavaParser.parseStatement(
+                    "TraceEngine.popFrame();"));
+
+                TryStmt tryStmt = new TryStmt();
+                tryStmt.setTryBlock(tryBlock);
+                tryStmt.setFinallyBlock(finallyBlock);
+
+                BlockStmt newBody = new BlockStmt();
+                newBody.addStatement(tryStmt);
+                newMd.setBody(newBody);
+                return newMd;
+            }
+
             @Override
             public Visitable visit(BlockStmt block , Void arg){
                 // super.visit 会先递归处理 block 里的所有子节点
@@ -184,7 +230,21 @@ public class Instrumenter {
                                 collectDirectVariables(stmt, condVars);
                                 newStatements.add(buildRecordStatement(ln, condVars, counter));
 
-                                // 不在 then/else 首部再插入进入记录；保持 then/else 原样
+                                // 如果 else 分支是另一个 IfStmt（即 else if），递归给它也加条件高亮
+                                if (ifs.getElseStmt().isPresent()) {
+                                    Statement elseStmt = ifs.getElseStmt().get();
+                                    if (elseStmt.isIfStmt()) {
+                                        IfStmt elseIf = elseStmt.asIfStmt();
+                                        int elseLn = elseIf.getBegin().map(p -> p.line).orElse(ln);
+                                        List<String> elseVars = collectVisibleVariables(block, i);
+                                        collectDirectVariables(elseIf, elseVars);
+                                        BlockStmt wrap = new BlockStmt();
+                                        wrap.addStatement(buildRecordStatement(elseLn, elseVars, counter));
+                                        wrap.addStatement(elseIf);
+                                        ifs.setElseStmt(wrap);
+                                    }
+                                }
+
                                 newStatements.add(ifs);
                             } else {
                                 // 兜底：将原语句加入
@@ -195,18 +255,26 @@ public class Instrumenter {
                             // while/for/do 循环：不插入退出记录 — 无限循环时退出
                             // 记录会成为不可达代码；正常退出时下一步的记录自然会覆盖
                         } else if (stmt.isReturnStmt()) {
-                            // return 语句：record 必须在 return 之前插入，否则成为不可达代码
+                            // return 语句：只需在 return 之前插入 record
+                            // 不额外加 pushFrame/popFrame — return 后代码不可达
                             List<String> visibleBefore = collectVisibleVariables(block, i);
                             newStatements.add(buildRecordStatement(line, visibleBefore, counter));
                             newStatements.add(stmt);
                         } else {
-                            // 检测数组创建，在语句前插入 allocArray（不需要变量引用，只需长度）
+                            // 检测语句中的方法调用（如 factorial(3)）
+                            // 方法入口/出口的 pushFrame/popFrame 由 visit(MethodDeclaration) 管理
+                            // 这里只需在调用前插 record 捕获调用点状态
+                            String callee = detectMethodCall(stmt);
+                            if (callee != null) {
+                                List<String> visibleBefore = collectVisibleVariables(block, i - 1);
+                                newStatements.add(buildRecordStatement(line, visibleBefore, counter));
+                            }
+                            // 原有逻辑
                             List<String[]> arrayAllocs = detectArrayAllocations(stmt);
                             for (String[] alloc : arrayAllocs) {
                                 newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1]));
                             }
                             newStatements.add(stmt);
-                            // 检测对象创建，在语句后插入 allocObject（需要变量已声明）
                             List<String[]> objAllocs = detectObjectAllocations(stmt);
                             for (String[] alloc : objAllocs) {
                                 newStatements.add(buildAllocObjectStatement(alloc[0]));
@@ -266,15 +334,23 @@ public class Instrumenter {
      */
     // 判断 BlockStmt 是否属于内部类（如 Person）的方法/构造函数
     private boolean isInnerClassBlock(BlockStmt block) {
+        // 找到这个 block 所属的方法
         Node parent = block.getParentNode().orElse(null);
-        // 往上找到所属的类声明
+        CallableDeclaration<?> method = null;
         while (parent != null && !(parent instanceof CompilationUnit)) {
-            if (parent instanceof ClassOrInterfaceDeclaration) {
-                // 如果这个类声明的父节点不是 CompilationUnit（即它是嵌套类），则是内部类
-                Node clsParent = parent.getParentNode().orElse(null);
-                return !(clsParent instanceof CompilationUnit);
+            if (parent instanceof CallableDeclaration<?>) {
+                method = (CallableDeclaration<?>) parent;
+                break;
             }
             parent = parent.getParentNode().orElse(null);
+        }
+        if (method == null) return false;
+        // 找到这个方法所属的类
+        Node clsNode = method.getParentNode().orElse(null);
+        if (clsNode instanceof ClassOrInterfaceDeclaration) {
+            // 如果这个类的父节点不是 CompilationUnit，则是内部类
+            Node clsParent = clsNode.getParentNode().orElse(null);
+            return !(clsParent instanceof CompilationUnit);
         }
         return false;
     }
@@ -324,11 +400,11 @@ public class Instrumenter {
     private List<String> collectVisibleVariables(BlockStmt block, int beforeStmtIndex){
         List<String> vars = new ArrayList<>();
 
-        //当前 block：只看索引 ≤ beforeStmtIndex 的语句中的变量（跳过嵌套 BlockStmt 内部的，因为还没执行到）
-        // BugFix: 跳过 ForStmt/ForEachStmt，它们的循环变量（如 i）作用域仅限于 body 内部，
-        // 不能暴露给后续兄弟语句（否则后面语句的 record 引用 i 会导致编译失败）
+        //当前 block：只看索引 ≤ beforeStmtIndex 的语句中的变量
+        // BugFix: 跳过 ForStmt/ForEachStmt，循环变量作用域仅限于 body 内部
+        // 反序遍历：同一 BlockStmt 内后声明的变量自然排在列表前面(栈顶)，符合栈的后进先出
         NodeList<Statement> statements = block.getStatements();
-        for (int i = 0; i <= beforeStmtIndex && i < statements.size(); i++) {
+        for (int i = beforeStmtIndex; i >= 0; i--) {
             Statement s = statements.get(i);
             if (s.isForStmt() || s.isForEachStmt()) continue;
             collectDirectVariables(s, vars);
@@ -343,9 +419,10 @@ public class Instrumenter {
             if(parent instanceof BlockStmt){
                 //父级是 BlockStmt：只收集包含 currentNode 的那条语句及之前的变量
                 // BugFix: 跳过 ForStmt/ForEachStmt，循环变量作用域仅限于 body 内部
+                // 反序遍历：同 BlockStmt 内后声明的变量排在列表前面 → 显示在栈顶
                 BlockStmt parentBlock = (BlockStmt) parent;
                 int childIdx = findChildIndex(parentBlock, currentNode);
-                for (int i = 0; i <= childIdx && i < parentBlock.getStatements().size(); i++) {
+                for (int i = childIdx; i >= 0; i--) {
                     Statement s = parentBlock.getStatements().get(i);
                     if (s.isForStmt() || s.isForEachStmt()) continue;
                     collectDirectVariables(s, vars);
@@ -362,6 +439,20 @@ public class Instrumenter {
                     String name = p.getNameAsString();
                     if(!vars.contains(name)){
                         vars.add(name);
+                    }
+                }
+            }
+
+            //收集外部类的静态字段（如 static int counter = 0），仅最外层类
+            if (parent instanceof ClassOrInterfaceDeclaration) {
+                Node clsParent = parent.getParentNode().orElse(null);
+                if (clsParent instanceof CompilationUnit) {
+                    for (FieldDeclaration fd : ((ClassOrInterfaceDeclaration) parent).getFields()) {
+                        if (!fd.isStatic()) continue;
+                        for (VariableDeclarator vd : fd.getVariables()) {
+                            String name = vd.getNameAsString();
+                            if (!vars.contains(name)) vars.add(name);
+                        }
                     }
                 }
             }
@@ -440,9 +531,41 @@ public class Instrumenter {
             return;
         }
 
-        // 兜底：尝试找到直接的 VariableDeclarator，但过滤掉那些位于嵌套 BlockStmt 内的
+        // 如果是方法/构造函数声明，跳过——参数由 collectVisibleVariables 单独处理
+        if (node instanceof CallableDeclaration<?>) {
+            return;
+        }
+
+        // 如果是 BodyDeclaration（包括 FieldDeclaration 字段声明），跳过——不是局部变量
+        if (node instanceof BodyDeclaration<?>) {
+            return;
+        }
+
+        // 如果是 IfStmt，跳过——if 本身不声明可见到父作用域的变量
+        if (node instanceof IfStmt) {
+            return;
+        }
+
+        // 兜底：尝试找到直接的 VariableDeclarator，但过滤掉：
+        // 1. 位于嵌套 BlockStmt 内的
+        // 2. 位于 FieldDeclaration 内的（那是类字段，不是局部变量）
         for (VariableDeclarator vd : node.findAll(VariableDeclarator.class)) {
             Node parent = vd.getParentNode().orElse(null);
+            // 检查该 VariableDeclarator 是否是类字段（FieldDeclaration 的子节点）
+            boolean isField = false;
+            Node p = parent;
+            while (p != null && p != node) {
+                if (p instanceof FieldDeclaration || p instanceof BodyDeclaration<?>) {
+                    isField = true;
+                    break;
+                }
+                if (p instanceof BlockStmt) {
+                    break; // 已进入方法体，不继续往上判断
+                }
+                p = p.getParentNode().orElse(null);
+            }
+            if (isField) continue;
+
             boolean insideNestedBlock = false;
             while (parent != null && parent != node) {
                 if (parent instanceof BlockStmt) {
@@ -532,7 +655,44 @@ public class Instrumenter {
 
         return result;
     }
-}
+
+    // 检测语句中是否调用了用户自定义方法（非 print/sout 等），返回被调用的方法名
+    private String detectMethodCall(Statement stmt) {
+        if (!stmt.isExpressionStmt()) return null;
+        Expression expr = stmt.asExpressionStmt().getExpression();
+        return detectCallInExpr(expr);
+    }
+
+    private String detectCallInExpr(Expression expr) {
+        if (expr.isMethodCallExpr()) {
+            String name = expr.asMethodCallExpr().getNameAsString();
+            // 过滤掉 System.out.println 等标准库调用
+            if (name.equals("println") || name.equals("print") || name.equals("printf")
+                || name.equals("equals") || name.equals("hashCode") || name.equals("toString")
+                || name.equals("length") || name.equals("size") || name.equals("get")
+                || name.equals("charAt") || name.equals("substring")
+                || name.equals("valueOf") || name.equals("parseInt") || name.equals("parseDouble"))
+                return null;
+            return name;
+        }
+        // 变量声明中的初始化表达式：int result = factorial(3)
+        if (expr.isVariableDeclarationExpr()) {
+            for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
+                if (vd.getInitializer().isPresent()) {
+                    String name = detectCallInExpr(vd.getInitializer().get());
+                    if (name != null) return name;
+                }
+            }
+        }
+        // 赋值表达式：x = factorial(3)
+        if (expr.isAssignExpr()) {
+            return detectCallInExpr(expr.asAssignExpr().getValue());
+        }
+        return null;
+    }
+
+
+}      
 
 
     
