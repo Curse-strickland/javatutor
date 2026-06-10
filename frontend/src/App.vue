@@ -12,28 +12,28 @@
         <div class="splitter-handle" />
       </div>
 
-      <!-- 右侧：变量展示卡片 -->
+      <!-- 右侧：变量展示 / 文件上传 标签页卡片 -->
       <div class="flex-1 right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
-          <h3 class="font-bold">变量展示区</h3>
           <button
-            class="import-file-btn"
-            @click="editorRef?.triggerImport()"
-            title="导入本地 Java 文件"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span class="import-label">导入</span>
-          </button>
+            class="right-tab"
+            :class="{ active: store.rightTab === 'variables' }"
+            @click="store.switchRightTab('variables')"
+          >变量</button>
+          <button
+            class="right-tab"
+            :class="{ active: store.rightTab === 'files' }"
+            @click="store.switchRightTab('files')"
+          >文件</button>
         </div>
         <div class="flex-1 overflow-auto right-card-body">
-          <VariablePanel />
-          <HeapStackPanel />
-          <ConsoleOutput />
+          <template v-if="store.rightTab === 'variables'">
+            <VariablePanel />
+            <HeapStackPanel />
+            <ConsoleOutput />
+          </template>
+          <FileUploadPanel v-else @loadCode="onFileLoad" />
         </div>
       </div>
     </div>
@@ -170,6 +170,7 @@ import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
 import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
+import FileUploadPanel from './components/FileUploadPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -286,6 +287,11 @@ const runCode = () => {
   const code = editorRef.value?.getCode() || ''
   store.runCode(code)
   if (isAutoPlaying.value) stopAutoPlay()
+}
+
+const onFileLoad = ({ name, code }) => {
+  editorRef.value?.setCode(code)
+  store.addUploadRecord(name, code)
 }
 
 const startDrag = (e) => {
@@ -472,29 +478,22 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   padding: 12px;
 }
 
-.import-file-btn {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+/* Right card tabs — matches AiTutorPanel tab style */
+.right-tab {
+  background: none;
+  border: none;
+  padding: 4px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border, rgba(255,255,255,0.08));
-  background: var(--card-bg, rgba(28,28,34,0.85));
-  color: var(--text, #c4c4cc);
   font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  backdrop-filter: blur(6px);
-  white-space: nowrap;
+  transition: color 0.2s, background 0.15s;
 }
-.import-file-btn:hover {
-  background: var(--accent-bg, rgba(10,132,255,0.10));
-  border-color: var(--accent-border, rgba(10,132,255,0.22));
-  color: var(--text-h, #f5f5f7);
-}
-.import-label {
-  font-family: var(--sans, 'Maple Mono', sans-serif);
+.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.right-tab.active {
+  color: var(--primary);
+  background: var(--accent-bg);
 }
 
 /* Splitter */
@@ -744,9 +743,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
 }
 .speed-btn {
-  gap: 5px;
-  padding: 6px 8px;
-  min-width: 52px;
+  gap: 4px;
+  padding: 6px 10px;
+  min-width: 62px;
   justify-content: center;
 }
 .speed-label {

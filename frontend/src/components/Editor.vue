@@ -89,7 +89,8 @@ onMounted(() => {
           useTabStops: true,
           renderWhitespace: 'none',
           minimap: { enabled: false },
-          glyphMargin: true  // 启用字形边距以显示箭头
+          glyphMargin: true,  // 启用字形边距以显示箭头
+          wordWrap: 'on'
         })
 
         // 强制重新计算布局以确保光标位置正确
@@ -177,7 +178,13 @@ const clearHighlights = () => {
   }
 }
 
-defineExpose({ getCode, highlightLine, clearHighlights, triggerImport })
+const setCode = (code) => {
+  if (editor) { editor.setValue(code) }
+  else { fallbackCode.value = code }
+  clearHighlights()
+}
+
+defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode })
 </script>
 
 <style>
