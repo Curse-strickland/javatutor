@@ -183,8 +183,8 @@ public class TraceEngine {
         while (cls != null && cls != Object.class) {
             for (Field f : cls.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers())) continue;
-                f.setAccessible(true);
                 try {
+                    f.setAccessible(true);
                     Object fv = f.get(obj);
                     if (fv == null) {
                         fields.put(f.getName(), null);
