@@ -30,7 +30,13 @@ public class AnalyzeService {
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private static final java.util.regex.Pattern SAFE_KEY = java.util.regex.Pattern.compile("^[a-zA-Z0-9\\-_.]{1,128}$");
+
     public Map<String, Object> analyze(String code) throws IOException, InterruptedException {
+        return analyze(code, null);
+    }
+
+    public Map<String, Object> analyze(String code, String userApiKey) throws IOException, InterruptedException {
 
         String systemPrompt =
             "你是一个算法分析专家。分析以下Java代码，返回严格的JSON（只返回JSON，不要markdown代码块，不要任何其他文字）：\n" +
@@ -69,20 +75,21 @@ public class AnalyzeService {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + resolveKey(userApiKey))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
         HttpResponse<java.io.InputStream> response = httpClient.send(request,
                 HttpResponse.BodyHandlers.ofInputStream());
 
+        byte[] responseBytes = response.body().readAllBytes();
         int status = response.statusCode();
         if (status != 200) {
-            String errorBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-            throw new IOException("DeepSeek API error " + status + ": " + errorBody);
+            System.err.println("DeepSeek API error " + status + ": " + new String(responseBytes, StandardCharsets.UTF_8));
+            throw new IOException("API 调用失败 (HTTP " + status + ")，请检查 API Key 是否正确");
         }
 
-        String raw = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
+        String raw = new String(responseBytes, StandardCharsets.UTF_8);
         JsonNode root = objectMapper.readTree(raw);
         String content = root.at("/choices/0/message/content").asText();
 
@@ -104,5 +111,15 @@ public class AnalyzeService {
         m.put(k1, v1);
         m.put(k2, v2);
         return m;
+    }
+
+    private String resolveKey(String userApiKey) {
+        if (userApiKey != null && !userApiKey.isBlank()) {
+            if (!SAFE_KEY.matcher(userApiKey).matches()) {
+                throw new IllegalArgumentException("API Key 格式无效，仅允许字母、数字、连字符、下划线和点号，长度 1-128");
+            }
+            return userApiKey;
+        }
+        return apiKey;
     }
 }

@@ -9,6 +9,7 @@ public class ExplainRequest {
     private int totalSteps;
     private int currentLine;
     private Map<String, Object> variables;
+    private String apiKey;
 
     public ExplainRequest() {}
 
@@ -29,4 +30,7 @@ public class ExplainRequest {
 
     public Map<String, Object> getVariables() { return variables; }
     public void setVariables(Map<String, Object> variables) { this.variables = variables; }
+
+    public String getApiKey() { return apiKey; }
+    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
 }
