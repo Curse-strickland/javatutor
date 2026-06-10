@@ -30,6 +30,10 @@ class InstrumenterTest {
         "    private static ByteArrayOutputStream capturedOutput;\n" +
         "    private static int lastOutputPos = 0;\n" +
         "    private static LinkedHashMap<String,Map<String,Object>> heapObjects = new LinkedHashMap<>();\n" +
+        "    private static List<String> callStack = new ArrayList<>();\n" +
+        "    private static List<LinkedHashMap<String,Object>> frameLocals = new ArrayList<>();\n" +
+        "    public static String pushFrame(String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); return name; }\n" +
+        "    public static String popFrame() { return callStack.isEmpty() ? \"???\" : callStack.remove(callStack.size()-1); }\n" +
         "    public static String allocArray(String name, int length) {\n" +
         "        if (disabled) return \"0x0000\";\n" +
         "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
@@ -90,7 +94,7 @@ class InstrumenterTest {
         "        steps.add(record);\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
-        "    public static void reset() { steps.clear(); heapObjects.clear(); disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); heapObjects.clear(); callStack.clear(); frameLocals.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
