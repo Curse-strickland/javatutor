@@ -117,3 +117,16 @@ readBatch(files, autoLoadFirst):
 ### B8 — 用户交互面板整体偏右
 - **现象**: `#app` 使用 `margin: 0 auto` 居中，左右等距，编辑区不够靠左
 - **修复**: `#app` 改为 `margin: 0 0 0 12px`，左边界仅留 12px 空隙，右侧自然留白
+
+### B9 — 上传面板底部矩形不协调
+- **修复**: `.upload-panel-wrapper` 加 `border-radius: 0 0 12px 12px`
+
+### B10 — 关闭上传面板后待加载文件丢失
+- **根因**: `pendingFiles` 是 FileUploadPanel 本地 ref，`v-if` 销毁组件时被重置
+- **修复**: `pendingFiles` 移至 Pinia store；`finishBatch` 中已有待加载文件自动移入历史记录；新增删除按钮
+
+## 功能迁移 — 上传入口移至编辑区顶栏
+
+- 编辑区顶栏新增 `[☁ 导入]` 按钮，点击向下滑出 FileUploadPanel
+- 右侧标签页保留 `[变量] [文件]` 结构，文件页改为占位"更多功能即将上线"
+- 上传面板在两个入口均可使用，功能一致

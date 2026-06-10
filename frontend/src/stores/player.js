@@ -24,6 +24,7 @@ export const usePlayerStore = defineStore('player', {
     // File upload state
     rightTab: 'variables',
     userApiKey: '',
+    pendingFiles: [],
     uploadHistory: (() => {
       try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
       catch { return [] }

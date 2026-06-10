@@ -7,7 +7,26 @@
         <div class="editor-card-header">
           <span class="rc-dot" />
           <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
+          <button
+            class="upload-toggle-btn"
+            :class="{ active: uploadOpen }"
+            @click="toggleUpload"
+            title="导入文件"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span class="upload-toggle-label">导入</span>
+          </button>
         </div>
+        <!-- 文件上传面板（向下滑出） -->
+        <transition name="upload-slide">
+          <div v-if="uploadOpen" class="upload-panel-wrapper">
+            <FileUploadPanel @loadCode="onFileLoad" />
+          </div>
+        </transition>
         <div class="flex-1 min-h-0">
           <Editor ref="editorRef" class="h-full" />
         </div>
@@ -18,7 +37,7 @@
         <div class="splitter-handle" />
       </div>
 
-      <!-- 右侧：变量展示 / 文件上传 标签页卡片 -->
+      <!-- 右侧：标签页卡片 -->
       <div class="flex-1 right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
@@ -39,7 +58,9 @@
             <HeapStackPanel />
             <ConsoleOutput />
           </template>
-          <FileUploadPanel v-else @loadCode="onFileLoad" />
+          <div v-else class="placeholder-tab">
+            <p class="placeholder-text">更多功能即将上线</p>
+          </div>
         </div>
       </div>
     </div>
@@ -185,6 +206,7 @@ const progressRef = ref(null)
 const controlBarRef = ref(null)
 const leftWidth = ref(0)
 const isDragging = ref(false)
+const uploadOpen = ref(false)
 const MIN_LEFT = 200
 const MIN_RIGHT = 200
 const isAutoPlaying = ref(false)
@@ -293,6 +315,10 @@ const runCode = () => {
   const code = editorRef.value?.getCode() || ''
   store.runCode(code)
   if (isAutoPlaying.value) stopAutoPlay()
+}
+
+function toggleUpload() {
+  uploadOpen.value = !uploadOpen.value
 }
 
 const onFileLoad = ({ name, code }) => {
@@ -471,6 +497,63 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   flex-shrink: 0;
 }
 
+/* Upload toggle button in editor header */
+.upload-toggle-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.15s, border-color 0.2s;
+}
+.upload-toggle-btn:hover {
+  color: var(--text-h);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.upload-toggle-btn.active {
+  color: var(--primary);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.upload-toggle-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Upload panel wrapper — slides down from header */
+.upload-panel-wrapper {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  max-height: 360px;
+  overflow-y: auto;
+  border-radius: 0 0 12px 12px;
+}
+.upload-slide-enter-active {
+  transition: max-height 0.3s cubic-bezier(.22,.9,.27,1), opacity 0.25s, padding 0.25s;
+}
+.upload-slide-leave-active {
+  transition: max-height 0.22s cubic-bezier(.22,.9,.27,1), opacity 0.2s, padding 0.2s;
+}
+.upload-slide-enter-from,
+.upload-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.upload-slide-enter-to,
+.upload-slide-leave-from {
+  max-height: 360px;
+  opacity: 1;
+}
+
 .right-card {
   overflow: hidden;
 }
@@ -507,6 +590,19 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .right-tab.active {
   color: var(--primary);
   background: var(--accent-bg);
+}
+
+.placeholder-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+}
+.placeholder-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* Splitter */

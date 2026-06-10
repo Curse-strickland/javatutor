@@ -27,11 +27,11 @@
     </div>
 
     <!-- 本次导入的待选文件（已读取未加载） -->
-    <div v-if="pendingFiles.length" class="pending-section">
-      <div class="pending-label">本次导入 ({{ pendingFiles.length }} 个文件，点击加载)</div>
+    <div v-if="store.pendingFiles.length" class="pending-section">
+      <div class="pending-label">本次导入 ({{ store.pendingFiles.length }} 个文件，点击加载)</div>
       <div class="history-list">
         <div
-          v-for="pf in pendingFiles" :key="pf.name"
+          v-for="pf in store.pendingFiles" :key="pf.name"
           class="history-item pending-item"
           @click="loadPending(pf)"
         >
@@ -39,6 +39,16 @@
             <div class="history-name">{{ pf.name }}</div>
             <div class="pending-badge">待加载</div>
           </div>
+          <button
+            class="history-delete"
+            @click.stop="removePending(pf.name)"
+            title="移除"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -71,7 +81,7 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="!pendingFiles.length" class="history-empty">暂无上传记录</div>
+    <div v-else-if="!store.pendingFiles.length" class="history-empty">暂无上传记录</div>
   </div>
 </template>
 
@@ -83,7 +93,6 @@ const store = usePlayerStore()
 const fileInputRef = ref(null)
 const folderInputRef = ref(null)
 const isDragover = ref(false)
-const pendingFiles = ref([])
 
 const emit = defineEmits(['loadCode'])
 
@@ -191,18 +200,26 @@ function readBatch(files, autoLoadFirst = true) {
 
 function finishBatch(results, autoLoadFirst) {
   if (!results.length) return
+  // 将已有待加载文件移入历史记录
+  if (store.pendingFiles.length) {
+    store.pendingFiles.forEach(pf => store.addUploadRecord(pf.name, pf.code))
+  }
   if (autoLoadFirst) {
     const [first, ...rest] = results
     emit('loadCode', first)
-    pendingFiles.value = rest
+    store.pendingFiles = rest
   } else {
-    pendingFiles.value = results
+    store.pendingFiles = results
   }
+}
+
+function removePending(name) {
+  store.pendingFiles = store.pendingFiles.filter(p => p.name !== name)
 }
 
 function loadPending(pf) {
   emit('loadCode', pf)
-  pendingFiles.value = pendingFiles.value.filter(p => p.name !== pf.name)
+  store.pendingFiles = store.pendingFiles.filter(p => p.name !== pf.name)
 }
 
 function relativeTime(timestamp) {
