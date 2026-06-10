@@ -12,16 +12,28 @@
         <div class="splitter-handle" />
       </div>
 
-      <!-- 右侧：变量展示卡片 -->
+      <!-- 右侧：变量展示 / 文件上传 标签页卡片 -->
       <div class="flex-1 right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
-          <h3 class="font-bold">变量展示区</h3>
+          <button
+            class="right-tab"
+            :class="{ active: store.rightTab === 'variables' }"
+            @click="store.switchRightTab('variables')"
+          >变量</button>
+          <button
+            class="right-tab"
+            :class="{ active: store.rightTab === 'files' }"
+            @click="store.switchRightTab('files')"
+          >文件</button>
         </div>
         <div class="flex-1 overflow-auto right-card-body">
-          <VariablePanel />
-          <HeapStackPanel />
-          <ConsoleOutput />
+          <template v-if="store.rightTab === 'variables'">
+            <VariablePanel />
+            <HeapStackPanel />
+            <ConsoleOutput />
+          </template>
+          <FileUploadPanel v-else @loadCode="onFileLoad" />
         </div>
       </div>
     </div>
@@ -158,6 +170,7 @@ import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
 import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
+import FileUploadPanel from './components/FileUploadPanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -274,6 +287,11 @@ const runCode = () => {
   const code = editorRef.value?.getCode() || ''
   store.runCode(code)
   if (isAutoPlaying.value) stopAutoPlay()
+}
+
+const onFileLoad = ({ name, code }) => {
+  editorRef.value?.setCode(code)
+  store.addUploadRecord(name, code)
 }
 
 const startDrag = (e) => {
@@ -458,6 +476,24 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 .right-card-body {
   padding: 12px;
+}
+
+/* Right card tabs — matches AiTutorPanel tab style */
+.right-tab {
+  background: none;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.15s;
+}
+.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.right-tab.active {
+  color: var(--primary);
+  background: var(--accent-bg);
 }
 
 /* Splitter */
@@ -707,9 +743,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
 }
 .speed-btn {
-  gap: 5px;
-  padding: 6px 8px;
-  min-width: 52px;
+  gap: 4px;
+  padding: 6px 10px;
+  min-width: 62px;
   justify-content: center;
 }
 .speed-label {

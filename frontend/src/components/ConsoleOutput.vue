@@ -5,7 +5,6 @@
         <div class="flex items-center gap-2">
           <span class="console-dot" :class="{ 'no-output': !store.currentOutput }" />
           <span class="text-sm font-semibold" style="color: var(--text-h)">控制台输出</span>
-          <span v-if="!store.currentOutput" class="text-xs text-muted ml-1">(暂无输出)</span>
         </div>
         <svg
           class="console-chevron"

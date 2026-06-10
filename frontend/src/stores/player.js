@@ -21,6 +21,12 @@ export const usePlayerStore = defineStore('player', {
     analysisData: null,
     isAnalyzing: false,
     activeAiTab: 'explain',
+    // File upload state
+    rightTab: 'variables',
+    uploadHistory: (() => {
+      try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
+      catch { return [] }
+    })(),
   }),
   getters: {
     currentVariables: (state) => state.steps[state.currentStep]?.variables || {},
@@ -203,6 +209,26 @@ export const usePlayerStore = defineStore('player', {
       } finally {
         this.isAnalyzing = false
       }
+    },
+
+    // --- File upload actions ---
+
+    switchRightTab(tab) {
+      this.rightTab = tab
+    },
+
+    addUploadRecord(name, code) {
+      // 去重：同名文件替换旧记录
+      const filtered = this.uploadHistory.filter(r => r.name !== name)
+      filtered.unshift({ name, code, time: Date.now() })
+      // 最多保留 20 条
+      this.uploadHistory = filtered.slice(0, 20)
+      localStorage.setItem('javatutor-uploads', JSON.stringify(this.uploadHistory))
+    },
+
+    removeUploadRecord(name) {
+      this.uploadHistory = this.uploadHistory.filter(r => r.name !== name)
+      localStorage.setItem('javatutor-uploads', JSON.stringify(this.uploadHistory))
     }
   }
 })

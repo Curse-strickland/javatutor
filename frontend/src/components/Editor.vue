@@ -1,5 +1,13 @@
 <template>
   <div ref="root" class="editor-root" style="width:100%; height:100%;">
+    <!-- 隐藏的文件选择器 -->
+    <input
+      ref="fileInputRef"
+      type="file"
+      accept=".java"
+      style="display: none"
+      @change="onFileSelected"
+    />
     <div v-if="!loadError" ref="editorContainer" class="editor-container" style="width:100%; height:100%;"></div>
     <textarea v-else v-model="fallbackCode" class="editor-textarea"></textarea>
   </div>
@@ -11,10 +19,40 @@ import * as monaco from 'monaco-editor'
 
 const root = ref(null)
 const editorContainer = ref(null)
+const fileInputRef = ref(null)
 let editor = null
 let currentDecorations = []
 let ro = null
 const loadError = ref(false)
+
+/** 点击「导入」按钮 → 触发隐藏的文件选择器 */
+const triggerImport = () => {
+  fileInputRef.value?.click()
+}
+
+/** 用户选择文件后 → 读取内容并加载到编辑器 */
+const onFileSelected = (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  // 重置 input 以便选择同一个文件时也能再次触发 change
+  event.target.value = ''
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const code = e.target?.result
+    if (typeof code !== 'string') return
+    if (editor) {
+      editor.setValue(code)
+    } else {
+      fallbackCode.value = code
+    }
+    // 清除旧的高亮
+    clearHighlights()
+  }
+  reader.onerror = () => {
+    console.error('读取文件失败:', file.name)
+  }
+  reader.readAsText(file)
+}
 const fallbackCode = ref(`public class UserCode {
   public static void main(String[] args) {
     int[] arr = {5, 3, 8};
@@ -51,7 +89,8 @@ onMounted(() => {
           useTabStops: true,
           renderWhitespace: 'none',
           minimap: { enabled: false },
-          glyphMargin: true  // 启用字形边距以显示箭头
+          glyphMargin: true,  // 启用字形边距以显示箭头
+          wordWrap: 'on'
         })
 
         // 强制重新计算布局以确保光标位置正确
@@ -139,7 +178,13 @@ const clearHighlights = () => {
   }
 }
 
-defineExpose({ getCode, highlightLine, clearHighlights })
+const setCode = (code) => {
+  if (editor) { editor.setValue(code) }
+  else { fallbackCode.value = code }
+  clearHighlights()
+}
+
+defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode })
 </script>
 
 <style>
