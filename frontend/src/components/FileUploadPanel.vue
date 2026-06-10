@@ -28,7 +28,7 @@
 
     <!-- 本次导入的待选文件（已读取未加载） -->
     <div v-if="store.pendingFiles.length" class="pending-section">
-      <div class="pending-label">本次导入 ({{ store.pendingFiles.length }} 个文件，点击加载)</div>
+      <div class="pending-label">已导入 ({{ store.pendingFiles.length }} 个文件，点击加载)</div>
       <div class="history-list">
         <div
           v-for="pf in store.pendingFiles" :key="pf.name"
@@ -55,7 +55,7 @@
 
     <!-- 上传历史 -->
     <div v-if="store.uploadHistory.length" class="history-section">
-      <div class="history-label">上传记录</div>
+      <div class="history-label">加载记录</div>
       <div class="history-list">
         <div
           v-for="record in store.uploadHistory" :key="record.name"
@@ -81,7 +81,7 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="!store.pendingFiles.length" class="history-empty">暂无上传记录</div>
+    <div v-else-if="!store.pendingFiles.length" class="history-empty">暂无加载记录</div>
   </div>
 </template>
 
@@ -200,16 +200,15 @@ function readBatch(files, autoLoadFirst = true) {
 
 function finishBatch(results, autoLoadFirst) {
   if (!results.length) return
-  // 将已有待加载文件移入历史记录
-  if (store.pendingFiles.length) {
-    store.pendingFiles.forEach(pf => store.addUploadRecord(pf.name, pf.code))
-  }
+  // 去重：排除已在待加载列表中的同名文件
+  const existingNames = new Set(store.pendingFiles.map(p => p.name))
+  const newFiles = results.filter(r => !existingNames.has(r.name))
   if (autoLoadFirst) {
-    const [first, ...rest] = results
-    emit('loadCode', first)
-    store.pendingFiles = rest
+    const [first, ...rest] = newFiles
+    if (first) emit('loadCode', first)
+    store.pendingFiles = [...store.pendingFiles, ...rest]
   } else {
-    store.pendingFiles = results
+    store.pendingFiles = [...store.pendingFiles, ...newFiles]
   }
 }
 
