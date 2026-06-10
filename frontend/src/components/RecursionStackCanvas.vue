@@ -1,32 +1,32 @@
-﻿<template>
-  <div class="recursion-stack-canvas">
-    <div v-if="stackFrames.length === 0" class="text-sm text-gray-500">调用栈为空</div>
-    
-    <div v-else class="stack-container">
+<template>
+  <div class="rs-canvas">
+    <div v-if="stackFrames.length === 0" class="rs-empty">调用栈为空</div>
+
+    <div v-else class="rs-frames-container">
       <div
         v-for="(frame, index) in stackFrames"
         :key="frame.id"
-        class="stack-frame transition-all duration-500"
+        class="rs-frame"
         :class="{
           'active-frame': index === activeFrameIndex,
-          'returning-frame': returningFrameIndices.includes(index),
+          'returning-frame': returningFrameIndicesSet.has(index),
         }"
       >
-        <div class="frame-header">
-          <span class="frame-name">{{ frame.name }}</span>
-          <span class="frame-index">#{{ index }}</span>
+        <div class="rs-frame-header">
+          <span class="rs-frame-name">{{ frame.name }}</span>
+          <span class="rs-frame-index">#{{ index }}</span>
         </div>
-        
-        <div v-if="frame.variables && Object.keys(frame.variables).length > 0" class="frame-variables">
-          <div v-for="(value, key) in frame.variables" :key="key" class="variable-item">
-            <span class="var-key">{{ key }}:</span>
-            <span class="var-value">{{ formatValue(value) }}</span>
+
+        <div v-if="frame.variables && Object.keys(frame.variables).length > 0" class="rs-frame-vars">
+          <div v-for="(value, key) in frame.variables" :key="key" class="rs-var-item">
+            <span class="rs-var-key">{{ key }}:</span>
+            <span class="rs-var-value">{{ formatValue(value) }}</span>
           </div>
         </div>
-        
-        <div v-if="frame.returnValue !== undefined && frame.returnValue !== null" class="frame-return">
-          <span class="return-label">返回:</span>
-          <span class="return-value">{{ formatValue(frame.returnValue) }}</span>
+
+        <div v-if="frame.returnValue !== undefined && frame.returnValue !== null" class="rs-frame-return">
+          <span class="rs-return-label">返回:</span>
+          <span class="rs-return-value">{{ formatValue(frame.returnValue) }}</span>
         </div>
       </div>
     </div>
@@ -40,7 +40,6 @@ const props = defineProps({
   stackFrames: {
     type: Array,
     required: true,
-    // 期望格式: [{ id, name, variables: {}, returnValue }]
   },
   activeFrameIndex: {
     type: Number,
@@ -52,7 +51,9 @@ const props = defineProps({
   },
 })
 
-const formatValue = (value) => {
+const returningFrameIndicesSet = computed(() => new Set(props.returningFrameIndices || []))
+
+function formatValue(value) {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
   if (typeof value === 'object') return JSON.stringify(value)
@@ -61,77 +62,120 @@ const formatValue = (value) => {
 </script>
 
 <style scoped>
-.recursion-stack-canvas {
-  @apply bg-gray-50 dark:bg-gray-900 rounded-lg p-4;
+.rs-canvas {
+  width: 100%;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 76px;
+  overflow-x: auto;
 }
 
-.stack-container {
-  @apply flex flex-col gap-2;
+.rs-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px 0;
 }
 
-.stack-frame {
-  @apply bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg p-3 transition-all duration-300;
+.rs-frames-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.stack-frame.active-frame {
-  @apply border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md;
-  transform: scale(1.02);
+.rs-frame {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: background 520ms cubic-bezier(.22,.9,.27,1),
+              transform 320ms cubic-bezier(.22,.9,.27,1),
+              box-shadow 320ms ease,
+              border-color 320ms ease,
+              opacity 320ms ease;
 }
 
-.stack-frame.returning-frame {
-  @apply border-green-500 bg-green-50 dark:bg-green-900/20 opacity-70;
+.rs-frame.active-frame {
+  border-color: var(--primary);
+  background: var(--accent-bg);
+  box-shadow: 0 6px 14px rgba(37,99,235,0.10);
+  transform: scale(1.01);
 }
 
-.frame-header {
-  @apply flex justify-between items-center mb-2 pb-2 border-b border-gray-200 dark:border-gray-700;
+.rs-frame.returning-frame {
+  border-color: var(--primary);
+  background: var(--accent-bg);
+  opacity: 0.65;
 }
 
-.frame-name {
-  @apply font-bold text-gray-800 dark:text-gray-100;
+.rs-frame-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
 }
 
-.frame-index {
-  @apply text-xs text-gray-500;
+.rs-frame-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-h);
 }
 
-.frame-variables {
-  @apply space-y-1 mb-2;
+.rs-frame-index {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
-.variable-item {
-  @apply flex text-sm;
+.rs-frame-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
 }
 
-.var-key {
-  @apply text-gray-600 dark:text-gray-400 mr-2 font-medium;
+.rs-var-item {
+  display: flex;
+  font-size: 12px;
 }
 
-.var-value {
-  @apply text-gray-800 dark:text-gray-200;
+.rs-var-key {
+  color: var(--text-muted);
+  margin-right: 6px;
+  font-weight: 500;
 }
 
-.frame-return {
-  @apply flex items-center text-sm pt-2 border-t border-gray-200 dark:border-gray-700;
+.rs-var-value {
+  color: var(--text);
 }
 
-.return-label {
-  @apply text-gray-600 dark:text-gray-400 mr-2 font-medium;
+.rs-frame-return {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
 
-.return-value {
-  @apply text-green-600 dark:text-green-400 font-semibold;
+.rs-return-label {
+  color: var(--text-muted);
+  margin-right: 6px;
+  font-weight: 500;
 }
 
-.transition-all {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+.rs-return-value {
+  color: var(--primary);
+  font-weight: 600;
 }
 
-.duration-300 {
-  transition-duration: 300ms;
-}
-
-.duration-500 {
-  transition-duration: 500ms;
+@media (max-width: 640px) {
+  .rs-frame {
+    padding: 8px 10px;
+  }
+  .rs-frame-name { font-size: 12px; }
 }
 </style>

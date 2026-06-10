@@ -50,6 +50,43 @@ public class Instrumenter {
         cu.accept(new ModifierVisitor<Void>(){ //Void 无需额外参数
             //父类也可以实现visit()方法，但是不能修改
             //ModifierVister 可以修改（插桩），所以在此处创建一个匿名的内部类，直接define并使用
+
+            // ── MethodDeclaration visit：方法体首行插入 pushFrame ──
+            @Override
+            public Visitable visit(MethodDeclaration md, Void arg) {
+                MethodDeclaration result = (MethodDeclaration) super.visit(md, arg);
+                // 跳过 main 方法（其调用由顶层流程控制，不需要递归帧追踪）
+                if (result.getNameAsString().equals("main")) return result;
+                BlockStmt body = result.getBody().orElse(null);
+                if (body == null) return result;
+                // 收集方法参数，组成 pushFrame 调用
+                List<String> paramPairs = new ArrayList<>();
+                for (Parameter p : result.getParameters()) {
+                    paramPairs.add("\"" + p.getNameAsString() + "\"");
+                    paramPairs.add(p.getNameAsString());
+                }
+                String paramDesc = result.getParameters().stream()
+                    .map(p -> "\" + " + p.getNameAsString() + " + \"")
+                    .reduce((a, b) -> a + ",\" + " + b + " + \"")
+                    .orElse("");
+                String methodLabel;
+                if (paramDesc.isEmpty()) {
+                    methodLabel = "\"" + result.getNameAsString() + "()\"";
+                } else {
+                    methodLabel = "\"" + result.getNameAsString() + "(\" + "
+                        + result.getParameters().stream()
+                            .map(Parameter::getNameAsString)
+                            .reduce((a, b) -> a + " + \",\" + " + b)
+                            .orElse("")
+                        + " + \")\"";
+                }
+                String pushCall = "TraceEngine.pushFrame(" + methodLabel + ","
+                    + "TraceEngine.buildMap(new Object[]{" + String.join(",", paramPairs) + "})"
+                    + ");";
+                body.getStatements().addFirst(StaticJavaParser.parseStatement(pushCall));
+                return result;
+            }
+
             @Override
             public Visitable visit(BlockStmt block , Void arg){
                 // super.visit 会先递归处理 block 里的所有子节点
@@ -195,27 +232,33 @@ public class Instrumenter {
                             // while/for/do 循环：不插入退出记录 — 无限循环时退出
                             // 记录会成为不可达代码；正常退出时下一步的记录自然会覆盖
                         } else if (stmt.isReturnStmt()) {
-                            // return 语句：record 必须在 return 之前插入，否则成为不可达代码
+                            // return 语句：record 和 popFrame 必须在 return 之前插入
                             List<String> visibleBefore = collectVisibleVariables(block, i);
                             newStatements.add(buildRecordStatement(line, visibleBefore, counter));
+                            // popFrame(null) — 不捕获返回值，避免表达式二次求值（递归调用会被求值两次）
+                            newStatements.add(StaticJavaParser.parseStatement(
+                                "TraceEngine.popFrame(null);"));
                             newStatements.add(stmt);
                         } else {
-                            // 检测数组创建，在语句前插入 allocArray（不需要变量引用，只需长度）
-                            List<String[]> arrayAllocs = detectArrayAllocations(stmt);
-                            for (String[] alloc : arrayAllocs) {
-                                newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1]));
-                            }
                             newStatements.add(stmt);
-                            // 检测对象创建，在语句后插入 allocObject（需要变量已声明）
-                            List<String[]> objAllocs = detectObjectAllocations(stmt);
-                            for (String[] alloc : objAllocs) {
-                                newStatements.add(buildAllocObjectStatement(alloc[0]));
-                            }
                             List<String> visibleAfter = collectVisibleVariables(block, i);
                             newStatements.add(buildRecordStatement(line, visibleAfter, counter));
                         }
                     } else {
                         newStatements.add(stmt);
+                    }
+                }
+
+                // 若此 BlockStmt 是非 main 方法的 body，且末尾没有 return，插入 popFrame(null)
+                boolean isMethodBody = block.getParentNode()
+                    .filter(p -> p instanceof MethodDeclaration).isPresent();
+                if (isMethodBody) {
+                    MethodDeclaration parentMd = (MethodDeclaration) block.getParentNode().get();
+                    if (!parentMd.getNameAsString().equals("main")) {
+                        Statement last = newStatements.isEmpty() ? null : newStatements.get(newStatements.size() - 1);
+                        if (last == null || !last.isReturnStmt()) {
+                            newStatements.add(StaticJavaParser.parseStatement("TraceEngine.popFrame(null);"));
+                        }
                     }
                 }
 
@@ -460,78 +503,6 @@ public class Instrumenter {
         }
     }
 
-    // 检测语句中的数组创建表达式，返回 [变量名, 长度表达式] 列表
-    // 例如 int[] arr = {5,3,8} → [["arr", "3"]]
-    //       int[] arr = new int[n] → [["arr", "n"]]
-    private List<String[]> detectArrayAllocations(Statement stmt) {
-        List<String[]> result = new ArrayList<>();
-        if (!stmt.isExpressionStmt()) return result;
-        Expression expr = stmt.asExpressionStmt().getExpression();
-        if (!expr.isVariableDeclarationExpr()) return result;
-        for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
-            if (!vd.getInitializer().isPresent()) continue;
-            Expression init = vd.getInitializer().get();
-            if (init.isArrayCreationExpr()) {
-                // new int[n]
-                ArrayCreationExpr ace = init.asArrayCreationExpr();
-                String name = vd.getNameAsString();
-                String lenExpr = ace.getLevels().get(0).getDimension()
-                    .map(dim -> dim.toString())
-                    .orElse("0");
-                result.add(new String[]{name, lenExpr});
-            } else if (init.isArrayInitializerExpr()) {
-                // {5, 3, 8}
-                ArrayInitializerExpr aie = init.asArrayInitializerExpr();
-                String name = vd.getNameAsString();
-                int len = aie.getValues().size();
-                result.add(new String[]{name, String.valueOf(len)});
-            }
-        }
-        return result;
-    }
-
-    // 生成 TraceEngine.allocArray("arr", n) 或 TraceEngine.allocArray("arr", 3) 语句
-    private Statement buildAllocArrayStatement(String name, String lenExpr) {
-        String call = "TraceEngine.allocArray(\"" + name + "\", " + lenExpr + ");";
-        return StaticJavaParser.parseStatement(call);
-    }
-
-    // 生成 TraceEngine.allocObject("name", name) 或 TraceEngine.allocObject("head.next", head.next) 语句
-    // 注意：第二个参数必须是目标表达式自身（引用已赋值的对象），而非 new Xxx() 构造表达式
-    private Statement buildAllocObjectStatement(String targetExpr) {
-        String call = "TraceEngine.allocObject(\"" + targetExpr + "\", " + targetExpr + ");";
-        return StaticJavaParser.parseStatement(call);
-    }
-
-    // 检测语句中的对象创建表达式，返回 [变量名/表达式] 列表
-    // 支持: Person alice = new Person(...) 和 arr[0] = new Item(...)
-    private List<String[]> detectObjectAllocations(Statement stmt) {
-        List<String[]> result = new ArrayList<>();
-        if (!stmt.isExpressionStmt()) return result;
-        Expression expr = stmt.asExpressionStmt().getExpression();
-
-        // 变量声明: Person alice = new Person(...)
-        if (expr.isVariableDeclarationExpr()) {
-            for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
-                if (!vd.getInitializer().isPresent()) continue;
-                if (vd.getInitializer().get().isObjectCreationExpr()) {
-                    result.add(new String[]{vd.getNameAsString()});
-                }
-            }
-            return result;
-        }
-
-        // 赋值表达式: arr[0] = new Point(...) 或 head.next = new ListNode(...)
-        if (expr.isAssignExpr()) {
-            AssignExpr ae = expr.asAssignExpr();
-            if (ae.getValue().isObjectCreationExpr()) {
-                result.add(new String[]{ae.getTarget().toString()});
-            }
-            return result;
-        }
-
-        return result;
-    }
 }
 
 
