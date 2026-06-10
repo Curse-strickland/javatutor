@@ -3,8 +3,14 @@
     <GlobalStatus />
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
-      <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none">
-        <Editor ref="editorRef" class="h-full" />
+      <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none flex flex-col">
+        <div class="editor-card-header">
+          <span class="rc-dot" />
+          <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
+        </div>
+        <div class="flex-1 min-h-0">
+          <Editor ref="editorRef" class="h-full" />
+        </div>
       </div>
 
       <!-- 可拖拽分割条 -->
@@ -455,7 +461,14 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  padding: 0;
+}
+.editor-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .right-card {
