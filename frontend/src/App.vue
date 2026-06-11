@@ -7,6 +7,11 @@
         <div class="editor-card-header">
           <span class="rc-dot" />
           <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
+          <span class="highlight-legend">
+            <span class="legend-item"><span class="legend-arrow" style="color: rgba(128,128,128,0.50)">▶</span>上一步</span>
+            <span class="legend-item"><span class="legend-arrow" style="color: #fbbf24">▶</span>当前</span>
+            <span class="legend-item"><span class="legend-arrow" style="color: rgba(59,130,246,0.55)">▶</span>下一步</span>
+          </span>
           <button
             class="upload-toggle-btn"
             :class="{ active: uploadOpen }"
@@ -322,11 +327,18 @@ const onProgressClick = (e) => {
   store.goToStep(step)
 }
 
-const runCode = () => {
+const runCode = async () => {
   if (editorRef.value) editorRef.value.clearHighlights()
   const code = editorRef.value?.getCode() || ''
-  store.runCode(code)
+  await store.runCode(code)
   if (isAutoPlaying.value) stopAutoPlay()
+  // 显式高亮第一步：黄色=step0，蓝色=step1，灰色=无
+  prevLine.value = null
+  nextLine.value = store.totalSteps > 1 ? (store.steps[1]?.line || null) : null
+  await nextTick()
+  if (editorRef.value && store.currentLine) {
+    editorRef.value.highlightLine(store.currentLine, null, nextLine.value)
+  }
 }
 
 function toggleUpload() {
@@ -446,10 +458,17 @@ watch(speed, () => {
   if (isAutoPlaying.value) startAutoPlay()
 })
 
-watch(() => store.currentLine, async (line) => {
+/** 上一次 step 的行号（灰色高亮），下一次 step 的行号（蓝色高亮） */
+const prevLine = ref(null)
+const nextLine = ref(null)
+
+watch(() => store.currentStep, async (step) => {
+  prevLine.value = step > 0 ? (store.steps[step - 1]?.line || null) : null
+  nextLine.value = step < store.totalSteps - 1 ? (store.steps[step + 1]?.line || null) : null
+  const line = store.currentLine
   if (line && editorRef.value) {
     await nextTick()
-    editorRef.value.highlightLine(line)
+    editorRef.value.highlightLine(line, prevLine.value, nextLine.value)
   } else if (!line && editorRef.value) {
     editorRef.value.clearHighlights()
   }
@@ -541,6 +560,27 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .upload-toggle-label {
   font-size: 12px;
   font-weight: 500;
+}
+
+/* 高亮图例 — "你的代码"右侧 */
+.highlight-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 12px;
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.legend-arrow {
+  font-size: 10px;
+  line-height: 1;
 }
 
 /* Upload panel wrapper — slides down from header */

@@ -140,32 +140,48 @@ const getCode = () => {
   return fallbackCode.value
 }
 
-const highlightLine = (lineNumber) => {
+/**
+ * 三色高亮：灰色（上一条）→ 黄色（当前）→ 蓝色（下一条）
+ * @param {number|null} lineNumber 当前步骤行号（黄色 + ▶ 箭头）
+ * @param {number|null} prevLineNumber 上一步行号（灰色 + 灰色箭头）
+ * @param {number|null} nextLineNumber 下一步行号（蓝色，无箭头）
+ */
+const highlightLine = (lineNumber, prevLineNumber, nextLineNumber) => {
   if (!editor) return
   // 清除已有装饰
   if (currentDecorations.length) {
     editor.deltaDecorations(currentDecorations, [])
     currentDecorations = []
   }
-  if (!lineNumber || lineNumber < 1) return
   const model = editor.getModel()
   if (!model) return
-  // 越界检查：行号超出文档行数则跳过
-  if (lineNumber > model.getLineCount()) return
+
+  const makeDeco = (line, className, glyphMarginClassName) => {
+    if (!line || line < 1) return null
+    if (line > model.getLineCount()) return null
+    const maxColumn = model.getLineMaxColumn(line)
+    if (maxColumn <= 1) return null  // 空行跳过
+    const opts = { isWholeLine: true, className }
+    if (glyphMarginClassName) opts.glyphMarginClassName = glyphMarginClassName
+    return { range: new monaco.Range(line, 1, line, maxColumn), options: opts }
+  }
+
   try {
-    const maxColumn = model.getLineMaxColumn(lineNumber)
-    // 空行跳过（maxColumn===1 表示只有换行符无内容）
-    if (maxColumn <= 1) return
-    const decorations = [{
-      range: new monaco.Range(lineNumber, 1, lineNumber, maxColumn),
-      options: {
-        isWholeLine: true,
-        className: 'highlight-line',
-        glyphMarginClassName: 'exec-arrow'
-      }
-    }]
-    currentDecorations = editor.deltaDecorations([], decorations)
-    editor.revealLineInCenter(lineNumber)
+    const decorations = []
+    // 灰色：上一条执行语句 + 灰色箭头
+    const prevDeco = makeDeco(prevLineNumber, 'highlight-prev-line', 'exec-prev-arrow')
+    if (prevDeco) decorations.push(prevDeco)
+    // 蓝色：下一条即将执行的语句 + 蓝色箭头
+    const nextDeco = makeDeco(nextLineNumber, 'highlight-next-line', 'exec-next-arrow')
+    if (nextDeco) decorations.push(nextDeco)
+    // 黄色：当前执行语句 + ▶ 箭头
+    const currDeco = makeDeco(lineNumber, 'highlight-line', 'exec-arrow')
+    if (currDeco) decorations.push(currDeco)
+
+    if (decorations.length) {
+      currentDecorations = editor.deltaDecorations([], decorations)
+    }
+    if (lineNumber) editor.revealLineInCenter(lineNumber)
   } catch (_) {
     // Monaco 内部错误（如行号越界）→ 静默忽略
   }
@@ -203,9 +219,29 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
 .highlight-line {
   background-color: rgba(255, 255, 0, 0.25);
 }
+.highlight-prev-line {
+  background-color: rgba(128, 128, 128, 0.20);
+}
+.highlight-next-line {
+  background-color: rgba(59, 130, 246, 0.18);
+}
 .exec-arrow::before {
   content: '▶';
   color: #fbbf24;
+  font-size: 12px;
+  position: absolute;
+  left: 2px;
+}
+.exec-prev-arrow::before {
+  content: '▶';
+  color: rgba(128, 128, 128, 0.50);
+  font-size: 12px;
+  position: absolute;
+  left: 2px;
+}
+.exec-next-arrow::before {
+  content: '▶';
+  color: rgba(59, 130, 246, 0.55);
   font-size: 12px;
   position: absolute;
   left: 2px;

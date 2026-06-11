@@ -21,7 +21,7 @@
         </transition-group>
       </div>
 
-      <!-- Arrays: each occupies its own row, collapsible -->
+      <!-- Arrays: each occupies its own row, collapsible (default folded) -->
       <div v-for="key in arrayKeys" :key="key" :data-key="key" class="array-row card p-3 rounded mb-3" :class="{ flash: flashKeys[key] }">
         <div class="flex items-center justify-between mb-2">
           <div class="font-medium text-sm" style="color: var(--text-h)">{{ key }} ({{ (variables[key] || []).length }} 项)</div>
@@ -297,6 +297,23 @@ function getCompareNodes(key) {
 
 /* Array row minor tweaks */
 .array-row { background: transparent }
+
+/* Collapse button — blue dot + chevron */
+.collapse-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.collapse-btn:hover {
+  color: var(--primary);
+  background: var(--accent-bg);
+}
 
 /* Linked List row */
 .linked-list-row { background: transparent }
