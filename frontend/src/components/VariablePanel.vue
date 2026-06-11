@@ -21,7 +21,7 @@
         </transition-group>
       </div>
 
-      <!-- Arrays: each occupies its own row, collapsible -->
+      <!-- Arrays: each occupies its own row, collapsible (default folded) -->
       <div v-for="key in arrayKeys" :key="key" :data-key="key" class="array-row card p-3 rounded mb-3" :class="{ flash: flashKeys[key] }">
         <div class="flex items-center justify-between mb-2">
           <div class="font-medium text-sm" style="color: var(--text-h)">{{ key }} ({{ (variables[key] || []).length }} 项)</div>
@@ -397,6 +397,30 @@ function pretty(v) {
 }
 .ll-chevron.rotated { transform: rotate(180deg) }
 
+/* Collapse button — blue dot + chevron */
+.collapse-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.collapse-btn:hover {
+  color: var(--primary);
+  background: var(--accent-bg);
+}
+
+/* Linked List row */
+.linked-list-row { background: transparent }
+
+/* Recursion Stack row */
+.recursion-stack-row { background: transparent }
+
+/* When card flash: subtle border + shadow (avoid full background change) */
 .card.flash {
   border-color: var(--accent-border);
   box-shadow: 0 6px 14px rgba(37,99,235,0.10);
