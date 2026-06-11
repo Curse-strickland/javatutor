@@ -1,5 +1,5 @@
 <template>
-  <div v-if="hasData" class="heap-stack-panel card p-3 mb-3">
+  <div class="heap-stack-panel card p-3 mb-3">
     <div class="hs-header" @click="isOpen = !isOpen">
       <div class="flex items-center gap-2">
         <span class="hs-dot" />
