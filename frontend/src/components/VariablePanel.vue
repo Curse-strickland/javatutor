@@ -5,7 +5,7 @@
       <p class="text-sm" style="color: var(--text-muted)">只读展示当前步骤变量，值变化会短暂高亮。</p>
     </div>
 
-    <div v-if="displayKeys.length === 0 && liveLLGroups.length === 0 && !recursionStack" class="text-sm" style="color: var(--text-muted)">暂无变量</div>
+    <div v-if="displayKeys.length === 0 && liveLLGroups.length === 0" class="text-sm" style="color: var(--text-muted)">暂无变量</div>
 
     <div v-else>
       <!-- Scalars: horizontal small cards -->
@@ -70,45 +70,15 @@
           <div v-else class="text-xs" style="color: var(--text-muted); padding: 8px 0; text-align: center;">（当前步骤链表为空）</div>
         </div>
       </div>
-
-      <!-- Recursion Stack: live-tracked — panel persists while frames exist -->
-      <div v-if="liveRecursionStack" class="card p-3 mb-3" :class="{ flash: flashKeys['_recursionStack_'] }">
-        <div class="rs-header" @click="collapsedRecursionStack = !collapsedRecursionStack">
-          <div class="flex items-center gap-2">
-            <span class="rs-dot" />
-            <span class="text-sm font-semibold" style="color: var(--text-h)">递归调用栈</span>
-          </div>
-          <svg
-            class="rs-chevron"
-            :class="{ rotated: !collapsedRecursionStack }"
-            width="14" height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-        <div v-show="!collapsedRecursionStack" class="mt-3">
-          <RecursionStackCanvas
-            :stackFrames="liveRecursionStack.frames || []"
-            :activeFrameIndex="liveRecursionStack.activeFrameIndex || 0"
-            :returningFrameIndices="liveRecursionStack.returningFrameIndices || []"
-          />
-        </div>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch, nextTick } from 'vue'
+import { computed, reactive, watch, nextTick } from 'vue'
 import ArrayCanvas from './ArrayCanvas.vue'
 import LinkedListCanvas from './LinkedListCanvas.vue'
-import RecursionStackCanvas from './RecursionStackCanvas.vue'
+
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
@@ -123,13 +93,10 @@ const displayKeys = computed(() => Object.keys(variables.value).filter(k => k !=
 
 // Linked-list live state: key → { displayName, headRef, nodes, pointerLabels }
 const liveLLMap = reactive(new Map())
-// Recursion-stack live state: null or the stack object
-const liveRecursionStack = ref(null)
 
 // Reset on new run
 watch(() => store.runId, () => {
   liveLLMap.clear()
-  liveRecursionStack.value = null
 })
 
 // --- Linked list: ALL nodes in ONE panel, no component splitting ---
@@ -254,21 +221,6 @@ watch(linkedListGroups, (groups) => {
   liveLLMap.set(g.key, { ...g })
 }, { deep: true })
 
-// --- Recursion stack live tracking ---
-const recursionStack = computed(() => {
-  const frames = store.activeStackFrames
-  if (!frames || frames.length === 0) return null
-  return { frames, activeFrameIndex: frames.length - 1, returningFrameIndices: [] }
-})
-
-watch(recursionStack, (stack) => {
-  if (stack && stack.frames && stack.frames.length > 0) {
-    liveRecursionStack.value = stack
-  } else {
-    liveRecursionStack.value = null
-  }
-})
-
 // liveLLGroups as array for template
 const liveLLGroups = computed(() => [...liveLLMap.values()])
 
@@ -291,7 +243,6 @@ const changedIndicesMap = reactive({})
 const compareIndicesMap = reactive({})
 const collapsedKeys = reactive({})
 const collapsedLinkedLists = reactive({})
-const collapsedRecursionStack = ref(false)
 const FLASH_MS = 520
 
 function toggleCollapse(key) {
@@ -426,25 +377,25 @@ function pretty(v) {
 .scalar-leave-to { transform: translateX(12px); opacity: 0 }
 .scalar-leave-active { transition: transform 280ms cubic-bezier(.22,.9,.27,1), opacity 280ms }
 
-/* Linked List & Recursion Stack — collapsible header, same pattern as HeapStackPanel */
-.ll-header, .rs-header {
+/* Linked List — collapsible header, same pattern as HeapStackPanel */
+.ll-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
   user-select: none;
 }
-.ll-dot, .rs-dot {
+.ll-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
   background: var(--primary);
   opacity: 0.8;
 }
-.ll-chevron, .rs-chevron {
+.ll-chevron {
   color: var(--text-muted);
   transition: transform 0.25s ease;
 }
-.ll-chevron.rotated, .rs-chevron.rotated { transform: rotate(180deg) }
+.ll-chevron.rotated { transform: rotate(180deg) }
 
 .card.flash {
   border-color: var(--accent-border);
