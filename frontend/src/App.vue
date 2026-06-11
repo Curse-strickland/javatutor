@@ -15,7 +15,7 @@
           <button
             class="upload-toggle-btn"
             :class="{ active: uploadOpen }"
-            @click="toggleUpload"
+            @click.stop="toggleUpload"
             title="导入文件"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -38,12 +38,12 @@
       </div>
 
       <!-- 可拖拽分割条 -->
-      <div class="splitter" @mousedown.prevent="startDrag" :class="{ 'dragging': isDragging }" aria-hidden="true">
+      <div class="splitter" @mousedown.prevent="startDrag" aria-hidden="true">
         <div class="splitter-handle" />
       </div>
 
       <!-- 右侧：标签页卡片 -->
-      <div class="flex-1 right-card card flex flex-col">
+      <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
           <button
@@ -61,6 +61,8 @@
             :class="{ active: store.rightTab === 'files' }"
             @click="store.switchRightTab('files')"
           >经典</button>
+          <!-- 壁纸选择器 -->
+          <WallpaperSelector />
         </div>
         <div class="flex-1 overflow-auto right-card-body">
           <template v-if="store.rightTab === 'variables'">
@@ -72,6 +74,7 @@
           <ClassicCodePanel v-else @loadCode="onClassicLoad" />
         </div>
       </div>
+
     </div>
 
     <!-- 底部控制栏：浮动可拖动，默认位于编辑区底部 -->
@@ -210,6 +213,7 @@ import AiTutorPanel from './components/AiTutorPanel.vue'
 import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'
 import ControlFlowPanel from './components/ControlFlowPanel.vue'
+import WallpaperSelector from './components/WallpaperSelector.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -217,14 +221,18 @@ const containerRef = ref(null)
 const progressRef = ref(null)
 const controlBarRef = ref(null)
 const containerWidth = ref(0)
-const splitRatio = ref(0.5)
-const isDragging = ref(false)
+const splitRatio = ref(0.55)  // 默认左侧占55%，右侧45%
 const uploadOpen = ref(false)
-const MIN_LEFT = 200
-const MIN_RIGHT = 200
+const MIN_LEFT = 400   // 增加最小宽度从200到400
+const MIN_RIGHT = 350  // 增加最小宽度从200到350
 const leftWidth = computed(() => {
   const raw = containerWidth.value * splitRatio.value
+  // ✅ 确保在居中布局下也能正确计算宽度
   return Math.round(Math.max(MIN_LEFT, Math.min(raw, containerWidth.value - MIN_RIGHT)))
+})
+const rightWidth = computed(() => {
+  // 右侧宽度 = 总宽度 - 左侧宽度 - 分割条宽度(12px)
+  return Math.max(MIN_RIGHT, containerWidth.value - leftWidth.value - 12)
 })
 const isAutoPlaying = ref(false)
 const speed = ref(1000)
@@ -356,7 +364,6 @@ const onClassicLoad = ({ name, code }) => {
 }
 
 const startDrag = (e) => {
-  isDragging.value = true
   if (isAutoPlaying.value) stopAutoPlay()
   document.body.style.userSelect = 'none'
   document.body.style.cursor = 'col-resize'
@@ -365,7 +372,6 @@ const startDrag = (e) => {
 }
 
 const onMouseMove = (e) => {
-  if (!isDragging.value) return
   const rect = containerRef.value?.getBoundingClientRect()
   if (!rect) return
   containerWidth.value = rect.width
@@ -373,8 +379,6 @@ const onMouseMove = (e) => {
 }
 
 const onMouseUp = () => {
-  if (!isDragging.value) return
-  isDragging.value = false
   document.body.style.userSelect = ''
   document.body.style.cursor = ''
   window.removeEventListener('mousemove', onMouseMove)
@@ -400,7 +404,8 @@ onMounted(async () => {
   const rect = containerRef.value?.getBoundingClientRect()
   if (rect) {
     containerWidth.value = rect.width
-    splitRatio.value = 0.5
+    // ✅ 保持与初始值一致，使用0.55而不是0.5
+    splitRatio.value = 0.55
   }
 
   // 控制栏默认居中于编辑区底部
@@ -496,6 +501,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
     }
   }
 })
+
 </script>
 
 <style scoped>
@@ -503,9 +509,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg);
-  background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 24px 24px;
+  width: 100vw;
+  background-color: var(--bg);
+  position: relative;
 }
 
 .main-area {
@@ -514,6 +520,8 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   min-height: 0;
   padding: 12px;
   gap: 0;
+  background: transparent;
+  align-items: stretch;     /* 垂直拉伸 */
 }
 
 .editor-card {
@@ -546,6 +554,8 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   font-size: 12px;
   cursor: pointer;
   transition: color 0.2s, background 0.15s, border-color 0.2s;
+  position: relative;
+  z-index: 100;  /* ✅ 确保按钮在最上层 */
 }
 .upload-toggle-btn:hover {
   color: var(--text-h);
@@ -619,6 +629,8 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   gap: 8px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  position: relative;
 }
 .rc-dot {
   width: 7px; height: 7px;
@@ -650,7 +662,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 
 /* Splitter */
 .splitter {
-  width: 8px;
+  width: 12px;  /* 增加宽度，更容易拖拽 */
   cursor: col-resize;
   display: flex;
   align-items: center;
@@ -658,14 +670,29 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   background: transparent;
   user-select: none;
   flex-shrink: 0;
+  position: relative;
 }
-.splitter:hover { background-color: rgba(255,255,255,0.04); }
+.splitter:hover { 
+  background-color: rgba(255,255,255,0.06); 
+}
+.splitter:hover .splitter-handle {
+  background-color: var(--primary);  /* 悬停时高亮显示 */
+  opacity: 0.8;
+}
 .splitter .splitter-handle {
-  width: 2px; height: 40px;
-  background-color: rgba(255,255,255,0.10);
+  width: 3px; height: 60px;  /* 增加手柄尺寸 */
+  background-color: rgba(255,255,255,0.15);
   border-radius: 2px;
+  transition: all 0.2s ease;
 }
-.splitter.dragging { background-color: rgba(255,255,255,0.06); }
+.splitter.dragging { 
+  background-color: rgba(255,255,255,0.08); 
+}
+.splitter.dragging .splitter-handle {
+  background-color: var(--primary);
+  opacity: 1;
+  transform: scaleY(1.1);
+}
 
 /* --- Floating control bar --- */
 .control-bar {
