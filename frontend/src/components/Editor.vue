@@ -199,6 +199,15 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
   direction: ltr; /* 修正代码编辑区显示问题 */
   text-align: left;
   transform: none !important; /* 取消可能的镜像/翻转 */
+  background: var(--card-bg) !important;
+}
+
+/* Monaco Editor 内部元素也需要透明背景 */
+.editor-container .monaco-editor,
+.editor-container .monaco-editor-background,
+.editor-container .margin,
+.editor-container .monaco-editor .inputarea.ime-input {
+  background: transparent !important;
 }
 .highlight-line {
   background-color: rgba(255, 255, 0, 0.25);
