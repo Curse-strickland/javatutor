@@ -1,0 +1,189 @@
+﻿{
+    "model":  "data/model.moc",
+    "textures":  [
+                     "data/textures/texture_00.png",
+                     "data/textures/texture_01.png"
+                 ],
+    "physics":  "data/physics.json",
+    "expressions":  [
+                        {
+                            "name":  "angry01",
+                            "file":  "data/expressions/angry01.exp.json"
+                        },
+                        {
+                            "name":  "angry02",
+                            "file":  "data/expressions/angry02.exp.json"
+                        },
+                        {
+                            "name":  "bye01",
+                            "file":  "data/expressions/bye01.exp.json"
+                        },
+                        {
+                            "name":  "cry01",
+                            "file":  "data/expressions/cry01.exp.json"
+                        },
+                        {
+                            "name":  "cry02",
+                            "file":  "data/expressions/cry02.exp.json"
+                        },
+                        {
+                            "name":  "default",
+                            "file":  "data/expressions/default.exp.json"
+                        },
+                        {
+                            "name":  "idle",
+                            "file":  "data/expressions/idle.exp.json"
+                        },
+                        {
+                            "name":  "kandou01",
+                            "file":  "data/expressions/kandou01.exp.json"
+                        },
+                        {
+                            "name":  "kandou02",
+                            "file":  "data/expressions/kandou02.exp.json"
+                        },
+                        {
+                            "name":  "kandou03",
+                            "file":  "data/expressions/kandou03.exp.json"
+                        },
+                        {
+                            "name":  "kime01",
+                            "file":  "data/expressions/kime01.exp.json"
+                        },
+                        {
+                            "name":  "kime02",
+                            "file":  "data/expressions/kime02.exp.json"
+                        },
+                        {
+                            "name":  "sad01",
+                            "file":  "data/expressions/sad01.exp.json"
+                        },
+                        {
+                            "name":  "sad02",
+                            "file":  "data/expressions/sad02.exp.json"
+                        },
+                        {
+                            "name":  "sad03",
+                            "file":  "data/expressions/sad03.exp.json"
+                        },
+                        {
+                            "name":  "sad04",
+                            "file":  "data/expressions/sad04.exp.json"
+                        },
+                        {
+                            "name":  "serious01",
+                            "file":  "data/expressions/serious01.exp.json"
+                        },
+                        {
+                            "name":  "serious02",
+                            "file":  "data/expressions/serious02.exp.json"
+                        },
+                        {
+                            "name":  "shame01",
+                            "file":  "data/expressions/shame01.exp.json"
+                        },
+                        {
+                            "name":  "shame02",
+                            "file":  "data/expressions/shame02.exp.json"
+                        },
+                        {
+                            "name":  "sing01",
+                            "file":  "data/expressions/sing01.exp.json"
+                        },
+                        {
+                            "name":  "sing02",
+                            "file":  "data/expressions/sing02.exp.json"
+                        },
+                        {
+                            "name":  "smile01",
+                            "file":  "data/expressions/smile01.exp.json"
+                        },
+                        {
+                            "name":  "smile02",
+                            "file":  "data/expressions/smile02.exp.json"
+                        },
+                        {
+                            "name":  "smile03",
+                            "file":  "data/expressions/smile03.exp.json"
+                        },
+                        {
+                            "name":  "smile04",
+                            "file":  "data/expressions/smile04.exp.json"
+                        },
+                        {
+                            "name":  "surprised01",
+                            "file":  "data/expressions/surprised01.exp.json"
+                        },
+                        {
+                            "name":  "thinking01",
+                            "file":  "data/expressions/thinking01.exp.json"
+                        },
+                        {
+                            "name":  "thinking02",
+                            "file":  "data/expressions/thinking02.exp.json"
+                        },
+                        {
+                            "name":  "cry04",
+                            "file":  "data/expressions/cry04.exp.json"
+                        }
+                    ],
+    "motions":  {
+                    "flick_head":  [
+                                       {
+                                           "file":  "data/motions/surprised01.mtn"
+                                       }
+                                   ],
+                    "idle":  [
+                                 {
+                                     "file":  "data/motions/idle01.mtn"
+                                 }
+                             ],
+                    "tap_body":  [
+                                     {
+                                         "file":  "data/motions/angry01.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/angry02.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/sad01.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/sad02.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/cry01.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/cry02.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/shame01.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/shame02.mtn"
+                                     },
+                                     {
+                                         "file":  "data/motions/surprised01.mtn"
+                                     }
+                                 ]
+                },
+    "hit_areas_custom":  {
+                             "head_x":  [
+                                            -0.25,
+                                            1
+                                        ],
+                             "head_y":  [
+                                            0.25,
+                                            0.2
+                                        ],
+                             "body_x":  [
+                                            -0.3,
+                                            0.2
+                                        ],
+                             "body_y":  [
+                                            0.3,
+                                            -1.9
+                                        ]
+                         }
+}
