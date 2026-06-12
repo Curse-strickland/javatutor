@@ -55,6 +55,8 @@ public class RunController {
         "                args.put(pn, eid != null ? eid : ensureHeapObject(pn, pv));\n" +
         "            } else if (pv != null && pv.getClass().isArray()) {\n" +
         "                args.put(pn, pn);\n" +
+        "            } else if (pv != null && pv instanceof java.util.Collection) {\n" +
+        "                args.put(pn, pn);\n" +
         "            } else { args.put(pn, pv); }\n" +
         "        }\n" +
         "        frameArgs.add(args);\n" +

@@ -52,6 +52,9 @@ public class TraceEngine {
             } else if (paramValue != null && paramValue.getClass().isArray()) {
                 // Defer array registration to record(); store name for now
                 args.put(paramName, paramName);
+            } else if (paramValue != null && paramValue instanceof java.util.Collection) {
+                // JDK collections (List, Set, etc.) — defer to record(), store name
+                args.put(paramName, paramName);
             } else {
                 args.put(paramName, paramValue);
             }

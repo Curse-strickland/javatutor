@@ -374,7 +374,8 @@ public class Instrumenter {
                     || op == UnaryExpr.Operator.POSTFIX_DECREMENT;
             }
             // 独立方法调用语句（如 System.out.println()）也需要插桩，否则纯打印代码无步骤
-            if (expr.isMethodCallExpr()) return true;
+            // 但 TraceEngine.* 方法是插桩器自身生成的，跳过以避免重复记录
+            if (expr.isMethodCallExpr()) return !isTraceEngineCall(expr.asMethodCallExpr());
             return false;
         }
 
@@ -666,6 +667,7 @@ public class Instrumenter {
     private String detectMethodCall(Statement stmt) {
         if (!stmt.isExpressionStmt()) return null;
         Expression expr = stmt.asExpressionStmt().getExpression();
+        if (expr.isMethodCallExpr() && isTraceEngineCall(expr.asMethodCallExpr())) return null;
         return detectCallInExpr(expr);
     }
 
@@ -695,6 +697,15 @@ public class Instrumenter {
             return detectCallInExpr(expr.asAssignExpr().getValue());
         }
         return null;
+    }
+
+    // 判断方法调用是否为 TraceEngine 的插桩方法（人工生成的记录语句），
+    // 避免对插桩代码本身再次插桩造成级联
+    private boolean isTraceEngineCall(MethodCallExpr mce) {
+        String name = mce.getNameAsString();
+        return name.equals("record") || name.equals("buildMap")
+            || name.equals("allocArray") || name.equals("allocObject")
+            || name.equals("pushFrame") || name.equals("popFrame");
     }
 
 
