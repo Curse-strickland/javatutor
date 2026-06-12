@@ -1,5 +1,6 @@
 <template>
   <div class="app-shell">
+    <VideoBackground />
     <GlobalStatus />
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
@@ -202,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
 import VariablePanel from './components/VariablePanel.vue'
@@ -214,8 +215,11 @@ import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'
 import ControlFlowPanel from './components/ControlFlowPanel.vue'
 import WallpaperSelector from './components/WallpaperSelector.vue'
+import VideoBackground from './components/VideoBackground.vue'
 
 const store = usePlayerStore()
+const videoSrc = ref('')
+provide('videoSrc', videoSrc)
 const editorRef = ref(null)
 const containerRef = ref(null)
 const progressRef = ref(null)
@@ -521,7 +525,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   padding: 12px;
   gap: 0;
   background: transparent;
-  align-items: stretch;     /* 垂直拉伸 */
+  align-items: stretch;
+  position: relative;
+  z-index: 1;
 }
 
 .editor-card {

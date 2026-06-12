@@ -133,20 +133,24 @@
         </div>
 
         <!-- 卡片透明度调节 -->
-        <div class="opacity-control">
+        <div class="opacity-control" :class="{ locked: isOpacityLocked }">
           <label class="opacity-label">
             <span>卡片透明度</span>
             <span class="opacity-value">{{ Math.round(cardOpacity * 100) }}%</span>
           </label>
-          <div class="opacity-slider-wrapper" ref="opacitySliderRef">
-            <div class="opacity-track" @click="onOpacityClick">
-              <div class="opacity-fill" :style="{ width: ((cardOpacity - 0.3) / 0.7 * 100) + '%' }"/>
-              <div
-                class="opacity-thumb"
-                :style="{ left: ((cardOpacity - 0.3) / 0.7 * 100) + '%' }"
-                @pointerdown.stop="startOpacityDrag"
-              />
-            </div>
+          <div
+            class="opacity-track"
+            :class="{ disabled: isOpacityLocked }"
+            ref="opacityTrackRef"
+            @click="!isOpacityLocked && onOpacityTrackClick($event)"
+          >
+            <div class="opacity-fill" :style="{ width: ((cardOpacity - 0.3) / 0.7 * 100) + '%' }" />
+            <div
+              v-if="!isOpacityLocked"
+              class="opacity-thumb"
+              :style="{ left: ((cardOpacity - 0.3) / 0.7 * 100) + '%' }"
+              @pointerdown.stop="startOpacityDrag"
+            />
           </div>
         </div>
       </div>
@@ -156,10 +160,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, computed, inject } from 'vue'
 
 const panelOpen = ref(false)
 const currentWallpaper = ref(0)
+const opacityTrackRef = ref(null)
+const savedOpacity = ref(0.88) // restore when leaving 默认网格
+
+const videoSrc = inject('videoSrc', ref(''))
+const isOpacityLocked = computed(() => currentWallpaper.value === 0)
 const cardOpacity = ref(0.88)  // 默认卡片透明度，对应 rgba(55,55,63,0.88)
 const customWallpapers = ref([])  // 支持多个自定义壁纸
 
@@ -167,18 +176,28 @@ const customWallpapers = ref([])  // 支持多个自定义壁纸
 const opacitySliderRef = ref(null)
 
 // 分页常量与状态
-const PRESET_PAGE_SIZE = 4 // 预设壁纸每页显示数量
+const PRESET_PAGE_SIZE = 2 // 预设壁纸每页显示数量
 const PAGE_SIZE = 4        // 自定义壁纸每页显示数量
 
 const presetCurrentPage = ref(0)
 const customCurrentPage = ref(0)
 
-// 预设壁纸配置（只保留默认网格）
+// 预设壁纸配置
 const presetWallpapers = ref([
   {
     name: '默认网格',
     type: 'gradient',
     value: 'radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)'
+  },
+  {
+    name: '深邃星空',
+    type: 'gradient',
+    value: 'radial-gradient(ellipse at 50% 0%, rgba(120,60,200,0.18) 0%, transparent 55%), radial-gradient(ellipse at 80% 100%, rgba(40,30,120,0.12) 0%, transparent 50%), radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)'
+  },
+  {
+    name: 'Train Girl',
+    type: 'video',
+    value: '/wallpapers/train-girl.mp4'
   }
 ])
 
@@ -263,9 +282,18 @@ onMounted(async () => {
           customCurrentPage.value = Math.floor(customIndex / PAGE_SIZE)
         }
       }
-      
+
+      // 默认网格强制 100% 不透明
+      if (currentWallpaper.value === 0) {
+        savedOpacity.value = settings.cardOpacity ?? 0.88
+        cardOpacity.value = 1.0
+      }
+
       applyWallpaper()
       applyCardOpacity()
+      // Restore video state for video-type wallpapers
+      const wp = wallpapers.value[currentWallpaper.value]
+      if (wp && wp.type === 'video') videoSrc.value = wp.value
     } catch (e) {
       console.error('Failed to load wallpaper settings:', e)
       applyDefaultSettings()
@@ -286,19 +314,30 @@ function togglePanel() {
 }
 
 function selectWallpaper(index) {
+  const wasLocked = isOpacityLocked.value
   currentWallpaper.value = index
-  
+
   // 如果选择的是预设壁纸，切换到对应的分页
   if (index < presetWallpapers.value.length) {
     presetCurrentPage.value = Math.floor(index / PRESET_PAGE_SIZE)
   } else {
-    // 如果选择的是自定义壁纸，计算其在自定义列表中的索引并切换分页
     const customIndex = index - presetWallpapers.value.length
     if (customIndex >= 0) {
       customCurrentPage.value = Math.floor(customIndex / PAGE_SIZE)
     }
   }
-  
+
+  // 默认网格：锁定 100% 不透明，VSCode 风格
+  if (index === 0) {
+    if (!wasLocked) savedOpacity.value = cardOpacity.value
+    cardOpacity.value = 1.0
+    applyCardOpacity()
+  } else if (wasLocked) {
+    // 从默认网格切换到其他壁纸：恢复之前的透明度
+    cardOpacity.value = savedOpacity.value
+    applyCardOpacity()
+  }
+
   applyWallpaper()
   saveSettings()
 }
@@ -307,6 +346,13 @@ function getWallpaperStyle(wp) {
   if (wp.type === 'image') {
     return {
       backgroundImage: `url(${wp.value})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
+  if (wp.type === 'video') {
+    return {
+      backgroundImage: 'url(/wallpapers/train-girl-preview.jpg)',
       backgroundSize: 'cover',
       backgroundPosition: 'center'
     }
@@ -400,65 +446,56 @@ function deleteCustomWallpaper(index, event) {
   saveSettings()
 }
 
-// 透明度滑块拖动状态
-const isDraggingOpacity = ref(false)
+let saveOpacityTimer = null
+function applyCardOpacity() {
+  const root = document.documentElement
+  const baseColor = '55,55,63'
+  root.style.setProperty('--card-bg', `rgba(${baseColor},${cardOpacity.value})`)
+  root.style.setProperty('--glass', `rgba(${baseColor},${cardOpacity.value})`)
+  document.body.classList.toggle('wallpaper-mesh', isOpacityLocked.value)
+}
 
-// 开始拖动透明度滑块
-const startOpacityDrag = (e) => {
-  isDraggingOpacity.value = true
+// --- Custom opacity slider with pointer capture (same pattern as progress bar) ---
+function updateOpacityFromEvent(e) {
+  if (!opacityTrackRef.value) return
+  const rect = opacityTrackRef.value.getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  // Map ratio [0,1] → opacity [0.3, 1.0], snap to 0.01 steps
+  const raw = 0.3 + ratio * 0.7
+  cardOpacity.value = Math.round(raw / 0.01) * 0.01
+}
+
+function onOpacityTrackClick(e) {
+  updateOpacityFromEvent(e)
+  applyCardOpacity()
+  clearTimeout(saveOpacityTimer)
+  saveOpacityTimer = setTimeout(() => saveSettings(), 300)
+}
+
+function startOpacityDrag(e) {
   e.target.setPointerCapture(e.pointerId)
   window.addEventListener('pointermove', onOpacityMove)
   window.addEventListener('pointerup', onOpacityUp, { once: true })
 }
 
-// 拖动过程中更新透明度
-const onOpacityMove = (e) => {
-  if (!isDraggingOpacity.value || !opacitySliderRef.value) return
-  const rect = opacitySliderRef.value.querySelector('.opacity-track').getBoundingClientRect()
-  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-  // 映射到 0.3 - 1.0 范围
-  cardOpacity.value = 0.3 + ratio * 0.7
-  updateCardOpacity()
-}
-
-// 结束拖动
-const onOpacityUp = () => {
-  isDraggingOpacity.value = false
-  window.removeEventListener('pointermove', onOpacityMove)
-}
-
-// 点击轨道跳转到对应位置
-const onOpacityClick = (e) => {
-  if (!opacitySliderRef.value) return
-  const rect = opacitySliderRef.value.querySelector('.opacity-track').getBoundingClientRect()
-  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-  // 映射到 0.3 - 1.0 范围
-  cardOpacity.value = 0.3 + ratio * 0.7
-  updateCardOpacity()
-}
-
-function updateCardOpacity() {
+function onOpacityMove(e) {
+  updateOpacityFromEvent(e)
   applyCardOpacity()
-  saveSettings()
 }
 
-function applyCardOpacity() {
-  // 更新CSS变量 --card-bg 的透明度
-  const root = document.documentElement
-  const baseColor = '55,55,63'  // RGB值
-  // 修复透明度反的问题：滑块值越大，卡片越透明
-  // 使用反向映射：sliderValue 0.3->1.0 映射到 alpha 1.0->0.3
-  const alpha = 1.3 - cardOpacity.value;
-  root.style.setProperty('--card-bg', `rgba(${baseColor},${alpha})`)
-  
-  // 同时更新 --glass 变量
-
+function onOpacityUp() {
+  window.removeEventListener('pointermove', onOpacityMove)
+  clearTimeout(saveOpacityTimer)
+  saveOpacityTimer = setTimeout(() => saveSettings(), 300)
 }
 
 function applyWallpaper() {
   const wp = wallpapers.value[currentWallpaper.value]
   const appShell = document.querySelector('.app-shell')
-  
+
+  // Disable video by default, re-enable below if video type
+  videoSrc.value = ''
+
   if (!appShell) return
 
   // ✅ 先清除所有背景设置
@@ -469,25 +506,25 @@ function applyWallpaper() {
   appShell.style.backgroundRepeat = ''
 
   if (wp.type === 'image') {
-    // 图片壁纸 - 直接设置在app-shell上
     appShell.style.backgroundImage = `url(${wp.value})`
     appShell.style.backgroundSize = 'cover'
     appShell.style.backgroundPosition = 'center'
     appShell.style.backgroundRepeat = 'no-repeat'
     appShell.style.backgroundColor = 'transparent'
+  } else if (wp.type === 'video') {
+    appShell.style.backgroundColor = 'transparent'
+    videoSrc.value = wp.value
   } else if (wp.type === 'solid') {
-    // 纯色背景
     appShell.style.backgroundImage = 'none'
     appShell.style.backgroundColor = wp.value
   } else {
-    // 渐变壁纸 - 直接设置在app-shell上
     appShell.style.backgroundImage = wp.value
     appShell.style.backgroundColor = 'transparent'
   }
-  
+
   // 保存当前壁纸索引
   appShell.dataset.wallpaper = currentWallpaper.value
-  
+
   // 应用卡片透明度
   applyCardOpacity()
 }
@@ -597,7 +634,6 @@ function saveSettings() {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
@@ -608,12 +644,6 @@ function saveSettings() {
 }
 
 /* 分页控制 */
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .page-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -788,136 +818,82 @@ function saveSettings() {
 
 /* 透明度控制 */
 .opacity-control {
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+	padding-top: 12px;
+	border-top: 1px solid var(--border);
 }
 
 .opacity-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--text-muted);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+	font-size: 13px;
+	color: var(--text-muted);
 }
 
 .opacity-value {
-  color: var(--text-h);
-  font-weight: 600;
+	color: var(--text-h);
+	font-weight: 600;
+	font-size: 13px;
+	background: rgba(255,255,255,0.05);
+	padding: 2px 10px;
+	border-radius: 12px;
+	min-width: 44px;
+	text-align: center;
 }
 
-/* 自定义透明度滑块 */
-.opacity-slider-wrapper {
-  width: 100%;
-  margin: 10px 0;
-}
-
+/* Custom opacity track (same pattern as progress bar) */
 .opacity-track {
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
+	width: 100%;
+	height: 6px;
+	background: rgba(255,255,255,0.08);
+	border-radius: 3px;
+	position: relative;
+	cursor: pointer;
+	transition: height 0.15s;
 }
+.opacity-track:hover { height: 8px; }
+.opacity-track.disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.opacity-track.disabled:hover { height: 6px; }
 
-.opacity-track:hover {
-  background: rgba(255, 255, 255, 0.15);
+.opacity-control.locked .opacity-value {
+  background: var(--accent-bg);
+  color: var(--primary);
 }
 
 .opacity-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: var(--primary);
-  border-radius: 4px;
-  pointer-events: none;
-  transition: width 0.1s ease-out;
+	position: absolute;
+	top: 0; left: 0;
+	height: 100%;
+	background: linear-gradient(90deg, var(--primary), var(--primary-600));
+	border-radius: 3px;
+	pointer-events: none;
 }
 
 .opacity-thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
-  background: white;
-  border: 2px solid var(--primary);
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  cursor: grab;
-  pointer-events: auto;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+	position: absolute;
+	top: 50%;
+	width: 16px;
+	height: 16px;
+	background: #fff;
+	border: 2px solid var(--primary);
+	border-radius: 50%;
+	transform: translate(-50%, -50%);
+	cursor: grab;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+	transition: transform 0.1s, box-shadow 0.15s;
+	z-index: 2;
 }
-
 .opacity-thumb:hover {
-  transform: translate(-50%, -50%) scale(1.1);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+	transform: translate(-50%, -50%) scale(1.2);
+	box-shadow: 0 2px 10px rgba(99,102,241,0.5);
 }
-
 .opacity-thumb:active {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-}
-
-/* 编辑器自定义滑块通用样式 */
-.custom-slider-wrapper {
-  width: 100%;
-  margin: 8px 0;
-}
-
-.custom-slider-track {
-  position: relative;
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.custom-slider-track:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.custom-slider-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: var(--primary);
-  border-radius: 3px;
-  pointer-events: none;
-  transition: width 0.1s ease-out;
-}
-
-.custom-slider-thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 16px;
-  height: 16px;
-  background: white;
-  border: 2px solid var(--primary);
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  cursor: grab;
-  pointer-events: auto;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.custom-slider-thumb:hover {
-  transform: translate(-50%, -50%) scale(1.1);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-}
-
-.custom-slider-thumb:active {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+	cursor: grabbing;
+	transform: translate(-50%, -50%) scale(1.15);
 }
 
 /* 面板动画 */

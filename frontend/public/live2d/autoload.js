@@ -88,3 +88,60 @@ console.log(`\n%cLive2D%cWidget%c\n`, 'padding: 8px; background: #cd3e45; font-w
                 ﾄ-,/  |___./
                 'ｰ'    !_,.:
 */
+
+// ===== Waifu Badge Injection — glass-morphism fold toggle =====
+(function injectBadge() {
+  var hideTimer = null;
+
+  const tryInject = function() {
+    const waifu = document.getElementById('waifu');
+    if (!waifu) { setTimeout(tryInject, 100); return; }
+    if (document.getElementById('waifu-badge')) return;
+
+    const badge = document.createElement('div');
+    badge.id = 'waifu-badge';
+    badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    badge.title = '折叠看板娘';
+
+    // Append to body so it's not trapped by waifu's transform containing block
+    document.body.appendChild(badge);
+
+    function showBadge() {
+      clearTimeout(hideTimer);
+      badge.classList.add('waifu-badge-visible');
+    }
+
+    function hideBadge() {
+      if (waifu.classList.contains('waifu-folded')) return;
+      // Small delay so the user can move from waifu → badge without it disappearing
+      hideTimer = setTimeout(function() {
+        badge.classList.remove('waifu-badge-visible');
+      }, 180);
+    }
+
+    // Waifu hover → show badge
+    waifu.addEventListener('mouseenter', function() {
+      if (!waifu.classList.contains('waifu-folded')) showBadge();
+    });
+    waifu.addEventListener('mouseleave', hideBadge);
+
+    // Badge itself: cancel hide timer on enter, hide on leave
+    badge.addEventListener('mouseenter', showBadge);
+    badge.addEventListener('mouseleave', hideBadge);
+
+    // Click toggle
+    badge.addEventListener('click', function(e) {
+      e.stopPropagation();
+      clearTimeout(hideTimer);
+      var folded = waifu.classList.toggle('waifu-folded');
+      badge.title = folded ? '展开看板娘' : '折叠看板娘';
+      if (folded) {
+        badge.classList.add('waifu-badge-visible');
+      } else {
+        badge.classList.remove('waifu-badge-visible');
+      }
+    });
+  };
+  // waifu DOM is created synchronously by initWidget; inject after microtask
+  setTimeout(tryInject, 50);
+})();
