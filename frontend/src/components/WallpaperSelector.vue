@@ -190,14 +190,16 @@
                   <span>缩放比例</span>
                   <span class="control-value">{{ Math.round(scale * 100) }}%</span>
                 </label>
-                <input 
-                  type="range" 
-                  min="0.1" 
-                  max="3" 
-                  step="0.05" 
-                  v-model.number="scale"
-                  class="control-slider"
-                />
+                <div class="custom-slider-wrapper" ref="scaleSliderRef">
+                  <div class="custom-slider-track" @click="onScaleClick">
+                    <div class="custom-slider-fill" :style="{ width: ((scale - 0.1) / 2.9 * 100) + '%' }"/>
+                    <div
+                      class="custom-slider-thumb"
+                      :style="{ left: ((scale - 0.1) / 2.9 * 100) + '%' }"
+                      @pointerdown.stop="startScaleDrag"
+                    />
+                  </div>
+                </div>
               </div>
 
               <!-- 旋转角度 -->
@@ -206,14 +208,16 @@
                   <span>旋转角度</span>
                   <span class="control-value">{{ rotation }}°</span>
                 </label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="360" 
-                  step="1" 
-                  v-model.number="rotation"
-                  class="control-slider"
-                />
+                <div class="custom-slider-wrapper" ref="rotationSliderRef">
+                  <div class="custom-slider-track" @click="onRotationClick">
+                    <div class="custom-slider-fill" :style="{ width: (rotation / 360 * 100) + '%' }"/>
+                    <div
+                      class="custom-slider-thumb"
+                      :style="{ left: (rotation / 360 * 100) + '%' }"
+                      @pointerdown.stop="startRotationDrag"
+                    />
+                  </div>
+                </div>
               </div>
 
               <!-- 裁剪比例 -->
@@ -295,6 +299,10 @@ const customWallpapers = ref([])  // 支持多个自定义壁纸
 
 // 透明度滑块引用
 const opacitySliderRef = ref(null)
+
+// 编辑器滑块引用
+const scaleSliderRef = ref(null)
+const rotationSliderRef = ref(null)
 
 // 壁纸编辑器状态
 const showEditor = ref(false)
@@ -475,31 +483,8 @@ function handleCustomUpload(event) {
 
   const reader = new FileReader()
   reader.onload = (e) => {
-    // 生成唯一ID和名称
-    const timestamp = Date.now()
-    const customWallpaper = {
-      id: `custom-${timestamp}`,
-      name: file.name.replace(/\.[^/.]+$/, ''),  // 移除文件扩展名
-      type: 'image',
-      value: e.target.result,
-      edited: false  // 标记是否经过编辑
-    }
-    
-    // 添加到自定义壁纸列表
-    customWallpapers.value.push(customWallpaper)
-    
-    // 计算新壁纸的索引
-    const newIndex = presetWallpapers.value.length + customWallpapers.value.length - 1
-    
-    // 自动选中新上传的壁纸
-    currentWallpaper.value = newIndex
-    
-    // 自动切换到对应的页面
-    const customIndex = customWallpapers.value.length - 1
-    customCurrentPage.value = Math.floor(customIndex / PAGE_SIZE)
-    
-    // 打开编辑器
-    openEditor(customWallpapers.value.length - 1, e.target.result)
+    // 直接打开编辑器，不立即添加到列表
+    openEditorForNewUpload(e.target.result, file.name.replace(/\.[^/.]+$/, ''))
     
     // 清空input，允许重复上传同一文件
     event.target.value = ''
@@ -569,6 +554,32 @@ function openEditorForExisting(index, event) {
   
   const wallpaper = customWallpapers.value[index]
   openEditor(index, wallpaper.value)
+}
+
+// 为新上传的壁纸打开编辑器
+function openEditorForNewUpload(imageDataUrl, name) {
+  editingWallpaper.value = null
+  showEditor.value = true
+  
+  // 重置编辑器状态
+  scale.value = 1
+  rotation.value = 0
+  cropRatio.value = 'free'
+  positionX.value = 0
+  positionY.value = 0
+  
+  // 加载图片
+  const img = new Image()
+  img.onload = () => {
+    originalImage.value = img
+    nextTick(() => {
+      drawEditorCanvas()
+    })
+  }
+  img.src = imageDataUrl
+  
+  // 保存名称
+  originalImage.value.name = name
 }
 
 // 关闭编辑器
@@ -693,16 +704,41 @@ function resetEditor() {
 
 // 应用编辑
 function applyEdit() {
-  if (editingWallpaper.value === null || !originalImage.value) return
+  if (!originalImage.value) return
   
   // 将画布内容转换为 Data URL
   const editedDataUrl = editorCanvas.value.toDataURL('image/jpeg', 0.9)
   
-  // 更新壁纸数据
-  const wallpaper = customWallpapers.value[editingWallpaper.value]
-  wallpaper.value = editedDataUrl
-  wallpaper.edited = true
-  wallpaper.name += ' (已编辑)'
+  if (editingWallpaper.value === null) {
+    // 新上传的壁纸，添加到列表
+    const timestamp = Date.now()
+    const customWallpaper = {
+      id: `custom-${timestamp}`,
+      name: originalImage.value.name || '自定义壁纸',
+      type: 'image',
+      value: editedDataUrl,
+      edited: true
+    }
+    
+    // 添加到自定义壁纸列表
+    customWallpapers.value.push(customWallpaper)
+    
+    // 计算新壁纸的索引
+    const newIndex = presetWallpapers.value.length + customWallpapers.value.length - 1
+    
+    // 自动选中新添加的壁纸
+    currentWallpaper.value = newIndex
+    
+    // 自动切换到对应的页面
+    const customIndex = customWallpapers.value.length - 1
+    customCurrentPage.value = Math.floor(customIndex / PAGE_SIZE)
+  } else {
+    // 编辑已有的壁纸
+    const wallpaper = customWallpapers.value[editingWallpaper.value]
+    wallpaper.value = editedDataUrl
+    wallpaper.edited = true
+    wallpaper.name += ' (已编辑)'
+  }
   
   // 重新应用壁纸
   applyWallpaper()
@@ -754,6 +790,76 @@ const onOpacityClick = (e) => {
   // 映射到 0.3 - 1.0 范围
   cardOpacity.value = 0.3 + ratio * 0.7
   updateCardOpacity()
+}
+
+// ========== 编辑器滑块拖动处理 ==========
+
+// 缩放比例滑块拖动状态
+const isDraggingScale = ref(false)
+
+// 开始拖动缩放滑块
+const startScaleDrag = (e) => {
+  isDraggingScale.value = true
+  e.target.setPointerCapture(e.pointerId)
+  window.addEventListener('pointermove', onScaleMove)
+  window.addEventListener('pointerup', onScaleUp, { once: true })
+}
+
+// 拖动过程中更新缩放比例
+const onScaleMove = (e) => {
+  if (!isDraggingScale.value || !scaleSliderRef.value) return
+  const rect = scaleSliderRef.value.querySelector('.custom-slider-track').getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  // 映射到 0.1 - 3.0 范围
+  scale.value = 0.1 + ratio * 2.9
+}
+
+// 结束拖动缩放滑块
+const onScaleUp = () => {
+  isDraggingScale.value = false
+  window.removeEventListener('pointermove', onScaleMove)
+}
+
+// 点击缩放轨道跳转
+const onScaleClick = (e) => {
+  if (!scaleSliderRef.value) return
+  const rect = scaleSliderRef.value.querySelector('.custom-slider-track').getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  scale.value = 0.1 + ratio * 2.9
+}
+
+// 旋转角度滑块拖动状态
+const isDraggingRotation = ref(false)
+
+// 开始拖动旋转滑块
+const startRotationDrag = (e) => {
+  isDraggingRotation.value = true
+  e.target.setPointerCapture(e.pointerId)
+  window.addEventListener('pointermove', onRotationMove)
+  window.addEventListener('pointerup', onRotationUp, { once: true })
+}
+
+// 拖动过程中更新旋转角度
+const onRotationMove = (e) => {
+  if (!isDraggingRotation.value || !rotationSliderRef.value) return
+  const rect = rotationSliderRef.value.querySelector('.custom-slider-track').getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  // 映射到 0 - 360 范围
+  rotation.value = Math.round(ratio * 360)
+}
+
+// 结束拖动旋转滑块
+const onRotationUp = () => {
+  isDraggingRotation.value = false
+  window.removeEventListener('pointermove', onRotationMove)
+}
+
+// 点击旋转轨道跳转
+const onRotationClick = (e) => {
+  if (!rotationSliderRef.value) return
+  const rect = rotationSliderRef.value.querySelector('.custom-slider-track').getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  rotation.value = Math.round(ratio * 360)
 }
 
 function updateCardOpacity() {
@@ -1186,6 +1292,63 @@ function saveSettings() {
 }
 
 .opacity-thumb:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* 编辑器自定义滑块通用样式 */
+.custom-slider-wrapper {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.custom-slider-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.custom-slider-track:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.custom-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: width 0.1s ease-out;
+}
+
+.custom-slider-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: white;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  pointer-events: auto;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.custom-slider-thumb:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.custom-slider-thumb:active {
   cursor: grabbing;
   transform: translate(-50%, -50%) scale(1.15);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
