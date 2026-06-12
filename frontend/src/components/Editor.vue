@@ -90,8 +90,10 @@ onMounted(() => {
           renderWhitespace: 'none',
           minimap: { enabled: false },
           glyphMargin: true,  // 启用字形边距以显示箭头
+          lineNumbersMinChars: 3,
+          lineDecorationsWidth: 6,
           wordWrap: 'on',
-          padding: { top: 8 }
+          padding: { top: 8, left: 12 }
         })
 
         // 强制重新计算布局以确保光标位置正确
