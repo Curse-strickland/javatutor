@@ -31,12 +31,14 @@
 	right: -15px;
 	position: fixed;
 	transform: translateY(25px);
-	transition: transform .3s ease-in-out, bottom 3s ease-in-out;
+	transition: transform .3s ease-in-out, bottom 3s ease-out;
 	z-index: 1;
 }
 
 #waifu.waifu-active {
 	bottom: 0;
+	/* ease-out: starts immediately (no 前摇), 3s matches fold duration */
+	transition: transform .3s ease-in-out, bottom 3s ease-out;
 }
 
 #waifu.waifu-hidden {
@@ -265,5 +267,105 @@
 	}
 	0%, 100% {
 		transform: translate(0, 0) rotate(0);
+	}
+}
+
+/* ===== Waifu Badge — glass-morphism fold toggle ===== */
+#waifu-badge {
+	position: fixed;
+	/* visible: floating near top-right of waifu canvas (~400px above bottom) */
+	bottom: 388px;
+	right: 18px;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: rgba(22, 22, 30, 0.7);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0;
+	transform: scale(0.7);
+	transition: opacity 0.35s cubic-bezier(.22, .9, .27, 1),
+		transform 0.35s cubic-bezier(.22, .9, .27, 1),
+		border-color 0.25s cubic-bezier(.22, .9, .27, 1),
+		box-shadow 0.25s cubic-bezier(.22, .9, .27, 1),
+		bottom 3s ease-out,
+		right 3s ease-out,
+		width 0.5s cubic-bezier(.22, .9, .27, 1),
+		height 0.5s cubic-bezier(.22, .9, .27, 1);
+	z-index: 20;
+	pointer-events: none;
+}
+
+/* JS toggles this class on waifu mouseenter / leave */
+#waifu-badge.waifu-badge-visible {
+	opacity: 1;
+	transform: scale(1);
+	pointer-events: auto;
+}
+
+#waifu-badge:hover {
+	border-color: #0a84ff;
+	box-shadow: 0 0 14px rgba(10, 132, 255, 0.25);
+}
+
+#waifu-badge svg {
+	width: 14px;
+	height: 14px;
+	color: rgba(255, 255, 255, 0.35);
+	transition: color 0.25s ease, transform 0.5s cubic-bezier(.22, .9, .27, 1);
+}
+
+#waifu-badge:hover svg {
+	color: #0a84ff;
+}
+
+/* === Fold: waifu slides off-screen (reverse of entrance), badge stays === */
+#waifu.waifu-folded {
+	bottom: -520px !important;
+	transform: translateY(0) !important;
+	/* 3s ease-out: same duration as rise, starts immediately */
+	transition: transform .3s ease-in-out, bottom 3s ease-out !important;
+}
+
+/* Suppress hover lift when folded (waifu is offscreen anyway) */
+#waifu.waifu-folded:hover {
+	transform: translateY(0) !important;
+}
+
+/* === Folded badge — anchored at viewport corner === */
+/* Badge is a sibling of #waifu (both children of body), use ~ combinator */
+#waifu.waifu-folded ~ #waifu-badge {
+	opacity: 1;
+	transform: scale(1);
+	pointer-events: auto;
+	width: 32px;
+	height: 32px;
+	bottom: 20px;
+	right: 20px;
+	border-color: rgba(255, 255, 255, 0.1);
+	animation: badge-breathe 2.8s ease-in-out infinite;
+}
+
+#waifu.waifu-folded ~ #waifu-badge svg {
+	transform: rotate(180deg);
+}
+
+#waifu.waifu-folded ~ #waifu-badge:hover {
+	border-color: #0a84ff;
+	animation: none;
+	box-shadow: 0 0 16px rgba(10, 132, 255, 0.35);
+}
+
+@keyframes badge-breathe {
+	0%, 100% {
+		box-shadow: 0 0 4px rgba(10, 132, 255, 0.1);
+	}
+	50% {
+		box-shadow: 0 0 16px rgba(10, 132, 255, 0.3);
 	}
 }
