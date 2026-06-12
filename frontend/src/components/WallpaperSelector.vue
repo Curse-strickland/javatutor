@@ -627,7 +627,6 @@ function saveSettings() {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
@@ -638,12 +637,6 @@ function saveSettings() {
 }
 
 /* 分页控制 */
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .page-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -859,15 +852,15 @@ function saveSettings() {
 .opacity-track.disabled:hover { height: 6px; }
 
 .opacity-control.locked .opacity-value {
-  background: rgba(99,102,241,0.15);
-  color: #a5b4fc;
+  background: var(--accent-bg);
+  color: var(--primary);
 }
 
 .opacity-fill {
 	position: absolute;
 	top: 0; left: 0;
 	height: 100%;
-	background: linear-gradient(90deg, #6366f1, #8b5cf6);
+	background: linear-gradient(90deg, var(--primary), var(--primary-600));
 	border-radius: 3px;
 	pointer-events: none;
 }
@@ -878,7 +871,7 @@ function saveSettings() {
 	width: 16px;
 	height: 16px;
 	background: #fff;
-	border: 2px solid #6366f1;
+	border: 2px solid var(--primary);
 	border-radius: 50%;
 	transform: translate(-50%, -50%);
 	cursor: grab;
