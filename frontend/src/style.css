@@ -232,8 +232,8 @@ code {
 }
 
 #app {
-  width: 100%;
-  max-width: 1126px;
+  width: 1126px;
+  max-width: 100%;
   margin: 0 0 0 12px;
   text-align: center;
   border-inline: 1px solid var(--border);
@@ -241,13 +241,6 @@ code {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-}
-
-@media (max-width: 900px) {
-  #app {
-    margin: 0 4px;
-    border-inline: none;
-  }
 }
 
 #center {
