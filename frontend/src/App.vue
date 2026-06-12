@@ -67,8 +67,7 @@
         </div>
         <div class="flex-1 overflow-auto right-card-body">
           <template v-if="store.rightTab === 'variables'">
-            <VariablePanel />
-            <HeapStackPanel />
+            <MemoryPanel />
             <ConsoleOutput />
           </template>
           <ControlFlowPanel v-else-if="store.rightTab === 'flow'" />
@@ -206,10 +205,9 @@
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
-import VariablePanel from './components/VariablePanel.vue'
+import MemoryPanel from './components/MemoryPanel.vue'
 import ConsoleOutput from './components/ConsoleOutput.vue'
 import GlobalStatus from './components/GlobalStatus.vue'
-import HeapStackPanel from './components/HeapStackPanel.vue'
 import AiTutorPanel from './components/AiTutorPanel.vue'
 import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'

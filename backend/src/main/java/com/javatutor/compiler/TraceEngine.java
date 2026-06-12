@@ -24,16 +24,33 @@ public class TraceEngine {
     private static List<String> callStack = new ArrayList<>();
     // 每层栈帧的持久化局部变量
     private static List<LinkedHashMap<String, Object>> frameLocals = new ArrayList<>();
+    // 每层栈帧的方法参数（用于前端渲染帧标题）
+    private static List<LinkedHashMap<String, Object>> frameArgs = new ArrayList<>();
 
     public static String pushFrame(String methodName) {
         callStack.add(methodName);
         frameLocals.add(new LinkedHashMap<>());
+        frameArgs.add(new LinkedHashMap<>());
+        return methodName;
+    }
+
+    public static String pushFrame(String methodName, Object... pairs) {
+        callStack.add(methodName);
+        frameLocals.add(new LinkedHashMap<>());
+        LinkedHashMap<String, Object> args = new LinkedHashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            String paramName = (String) pairs[i];
+            Object paramValue = pairs[i + 1];
+            args.put(paramName, paramValue);
+        }
+        frameArgs.add(args);
         return methodName;
     }
 
     public static String popFrame() {
         if (callStack.isEmpty()) return "???";
         frameLocals.remove(frameLocals.size() - 1);
+        frameArgs.remove(frameArgs.size() - 1);
         return callStack.remove(callStack.size() - 1);
     }
 
@@ -106,12 +123,13 @@ public class TraceEngine {
         if (!callStack.isEmpty()) {
             frameLocals.set(frameLocals.size() - 1, new LinkedHashMap<>(varsCopy));
         }
-        // 栈帧列表：每层调用一个帧，携带持久化的局部变量
+        // 栈帧列表：每层调用一个帧，携带持久化的局部变量和方法参数
         List<Map<String, Object>> stackFrames = new ArrayList<>();
         for (int i = 0; i < callStack.size(); i++) {
             LinkedHashMap<String, Object> frame = new LinkedHashMap<>();
             frame.put("method", callStack.get(i));
             frame.put("locals", new LinkedHashMap<>(frameLocals.get(i)));
+            frame.put("args", new LinkedHashMap<>(frameArgs.get(i)));
             stackFrames.add(frame);
         }
         // 输出捕获
@@ -338,6 +356,7 @@ public class TraceEngine {
         heapObjects.clear();
         callStack.clear();
         frameLocals.clear();
+        frameArgs.clear();
         disabled = false;
         lastOutputPos = 0;
     }

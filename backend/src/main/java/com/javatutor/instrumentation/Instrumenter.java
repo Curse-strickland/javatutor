@@ -75,9 +75,15 @@ public class Instrumenter {
                 if (oldBody == null) return newMd;
 
                 // 构造 try { pushFrame; ...body... } finally { popFrame; }
+                // 如果有参数，生成 pushFrame(methodName, "p1", p1, "p2", p2, ...)
+                StringBuilder pushCall = new StringBuilder("TraceEngine.pushFrame(\"" + methodName + "\"");
+                for (com.github.javaparser.ast.body.Parameter p : md.getParameters()) {
+                    String pName = p.getNameAsString();
+                    pushCall.append(", \"").append(pName).append("\", ").append(pName);
+                }
+                pushCall.append(");");
                 BlockStmt tryBlock = new BlockStmt();
-                tryBlock.addStatement(StaticJavaParser.parseStatement(
-                    "TraceEngine.pushFrame(\"" + methodName + "\");"));
+                tryBlock.addStatement(StaticJavaParser.parseStatement(pushCall.toString()));
                 for (Statement s : oldBody.getStatements()) {
                     tryBlock.addStatement(s);
                 }
