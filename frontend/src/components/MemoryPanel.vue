@@ -13,23 +13,32 @@
     <div v-show="isOpen" class="mp-body">
       <!-- Left: STACK -->
       <div class="mp-stack">
-        <div class="mp-section-label">栈区</div>
-        <div v-if="stackItemGroups.length === 0" class="mp-empty">暂无变量</div>
-        <div v-else class="mp-stack-scroll">
+        <div class="mp-section-header" @click="stackOpen = !stackOpen">
+          <span class="mp-section-label">栈区</span>
+          <svg class="mp-section-chevron" :class="{ rotated: stackOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div v-show="stackOpen">
+          <div v-if="stackItemGroups.length === 0" class="mp-empty">暂无变量</div>
+          <div v-else class="mp-stack-scroll">
           <TransitionGroup name="mp-frame" tag="div">
             <div v-for="(group, gi) in stackItemGroups" :key="'g'+gi" class="mp-frame">
               <div class="mp-frame-title">
+                <svg class="mp-frame-chevron" :class="{ rotated: !collapsedFrames.has(gi) }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" @click.stop="toggleFrame(gi)">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
                 <span class="mp-frame-method">{{ group.method }}</span>
                 <span class="mp-frame-paren-l">(</span>
                 <template v-for="(arg, ai) in group.args" :key="'a'+ai">
-                  <span v-if="arg.isRef" class="mp-frame-arg-ref" :style="{ color: arg.color }">{{ arg.label }}</span>
+                  <span v-if="arg.isRef" class="mp-frame-arg-ref" :style="frameArgStyle(arg)" @mouseenter="onFrameArgEnter(arg)" @mouseleave="onStackLeave()">{{ arg.label }}</span>
                   <span v-else class="mp-frame-arg-val">{{ arg.display }}</span>
                   <span v-if="ai < group.args.length - 1" class="mp-frame-arg-sep">, </span>
                 </template>
                 <span v-if="group.args.length === 0" class="mp-frame-arg-empty">..</span>
                 <span class="mp-frame-paren-r">)</span>
               </div>
-              <div class="mp-frame-body">
+              <div v-show="!collapsedFrames.has(gi)" class="mp-frame-body">
                 <!-- Primitive variables: two per row, compact cards -->
                 <div v-if="group.primitiveItems.length" class="mp-primitive-row">
                   <TransitionGroup name="mp-card" tag="div" class="mp-primitive-inner">
@@ -76,6 +85,7 @@
               </div>
             </div>
           </TransitionGroup>
+          </div>
         </div>
       </div>
 
@@ -84,9 +94,15 @@
 
       <!-- Right: HEAP -->
       <div class="mp-heap">
-        <div class="mp-section-label">堆区</div>
-        <div v-if="heapObjects.length === 0" class="mp-empty">暂无对象</div>
-        <div v-else class="mp-heap-scroll">
+        <div class="mp-section-header" @click="heapOpen = !heapOpen">
+          <span class="mp-section-label">堆区</span>
+          <svg class="mp-section-chevron" :class="{ rotated: heapOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div v-show="heapOpen">
+          <div v-if="heapObjects.length === 0" class="mp-empty">暂无对象</div>
+          <div v-else class="mp-heap-scroll">
           <TransitionGroup name="mp-heap-card" tag="div">
             <div
             v-for="obj in heapObjects"
@@ -101,10 +117,13 @@
             @mouseleave="onHeapLeave()"
           >
             <div class="mp-heap-header">
+              <svg class="mp-heap-chevron" :class="{ rotated: !collapsedHeapCards.has(obj.refId) }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" @click.stop="toggleHeapCard(obj.refId)">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
               <span class="mp-heap-tag" :style="obj.tagStyle">{{ obj.label }}</span>
               <span class="mp-heap-type">{{ obj.type }}</span>
             </div>
-            <div class="mp-heap-cells">
+            <div v-show="!collapsedHeapCards.has(obj.refId)" class="mp-heap-cells">
               <!-- Array slots -->
               <template v-if="obj.slots && obj.slots.length">
                 <div v-for="slot in obj.slots" :key="'s'+slot.index" class="mp-heap-cell">
@@ -134,6 +153,7 @@
             </div>
           </div>
           </TransitionGroup>
+          </div>
         </div>
       </div>
     </div>
@@ -146,6 +166,28 @@ import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
 const isOpen = ref(true)
+
+// Section & frame collapse state
+const stackOpen = ref(true)
+const heapOpen = ref(true)
+const collapsedFrames = reactive(new Set())
+const collapsedHeapCards = reactive(new Set())
+
+function toggleFrame(gi) {
+  if (collapsedFrames.has(gi)) {
+    collapsedFrames.delete(gi)
+  } else {
+    collapsedFrames.add(gi)
+  }
+}
+
+function toggleHeapCard(refId) {
+  if (collapsedHeapCards.has(refId)) {
+    collapsedHeapCards.delete(refId)
+  } else {
+    collapsedHeapCards.add(refId)
+  }
+}
 
 // ===== 8-Color Palette =====
 const PALETTE = [
@@ -274,22 +316,32 @@ const stackItemGroups = computed(() => {
     const frameArgs = frame.args || {}
     const argEntries = Object.entries(frameArgs)
     const args = argEntries.map(([pName, pVal]) => {
-      let isRef = false, label = '', color = ''
+      let isRef = false, label = '', color = '', refId = null
       if (typeof pVal === 'string' && idMap[pVal]) {
+        // pVal is a heap ID string (complex objects)
         isRef = true
+        refId = pVal
         const key = idMap[pVal]
         label = lm[key]?.label || key
         color = (paletteFor(key)).text
-      } else if (Array.isArray(pVal) && heap[pName]) {
+      } else if (typeof pVal === 'string' && heap[pVal]) {
+        // pVal matches a heap key name (arrays/collections store the name as value)
         isRef = true
-        const key = pName
-        label = lm[key]?.label || key
-        color = (paletteFor(key)).text
+        refId = heap[pVal].id || pVal
+        label = lm[pVal]?.label || pVal
+        color = (paletteFor(pVal)).text
+      } else if (Array.isArray(pVal) && heap[pName]) {
+        // pVal is a serialized collection array; fallback match by param name
+        isRef = true
+        refId = heap[pName].id || pName
+        label = lm[pName]?.label || pName
+        color = (paletteFor(pName)).text
       }
       return {
         isRef,
         label,
         color,
+        refId,
         display: isRef ? null : (pVal === null || pVal === undefined ? 'null' : String(pVal)),
       }
     })
@@ -357,6 +409,13 @@ function onHeapLeave() {
 function onFieldEnter(refId) {
   hoverState.src = 'field'
   hoverState.refId = refId
+}
+
+function onFrameArgEnter(arg) {
+  if (!arg.refId) return
+  hoverState.src = 'frame-arg'
+  hoverState.refId = arg.refId
+  hoverState.itemName = null
 }
 
 // ===== Value change flash on step transition =====
@@ -445,6 +504,14 @@ function formatVal(v) {
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
+
+function frameArgStyle(arg) {
+  const base = { color: arg.color }
+  if (hoverState.refId === arg.refId && hoverState.src !== 'none' && hoverState.src !== 'frame-arg') {
+    base.textShadow = `0 0 8px ${arg.color}`
+  }
+  return base
+}
 </script>
 
 <style scoped>
@@ -482,11 +549,33 @@ function formatVal(v) {
   align-items: start;
 }
 
+.mp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+.mp-section-header:hover {
+  color: var(--text-h);
+}
 .mp-section-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  margin-bottom: 8px;
+}
+.mp-section-header:hover .mp-section-label {
+  color: var(--text-h);
+}
+.mp-section-chevron {
+  color: var(--text-muted);
+  transition: transform 0.3s cubic-bezier(.22,.9,.27,1);
+  flex-shrink: 0;
+}
+.mp-section-chevron.rotated {
+  transform: rotate(180deg);
 }
 
 .mp-empty {
@@ -505,17 +594,16 @@ function formatVal(v) {
 .mp-frame {
   border: 1.5px dashed var(--border);
   border-radius: 12px;
-  padding: 18px 10px 8px;
+  padding: 8px 10px;
   margin-bottom: 14px;
-  position: relative;
   transition: border-color 0.25s;
 }
 .mp-frame:last-child { margin-bottom: 0; }
 
 .mp-frame-title {
-  position: absolute;
-  top: -10px;
-  left: 12px;
+  position: relative;
+  top: -18px;
+  margin-bottom: -12px;
   font-size: 12px;
   font-weight: 600;
   color: var(--primary);
@@ -523,20 +611,33 @@ function formatVal(v) {
   background: var(--card-bg);
   border-radius: 6px;
   border: 1px solid var(--border);
-  line-height: 1.4;
-  display: flex;
+  line-height: 1.5;
+  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1px;
-  white-space: nowrap;
-  max-width: calc(100% - 24px);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 1px 3px;
+  max-width: 100%;
+}
+.mp-frame-chevron {
+  color: var(--text-muted);
+  transition: transform 0.3s cubic-bezier(.22,.9,.27,1);
+  flex-shrink: 0;
+  margin-right: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.mp-frame-chevron:hover {
+  opacity: 1;
+  color: var(--text-h);
+}
+.mp-frame-chevron.rotated {
+  transform: rotate(90deg);
 }
 .mp-frame-method { color: var(--primary); }
 .mp-frame-paren-l,
 .mp-frame-paren-r { color: var(--text-muted); }
 .mp-frame-arg-val { color: var(--text); }
-.mp-frame-arg-ref { font-weight: 700; }
+.mp-frame-arg-ref { font-weight: 700; cursor: pointer; transition: text-shadow 0.25s ease; }
 .mp-frame-arg-sep { color: var(--text-muted); }
 .mp-frame-arg-empty { color: var(--text-muted); }
 
@@ -701,6 +802,20 @@ function formatVal(v) {
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
+.mp-heap-chevron {
+  color: var(--text-muted);
+  transition: transform 0.3s cubic-bezier(.22,.9,.27,1);
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0.5;
+}
+.mp-heap-chevron:hover {
+  opacity: 1;
+  color: var(--text-h);
+}
+.mp-heap-chevron.rotated {
+  transform: rotate(90deg);
+}
 
 .mp-heap-tag {
   font-size: 13px;
@@ -745,6 +860,7 @@ function formatVal(v) {
 
 /* Heap cell flash — same fluorescence + scale, color via --flash-color */
 .mp-cell-flash {
+  display: inline-block;
   --flash-color: #0a84ff;
   animation: mpFlashCell 900ms cubic-bezier(.4, 0, .2, 1);
   z-index: 1;
@@ -861,5 +977,8 @@ function formatVal(v) {
   .mp-heap-card-leave-active,
   .mp-frame-enter-active,
   .mp-frame-leave-active { transition: none; }
+  .mp-section-chevron { transition: none; }
+  .mp-frame-chevron { transition: none; }
+  .mp-heap-chevron { transition: none; }
 }
 </style>

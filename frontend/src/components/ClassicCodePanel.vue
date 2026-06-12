@@ -1,5 +1,12 @@
 <template>
   <div class="classic-panel">
+    <button class="classic-toggle-all" :class="{ active: !allExpanded }" @click="toggleAll">
+      <svg class="classic-toggle-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline v-if="allExpanded" points="18 15 12 9 6 15" />
+        <polyline v-else points="6 9 12 15 18 9" />
+      </svg>
+      <span class="classic-toggle-label">{{ allExpanded ? '收起全部' : '展开全部' }}</span>
+    </button>
     <div v-for="group in groups" :key="group.label" class="classic-group">
       <div class="classic-group-header" @click="toggleGroup(group.label)">
         <div class="flex items-center gap-2">
@@ -10,7 +17,9 @@
           <polyline points="9 18 15 12 9 6" />
         </svg>
       </div>
-      <div v-show="!collapsed[group.label]" class="classic-list">
+      <div class="classic-list-wrap" :class="{ collapsed: collapsed[group.label] }">
+        <div class="classic-list-inner">
+          <div class="classic-list">
         <button
           v-for="item in group.items" :key="item.name"
           class="classic-item"
@@ -20,12 +29,14 @@
           <div class="classic-item-desc">{{ item.desc }}</div>
         </button>
       </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, computed } from 'vue'
 
 defineEmits(['loadCode'])
 
@@ -33,6 +44,18 @@ const collapsed = reactive({})
 
 function toggleGroup(label) {
   collapsed[label] = !collapsed[label]
+}
+
+const allExpanded = computed(() => {
+  return groups.every(g => !collapsed[g.label])
+})
+
+function toggleAll() {
+  if (allExpanded.value) {
+    groups.forEach(g => collapsed[g.label] = true)
+  } else {
+    Object.keys(collapsed).forEach(k => delete collapsed[k])
+  }
 }
 
 const groups = [
@@ -1237,6 +1260,56 @@ const groups = [
   gap: 8px;
 }
 
+.classic-toggle-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(.22,.9,.27,1);
+  align-self: flex-end;
+}
+.classic-toggle-all:hover {
+  color: var(--primary);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  box-shadow: 0 0 12px rgba(10,132,255,0.08);
+}
+.classic-toggle-all.active {
+  color: var(--primary);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.classic-toggle-chevron {
+  transition: transform 0.35s cubic-bezier(.22,.9,.27,1);
+  flex-shrink: 0;
+}
+.classic-toggle-all.active .classic-toggle-chevron {
+  transform: rotate(180deg);
+}
+.classic-toggle-label {
+  white-space: nowrap;
+}
+
+/* Smooth collapse: CSS grid trick */
+.classic-list-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.35s cubic-bezier(.22,.9,.27,1);
+}
+.classic-list-wrap.collapsed {
+  grid-template-rows: 0fr;
+}
+.classic-list-inner {
+  overflow: hidden;
+}
+
 .classic-group {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1313,5 +1386,12 @@ const groups = [
   font-size: 10px;
   color: var(--text-muted);
   font-family: var(--mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .classic-toggle-chevron { transition: none; }
+  .classic-toggle-all { transition: none; }
+  .classic-list-wrap { transition: none; }
+  .classic-chevron { transition: none; }
 }
 </style>
