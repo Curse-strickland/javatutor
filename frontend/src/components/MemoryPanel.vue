@@ -13,15 +13,14 @@
     <div v-show="isOpen" class="mp-body">
       <!-- Left: STACK -->
       <div class="mp-stack">
-        <div class="mp-section-header" @click="stackOpen = !stackOpen">
+        <div class="mp-section-header" @click="toggleAllFrames">
           <span class="mp-section-label">栈区</span>
-          <svg class="mp-section-chevron" :class="{ rotated: stackOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="mp-section-chevron" :class="{ rotated: collapsedFrames.size === 0 }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </div>
-        <div v-show="stackOpen">
-          <div v-if="stackItemGroups.length === 0" class="mp-empty">暂无变量</div>
-          <div v-else class="mp-stack-scroll">
+        <div v-if="stackItemGroups.length === 0" class="mp-empty">暂无变量</div>
+        <div v-else class="mp-stack-scroll">
           <TransitionGroup name="mp-frame" tag="div">
             <div v-for="(group, gi) in stackItemGroups" :key="'g'+gi" class="mp-frame">
               <div class="mp-frame-title">
@@ -85,7 +84,6 @@
               </div>
             </div>
           </TransitionGroup>
-          </div>
         </div>
       </div>
 
@@ -94,15 +92,14 @@
 
       <!-- Right: HEAP -->
       <div class="mp-heap">
-        <div class="mp-section-header" @click="heapOpen = !heapOpen">
+        <div class="mp-section-header" @click="toggleAllHeapCards">
           <span class="mp-section-label">堆区</span>
-          <svg class="mp-section-chevron" :class="{ rotated: heapOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="mp-section-chevron" :class="{ rotated: collapsedHeapCards.size === 0 }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </div>
-        <div v-show="heapOpen">
-          <div v-if="heapObjects.length === 0" class="mp-empty">暂无对象</div>
-          <div v-else class="mp-heap-scroll">
+        <div v-if="heapObjects.length === 0" class="mp-empty">暂无对象</div>
+        <div v-else class="mp-heap-scroll">
           <TransitionGroup name="mp-heap-card" tag="div">
             <div
             v-for="obj in heapObjects"
@@ -153,7 +150,6 @@
             </div>
           </div>
           </TransitionGroup>
-          </div>
         </div>
       </div>
     </div>
@@ -168,8 +164,6 @@ const store = usePlayerStore()
 const isOpen = ref(true)
 
 // Section & frame collapse state
-const stackOpen = ref(true)
-const heapOpen = ref(true)
 const collapsedFrames = reactive(new Set())
 const collapsedHeapCards = reactive(new Set())
 
@@ -181,11 +175,27 @@ function toggleFrame(gi) {
   }
 }
 
+function toggleAllFrames() {
+  if (collapsedFrames.size > 0) {
+    collapsedFrames.clear()
+  } else {
+    stackItemGroups.value.forEach((_, i) => collapsedFrames.add(i))
+  }
+}
+
 function toggleHeapCard(refId) {
   if (collapsedHeapCards.has(refId)) {
     collapsedHeapCards.delete(refId)
   } else {
     collapsedHeapCards.add(refId)
+  }
+}
+
+function toggleAllHeapCards() {
+  if (collapsedHeapCards.size > 0) {
+    collapsedHeapCards.clear()
+  } else {
+    heapObjects.value.forEach(obj => collapsedHeapCards.add(obj.refId))
   }
 }
 
@@ -230,8 +240,25 @@ const heapLabelMap = computed(() => {
     const key = keys[i]
     const obj = heap[key]
     const f = obj.fields || {}
-    const isListNode = f.hasOwnProperty('val') && f.hasOwnProperty('next')
-    const label = isListNode ? `[节点${++nodeIdx}]` : `[数组 ${obj.name || key}]`
+    const fieldKeys = Object.keys(f)
+    const hasFields = fieldKeys.length > 0
+    const hasSlots = obj.slots && obj.slots.length > 0
+
+    let label
+    if (hasFields) {
+      // Object type: detect common patterns (ListNode, TreeNode, etc.)
+      const hasVal = f.hasOwnProperty('val')
+      const isNode = hasVal && (f.hasOwnProperty('next') || f.hasOwnProperty('left') || f.hasOwnProperty('right'))
+      if (isNode) {
+        label = `[节点${++nodeIdx}]`
+      } else {
+        label = `[${obj.name || key}]`
+      }
+    } else if (hasSlots) {
+      label = `[数组 ${obj.name || key}]`
+    } else {
+      label = `[${obj.name || key}]`
+    }
     map[key] = { label, colorIdx: i % PALETTE.length }
   }
   return map
