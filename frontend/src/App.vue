@@ -1,6 +1,8 @@
 <template>
   <div class="app-shell">
     <VideoBackground />
+    <AudioBackground />
+    <Live2DWidget />
     <GlobalStatus />
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
@@ -214,10 +216,16 @@ import ClassicCodePanel from './components/ClassicCodePanel.vue'
 import ControlFlowPanel from './components/ControlFlowPanel.vue'
 import WallpaperSelector from './components/WallpaperSelector.vue'
 import VideoBackground from './components/VideoBackground.vue'
+import AudioBackground from './components/AudioBackground.vue'
+import Live2DWidget from './components/Live2DWidget.vue'
 
 const store = usePlayerStore()
 const videoSrc = ref('')
 provide('videoSrc', videoSrc)
+const audioSrc = ref('')
+provide('audioSrc', audioSrc)
+const audioVolume = ref(0.3)
+provide('audioVolume', audioVolume)
 const editorRef = ref(null)
 const containerRef = ref(null)
 const progressRef = ref(null)

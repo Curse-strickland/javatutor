@@ -1,6 +1,6 @@
 <template>
   <div class="control-dock fixed z-50" :style="{ left: pos.x + 'px', top: pos.y + 'px' }" @pointerdown.stop>
-    <div class="flex items-center space-x-2 bg-white/90 dark:bg-gray-800/90 rounded-lg p-2 shadow-md">
+    <div class="flex items-center space-x-2 card rounded-lg p-2 shadow-md" style="backdrop-filter: blur(8px)">
       <button class="icon-btn" @click.stop="$emit('first')" title="跳到第一步">
         <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6v12l-8.5-6L18 6zM8 6v12H6V6h2z"/></svg>
       </button>
@@ -30,7 +30,7 @@
         <option :value="2000">2x</option>
       </select>
 
-      <div class="text-xs text-gray-700 dark:text-gray-300 pl-2">
+      <div class="text-xs pl-2" style="color: var(--text)">
         {{ displayStep }}
       </div>
 
