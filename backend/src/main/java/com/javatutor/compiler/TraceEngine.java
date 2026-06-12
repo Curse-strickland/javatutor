@@ -41,7 +41,23 @@ public class TraceEngine {
         for (int i = 0; i < pairs.length; i += 2) {
             String paramName = (String) pairs[i];
             Object paramValue = pairs[i + 1];
-            args.put(paramName, paramValue);
+            // Convert complex objects to heap IDs so Jackson can serialize
+            if (paramValue != null && isComplexObject(paramValue)) {
+                String existingId = findHeapIdByRef(paramValue);
+                if (existingId != null) {
+                    args.put(paramName, existingId);
+                } else {
+                    args.put(paramName, ensureHeapObject(paramName, paramValue));
+                }
+            } else if (paramValue != null && paramValue.getClass().isArray()) {
+                // Defer array registration to record(); store name for now
+                args.put(paramName, paramName);
+            } else if (paramValue != null && paramValue instanceof java.util.Collection) {
+                // JDK collections (List, Set, etc.) — defer to record(), store name
+                args.put(paramName, paramName);
+            } else {
+                args.put(paramName, paramValue);
+            }
         }
         frameArgs.add(args);
         return methodName;

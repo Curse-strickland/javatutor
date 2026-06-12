@@ -47,7 +47,18 @@ public class RunController {
         "        callStack.add(name);\n" +
         "        frameLocals.add(new LinkedHashMap<>());\n" +
         "        LinkedHashMap<String,Object> args = new LinkedHashMap<>();\n" +
-        "        for (int i = 0; i < pairs.length; i += 2) args.put((String)pairs[i], pairs[i+1]);\n" +
+        "        for (int i = 0; i < pairs.length; i += 2) {\n" +
+        "            String pn = (String)pairs[i];\n" +
+        "            Object pv = pairs[i+1];\n" +
+        "            if (pv != null && isComplexObject(pv)) {\n" +
+        "                String eid = findHeapIdByRef(pv);\n" +
+        "                args.put(pn, eid != null ? eid : ensureHeapObject(pn, pv));\n" +
+        "            } else if (pv != null && pv.getClass().isArray()) {\n" +
+        "                args.put(pn, pn);\n" +
+        "            } else if (pv != null && pv instanceof java.util.Collection) {\n" +
+        "                args.put(pn, pn);\n" +
+        "            } else { args.put(pn, pv); }\n" +
+        "        }\n" +
         "        frameArgs.add(args);\n" +
         "        return name;\n" +
         "    }\n" +
