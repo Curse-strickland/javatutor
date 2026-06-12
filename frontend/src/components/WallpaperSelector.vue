@@ -153,9 +153,9 @@
             />
           </div>
         </div>
-
       </div>
     </transition>
+
   </div>
 </template>
 
@@ -171,6 +171,9 @@ const videoSrc = inject('videoSrc', ref(''))
 const isOpacityLocked = computed(() => currentWallpaper.value === 0)
 const cardOpacity = ref(0.88)  // 默认卡片透明度，对应 rgba(55,55,63,0.88)
 const customWallpapers = ref([])  // 支持多个自定义壁纸
+
+// 透明度滑块引用
+const opacitySliderRef = ref(null)
 
 // 分页常量与状态
 const PRESET_PAGE_SIZE = 2 // 预设壁纸每页显示数量
@@ -383,7 +386,8 @@ function handleCustomUpload(event) {
       id: `custom-${timestamp}`,
       name: file.name.replace(/\.[^/.]+$/, ''),  // 移除文件扩展名
       type: 'image',
-      value: e.target.result
+      value: e.target.result,
+      edited: false
     }
     
     // 添加到自定义壁纸列表
@@ -399,6 +403,7 @@ function handleCustomUpload(event) {
     const customIndex = customWallpapers.value.length - 1
     customCurrentPage.value = Math.floor(customIndex / PAGE_SIZE)
     
+    // 应用壁纸并保存设置
     applyWallpaper()
     saveSettings()
     
@@ -535,11 +540,13 @@ function saveSettings() {
   }
   localStorage.setItem('wallpaper-settings', JSON.stringify(settings))
 }
+
 </script>
 
 <style scoped>
 .wallpaper-manager {
   position: relative;
+  z-index: 100;
 }
 
 .wallpaper-btn {
@@ -696,10 +703,13 @@ function saveSettings() {
 }
 
 .wallpaper-preview {
+  position: relative;
   width: 100%;
   height: 80px;
-  position: relative;
-  background: var(--bg);
+  border-radius: 6px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
 }
 
 .check-mark {
@@ -707,16 +717,44 @@ function saveSettings() {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   background: var(--primary);
+  color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  font-size: 14px;
   font-weight: bold;
-  font-size: 16px;
+}
+
+.delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.wallpaper-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
 }
 
 .wallpaper-name {
@@ -739,36 +777,6 @@ function saveSettings() {
 /* 自定义壁纸项 */
 .custom-item {
   position: relative;
-}
-
-.delete-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  background: rgba(239, 68, 68, 0.9);
-  border: none;
-  border-radius: 50%;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: all 0.2s ease;
-  z-index: 10;
-}
-
-.custom-item:hover .delete-btn {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.delete-btn:hover {
-  background: rgba(239, 68, 68, 1);
-  transform: scale(1.1);
 }
 
 /* 自定义上传 */
