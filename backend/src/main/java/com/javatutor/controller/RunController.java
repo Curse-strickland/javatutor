@@ -41,8 +41,17 @@ public class RunController {
         "    private static LinkedHashMap<String,Map<String,Object>> heapObjects = new LinkedHashMap<>();\n" +
         "    private static List<String> callStack = new ArrayList<>();\n" +
         "    private static List<LinkedHashMap<String,Object>> frameLocals = new ArrayList<>();\n" +
-        "    public static String pushFrame(String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); return name; }\n" +
-        "    public static String popFrame() { if (callStack.isEmpty()) return \"???\"; frameLocals.remove(frameLocals.size()-1); return callStack.remove(callStack.size()-1); }\n" +
+        "    private static List<LinkedHashMap<String,Object>> frameArgs = new ArrayList<>();\n" +
+        "    public static String pushFrame(String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); frameArgs.add(new LinkedHashMap<>()); return name; }\n" +
+        "    public static String pushFrame(String name, Object... pairs) {\n" +
+        "        callStack.add(name);\n" +
+        "        frameLocals.add(new LinkedHashMap<>());\n" +
+        "        LinkedHashMap<String,Object> args = new LinkedHashMap<>();\n" +
+        "        for (int i = 0; i < pairs.length; i += 2) args.put((String)pairs[i], pairs[i+1]);\n" +
+        "        frameArgs.add(args);\n" +
+        "        return name;\n" +
+        "    }\n" +
+        "    public static String popFrame() { if (callStack.isEmpty()) return \"???\"; frameLocals.remove(frameLocals.size()-1); frameArgs.remove(frameArgs.size()-1); return callStack.remove(callStack.size()-1); }\n" +
         "    private static List<Object> deepCopyArray(Object arr) {\n" +
         "        int len = Array.getLength(arr);\n" +
         "        List<Object> copy = new ArrayList<>(len);\n" +
@@ -243,6 +252,7 @@ public class RunController {
         "            LinkedHashMap<String,Object> frame = new LinkedHashMap<>();\n" +
         "            frame.put(\"method\", callStack.get(i));\n" +
         "            frame.put(\"locals\", new LinkedHashMap<>(frameLocals.get(i)));\n" +
+        "            frame.put(\"args\", new LinkedHashMap<>(frameArgs.get(i)));\n" +
         "            stackFrames.add(frame);\n" +
         "        }\n" +
         "        record.put(\"stackFrames\", stackFrames);\n" +
@@ -261,7 +271,7 @@ public class RunController {
         "        return cond;\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
-        "    public static void reset() { steps.clear(); heapObjects.clear(); callStack.clear(); frameLocals.clear(); disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); heapObjects.clear(); callStack.clear(); frameLocals.clear(); frameArgs.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
