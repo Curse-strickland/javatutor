@@ -160,19 +160,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, inject } from 'vue'
 
 const panelOpen = ref(false)
 const currentWallpaper = ref(0)
 const opacityTrackRef = ref(null)
 const savedOpacity = ref(0.88) // restore when leaving 默认网格
 
+const videoSrc = inject('videoSrc', ref(''))
 const isOpacityLocked = computed(() => currentWallpaper.value === 0)
 const cardOpacity = ref(0.88)  // 默认卡片透明度，对应 rgba(55,55,63,0.88)
 const customWallpapers = ref([])  // 支持多个自定义壁纸
 
 // 分页常量与状态
-const PRESET_PAGE_SIZE = 6 // 预设壁纸每页显示数量
+const PRESET_PAGE_SIZE = 2 // 预设壁纸每页显示数量
 const PAGE_SIZE = 4        // 自定义壁纸每页显示数量
 
 const presetCurrentPage = ref(0)
@@ -191,19 +192,9 @@ const presetWallpapers = ref([
     value: 'radial-gradient(ellipse at 50% 0%, rgba(120,60,200,0.18) 0%, transparent 55%), radial-gradient(ellipse at 80% 100%, rgba(40,30,120,0.12) 0%, transparent 50%), radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)'
   },
   {
-    name: '极光渐变',
-    type: 'gradient',
-    value: 'linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(168,85,247,0.08) 30%, rgba(236,72,153,0.06) 60%, rgba(34,197,94,0.05) 100%), radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)'
-  },
-  {
-    name: '科技蓝',
-    type: 'gradient',
-    value: 'radial-gradient(ellipse at 30% 20%, rgba(10,132,255,0.15) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.1) 0%, transparent 50%), radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)'
-  },
-  {
-    name: '暖色光晕',
-    type: 'gradient',
-    value: 'radial-gradient(ellipse at 25% 30%, rgba(251,146,60,0.14) 0%, transparent 50%), radial-gradient(ellipse at 75% 70%, rgba(245,158,11,0.1) 0%, transparent 50%), radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)'
+    name: 'Train Girl',
+    type: 'video',
+    value: '/wallpapers/train-girl.mp4'
   }
 ])
 
@@ -297,6 +288,9 @@ onMounted(async () => {
 
       applyWallpaper()
       applyCardOpacity()
+      // Restore video state for video-type wallpapers
+      const wp = wallpapers.value[currentWallpaper.value]
+      if (wp && wp.type === 'video') videoSrc.value = wp.value
     } catch (e) {
       console.error('Failed to load wallpaper settings:', e)
       applyDefaultSettings()
@@ -349,6 +343,13 @@ function getWallpaperStyle(wp) {
   if (wp.type === 'image') {
     return {
       backgroundImage: `url(${wp.value})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center'
+    }
+  }
+  if (wp.type === 'video') {
+    return {
+      backgroundImage: 'url(/wallpapers/train-girl-preview.jpg)',
       backgroundSize: 'cover',
       backgroundPosition: 'center'
     }
@@ -446,6 +447,7 @@ function applyCardOpacity() {
   const baseColor = '55,55,63'
   root.style.setProperty('--card-bg', `rgba(${baseColor},${cardOpacity.value})`)
   root.style.setProperty('--glass', `rgba(${baseColor},${cardOpacity.value})`)
+  document.body.classList.toggle('wallpaper-mesh', isOpacityLocked.value)
 }
 
 // --- Custom opacity slider with pointer capture (same pattern as progress bar) ---
@@ -485,7 +487,10 @@ function onOpacityUp() {
 function applyWallpaper() {
   const wp = wallpapers.value[currentWallpaper.value]
   const appShell = document.querySelector('.app-shell')
-  
+
+  // Disable video by default, re-enable below if video type
+  videoSrc.value = ''
+
   if (!appShell) return
 
   // ✅ 先清除所有背景设置
@@ -496,25 +501,25 @@ function applyWallpaper() {
   appShell.style.backgroundRepeat = ''
 
   if (wp.type === 'image') {
-    // 图片壁纸 - 直接设置在app-shell上
     appShell.style.backgroundImage = `url(${wp.value})`
     appShell.style.backgroundSize = 'cover'
     appShell.style.backgroundPosition = 'center'
     appShell.style.backgroundRepeat = 'no-repeat'
     appShell.style.backgroundColor = 'transparent'
+  } else if (wp.type === 'video') {
+    appShell.style.backgroundColor = 'transparent'
+    videoSrc.value = wp.value
   } else if (wp.type === 'solid') {
-    // 纯色背景
     appShell.style.backgroundImage = 'none'
     appShell.style.backgroundColor = wp.value
   } else {
-    // 渐变壁纸 - 直接设置在app-shell上
     appShell.style.backgroundImage = wp.value
     appShell.style.backgroundColor = 'transparent'
   }
-  
+
   // 保存当前壁纸索引
   appShell.dataset.wallpaper = currentWallpaper.value
-  
+
   // 应用卡片透明度
   applyCardOpacity()
 }

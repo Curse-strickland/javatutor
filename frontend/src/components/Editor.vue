@@ -215,15 +215,27 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
   direction: ltr; /* 修正代码编辑区显示问题 */
   text-align: left;
   transform: none !important; /* 取消可能的镜像/翻转 */
-  background: var(--card-bg) !important;
+  background: var(--editor-bg) !important;
 }
 
-/* Monaco Editor 内部元素也需要透明背景 */
+body.wallpaper-mesh .editor-container {
+  background: #1e1e1e !important;
+}
+
+/* Monaco Editor 内部元素跟随 --editor-bg */
 .editor-container .monaco-editor,
 .editor-container .monaco-editor-background,
 .editor-container .margin,
 .editor-container .monaco-editor .inputarea.ime-input {
-  background: transparent !important;
+  background: var(--editor-bg) !important;
+}
+
+/* 默认网格：编辑器 VSCode 原生黑色 */
+body.wallpaper-mesh .editor-container .monaco-editor,
+body.wallpaper-mesh .editor-container .monaco-editor-background,
+body.wallpaper-mesh .editor-container .margin,
+body.wallpaper-mesh .editor-container .monaco-editor .inputarea.ime-input {
+  background: #1e1e1e !important;
 }
 .highlight-line {
   background-color: rgba(255, 255, 0, 0.25);

@@ -1,5 +1,6 @@
 <template>
   <div class="app-shell">
+    <VideoBackground />
     <GlobalStatus />
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
@@ -202,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from './stores/player'
 import Editor from './components/Editor.vue'
 import VariablePanel from './components/VariablePanel.vue'
@@ -214,8 +215,11 @@ import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'
 import ControlFlowPanel from './components/ControlFlowPanel.vue'
 import WallpaperSelector from './components/WallpaperSelector.vue'
+import VideoBackground from './components/VideoBackground.vue'
 
 const store = usePlayerStore()
+const videoSrc = ref('')
+provide('videoSrc', videoSrc)
 const editorRef = ref(null)
 const containerRef = ref(null)
 const progressRef = ref(null)
@@ -223,8 +227,8 @@ const controlBarRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)  // 默认左侧占55%，右侧45%
 const uploadOpen = ref(false)
-const MIN_LEFT = 400   // 增加最小宽度从200到400
-const MIN_RIGHT = 350  // 增加最小宽度从200到350
+const MIN_LEFT = 340
+const MIN_RIGHT = 350
 const leftWidth = computed(() => {
   const raw = containerWidth.value * splitRatio.value
   // ✅ 确保在居中布局下也能正确计算宽度
@@ -509,7 +513,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  width: 100vw;
+  width: 100%;
   background-color: var(--bg);
   position: relative;
 }
@@ -521,7 +525,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   padding: 12px;
   gap: 0;
   background: transparent;
-  align-items: stretch;     /* 垂直拉伸 */
+  align-items: stretch;
+  position: relative;
+  z-index: 1;
 }
 
 .editor-card {
@@ -707,7 +713,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   box-shadow: 0 8px 32px rgba(0,0,0,0.35);
   backdrop-filter: blur(12px);
   width: fit-content;
-  max-width: calc(100vw - 40px);
+  max-width: calc(100% - 40px);
   min-width: 380px;
   transition: box-shadow 0.2s;
   overflow: visible;
@@ -994,13 +1000,27 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   .control-bar {
     padding: 6px 10px;
     min-width: 0;
-    max-width: calc(100vw - 16px);
+    max-width: calc(100% - 16px);
   }
   .control-bar.has-panel { min-width: 0; }
   .control-bar-top { gap: 6px; }
   .ctrl-btn { padding: 5px; }
   .ctrl-btn.run-btn { padding: 6px; }
   .progress-wrapper { min-width: 60px; }
+}
+
+@media (max-width: 900px) {
+  .main-area {
+    padding: 8px;
+  }
+  .editor-card-header {
+    padding: 8px 12px;
+    gap: 4px;
+  }
+  .right-card-header {
+    padding: 8px 12px;
+    gap: 4px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
