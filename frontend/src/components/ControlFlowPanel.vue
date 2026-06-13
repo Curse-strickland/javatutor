@@ -187,6 +187,12 @@ function applyHighlight(container, methodName) {
     const edgeEl = container.querySelector(`[id*="L-${edge.from}-${edge.to}"]`)
     if (edgeEl) edgeEl.classList.add('cf-edge-active')
   })
+
+  // Auto-scroll to keep the active node visible during stepping
+  const activeEl = container.querySelector('.node.cf-active')
+  if (activeEl) {
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }
 }
 
 async function render() {
