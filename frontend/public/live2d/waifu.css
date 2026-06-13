@@ -28,7 +28,7 @@
 
 #waifu {
 	bottom: -500px;
-	right: -15px;
+	right: 0;
 	position: fixed;
 	transform: translateY(25px);
 	transition: transform .3s ease-in-out, bottom 3s ease-out;

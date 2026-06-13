@@ -1,20 +1,22 @@
 <template>
-  <!-- 
+  <!--
     看板娘拖拽包装器
-    在 autoload.js 创建 #waifu 节点后，为其添加拖拽功能
+    在 autoload.js 创建 #waifu 节点后，为其添加水平拖拽功能
+    默认位置：右下角 (bottom: 0, right: 0)
+    仅支持水平拖动，垂直位置锁定在底部
   -->
 </template>
 
 <script setup>
 import { onMounted, onBeforeUnmount } from 'vue'
 
+const DEFAULT_BOTTOM = 0
+const BADGE_OFFSET = 33  // badge right offset relative to waifu right
+
 let waifuEl = null
 let isDragging = false
 let offsetX = 0
-let offsetY = 0
 let rafId = null
-let initialRight = null
-let initialBottom = null
 
 function onPointerDown(e) {
   waifuEl = document.getElementById('waifu')
@@ -27,9 +29,10 @@ function onPointerDown(e) {
   isDragging = true
   waifuEl.style.transition = 'none'
 
-  const rect = waifuEl.getBoundingClientRect()
-  offsetX = e.clientX - rect.left
-  offsetY = e.clientY - rect.top
+  const badge = document.getElementById('waifu-badge')
+  if (badge) badge.style.transition = 'none'
+
+  offsetX = e.clientX - waifuEl.getBoundingClientRect().left
 
   document.body.style.userSelect = 'none'
   document.addEventListener('pointermove', onPointerMove)
@@ -42,26 +45,27 @@ function onPointerMove(e) {
 
   if (rafId) cancelAnimationFrame(rafId)
   rafId = requestAnimationFrame(() => {
-    // 计算新位置（left/top 相对于 viewport）
     const newLeft = e.clientX - offsetX
-    const newTop = e.clientY - offsetY
-
-    // 转换回 right/bottom（因为原 CSS 用 right/bottom 定位）
     const newRight = window.innerWidth - newLeft - waifuEl.offsetWidth
-    const newBottom = window.innerHeight - newTop - waifuEl.offsetHeight
 
-    // 限制不超出屏幕
-    const clampedRight = Math.max(0, Math.min(newRight, window.innerWidth - 80))
-    const clampedBottom = Math.max(0, Math.min(newBottom, window.innerHeight - 80))
+    // 仅水平方向，限制不超出屏幕边界
+    const maxRight = window.innerWidth - 80
+    const clampedRight = Math.max(0, Math.min(newRight, maxRight))
 
     waifuEl.style.right = clampedRight + 'px'
-    waifuEl.style.bottom = clampedBottom + 'px'
+    waifuEl.style.bottom = DEFAULT_BOTTOM + 'px'
     waifuEl.style.left = 'auto'
     waifuEl.style.top = 'auto'
 
+    // 折叠角标跟随水平移动
+    const badge = document.getElementById('waifu-badge')
+    if (badge && !waifuEl.classList.contains('waifu-folded')) {
+      badge.style.right = (clampedRight + BADGE_OFFSET) + 'px'
+    }
+
     // 保存位置到 localStorage
     try {
-      localStorage.setItem('waifu-position', JSON.stringify({ right: clampedRight, bottom: clampedBottom }))
+      localStorage.setItem('waifu-position', JSON.stringify({ right: clampedRight }))
     } catch (e) { /* ignore */ }
   })
 }
@@ -69,6 +73,8 @@ function onPointerMove(e) {
 function onPointerUp() {
   isDragging = false
   if (waifuEl) waifuEl.style.transition = ''
+  const badge = document.getElementById('waifu-badge')
+  if (badge) badge.style.transition = ''
   document.body.style.userSelect = ''
   document.removeEventListener('pointermove', onPointerMove)
   if (rafId) { cancelAnimationFrame(rafId); rafId = null }
@@ -81,20 +87,29 @@ function initDrag() {
   const check = () => {
     waifuEl = document.getElementById('waifu')
     if (waifuEl) {
-      // 恢复上次保存的位置
+      // 恢复上次保存的位置（仅水平），默认右下角
+      let savedRight = 0
       try {
         const saved = localStorage.getItem('waifu-position')
         if (saved) {
           const pos = JSON.parse(saved)
-          waifuEl.style.right = pos.right + 'px'
-          waifuEl.style.bottom = pos.bottom + 'px'
-          waifuEl.style.left = 'auto'
-          waifuEl.style.top = 'auto'
+          savedRight = typeof pos.right === 'number' ? pos.right : 0
         }
       } catch (e) { /* ignore */ }
 
-      // 修改光标提示可拖拽
-      waifuEl.style.cursor = 'grab'
+      waifuEl.style.right = savedRight + 'px'
+      waifuEl.style.bottom = DEFAULT_BOTTOM + 'px'
+      waifuEl.style.left = 'auto'
+      waifuEl.style.top = 'auto'
+
+      // 初始化角标水平位置
+      const badge = document.getElementById('waifu-badge')
+      if (badge && !waifuEl.classList.contains('waifu-folded')) {
+        badge.style.right = (savedRight + BADGE_OFFSET) + 'px'
+      }
+
+      // 修改光标提示可水平拖拽
+      waifuEl.style.cursor = 'ew-resize'
       waifuEl.style.userSelect = 'none'
       waifuEl.addEventListener('pointerdown', onPointerDown)
       return
