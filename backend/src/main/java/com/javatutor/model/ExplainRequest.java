@@ -10,8 +10,21 @@ public class ExplainRequest {
     private int currentLine;
     private Map<String, Object> variables;
     private String apiKey;
+    private String mode;
+    private boolean overview;
+    private String apiUrl;
+    private String apiModel;
 
     public ExplainRequest() {}
+
+    public boolean isOverview() { return overview; }
+    public void setOverview(boolean overview) { this.overview = overview; }
+
+    public String getApiUrl() { return apiUrl; }
+    public void setApiUrl(String apiUrl) { this.apiUrl = apiUrl; }
+
+    public String getApiModel() { return apiModel; }
+    public void setApiModel(String apiModel) { this.apiModel = apiModel; }
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
@@ -33,4 +46,7 @@ public class ExplainRequest {
 
     public String getApiKey() { return apiKey; }
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+
+    public String getMode() { return mode; }
+    public void setMode(String mode) { this.mode = mode; }
 }

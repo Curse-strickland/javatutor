@@ -18,14 +18,14 @@ import java.util.Map;
 @Service
 public class AnalyzeService {
 
-    @Value("${deepseek.api.key}")
-    private String apiKey;
-
     @Value("${deepseek.api.url}")
     private String apiUrl;
 
     @Value("${deepseek.api.model}")
     private String model;
+
+    @Value("${deepseek.api.key}")
+    private String defaultKey;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -37,6 +37,11 @@ public class AnalyzeService {
     }
 
     public Map<String, Object> analyze(String code, String userApiKey) throws IOException, InterruptedException {
+
+        String effectiveKey = (userApiKey != null && !userApiKey.isBlank())
+                ? userApiKey : defaultKey;
+        if (!SAFE_KEY.matcher(effectiveKey).matches())
+            throw new IllegalArgumentException("API Key 格式无效");
 
         String systemPrompt =
             "你是一个算法分析专家。分析以下Java代码，返回严格的JSON（只返回JSON，不要markdown代码块，不要任何其他文字）：\n" +
@@ -75,7 +80,7 @@ public class AnalyzeService {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + resolveKey(userApiKey))
+                .header("Authorization", "Bearer " + effectiveKey)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
@@ -85,8 +90,9 @@ public class AnalyzeService {
         byte[] responseBytes = response.body().readAllBytes();
         int status = response.statusCode();
         if (status != 200) {
-            System.err.println("DeepSeek API error " + status + ": " + new String(responseBytes, StandardCharsets.UTF_8));
-            throw new IOException("API 调用失败 (HTTP " + status + ")，请检查 API Key 是否正确");
+            System.err.println("AI API error " + status + ": " + new String(responseBytes, StandardCharsets.UTF_8));
+            throw new IOException("API 调用失败 (HTTP " + status + ")" +
+                (effectiveKey != null ? "，请检查 API Key 是否正确" : "，匿名 AI 服务暂不可用，请稍后重试或配置 API Key"));
         }
 
         String raw = new String(responseBytes, StandardCharsets.UTF_8);
@@ -113,13 +119,4 @@ public class AnalyzeService {
         return m;
     }
 
-    private String resolveKey(String userApiKey) {
-        if (userApiKey != null && !userApiKey.isBlank()) {
-            if (!SAFE_KEY.matcher(userApiKey).matches()) {
-                throw new IllegalArgumentException("API Key 格式无效，仅允许字母、数字、连字符、下划线和点号，长度 1-128");
-            }
-            return userApiKey;
-        }
-        return apiKey;
-    }
 }

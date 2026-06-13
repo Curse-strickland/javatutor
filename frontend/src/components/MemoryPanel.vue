@@ -113,8 +113,8 @@
             @mouseenter="onHeapEnter(obj)"
             @mouseleave="onHeapLeave()"
           >
-            <div class="mp-heap-header">
-              <svg class="mp-heap-chevron" :class="{ rotated: !collapsedHeapCards.has(obj.refId) }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" @click.stop="toggleHeapCard(obj.refId)">
+            <div class="mp-heap-header" @click.stop="toggleHeapCard(obj.refId)">
+              <svg class="mp-heap-chevron" :class="{ rotated: !collapsedHeapCards.has(obj.refId) }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
               <span class="mp-heap-tag" :style="obj.tagStyle">{{ obj.label }}</span>
@@ -145,6 +145,26 @@
                     </span>
                   </template>
                   <span v-else class="mp-cell-val">{{ formatVal(fv) }}</span>
+                </div>
+              </template>
+              <!-- Map entries: two-column layout with type headers -->
+              <template v-else-if="obj.isMap && obj.mapEntries.length">
+                <div class="mp-map-table">
+                  <div class="mp-map-header">
+                    <span>{{ obj.keyType }}</span>
+                    <span class="mp-map-header-arrow">→</span>
+                    <span>{{ obj.valType }}</span>
+                  </div>
+                  <div
+                    v-for="(entry, ei) in obj.mapEntries"
+                    :key="'m'+ei"
+                    class="mp-map-row"
+                    :class="{ 'mp-map-overflow': entry.key && String(entry.key).startsWith('...(共') }"
+                  >
+                    <div class="mp-map-card mp-map-key-card">{{ entry.key }}</div>
+                    <span class="mp-map-arrow">→</span>
+                    <div class="mp-map-card mp-map-val-card">{{ entry.value }}</div>
+                  </div>
                 </div>
               </template>
             </div>
@@ -219,8 +239,47 @@ const hoverState = reactive({ src: 'none', refId: null, itemName: null })
 const flashVarNames = reactive(new Set())
 const FLASH_MS = 900
 
+// ===== Virtual heap entries for Map variables (computed, no circular deps) =====
+const virtualMapEntries = computed(() => {
+  const entries = {}
+  const frames = store.activeStackFrames?.length
+    ? [...store.activeStackFrames].reverse()
+    : (store.currentStackFrame ? [store.currentStackFrame] : [])
+  for (const frame of frames) {
+    const locals = frame.locals || {}
+    for (const [name, val] of Object.entries(locals)) {
+      if (typeof val !== 'object' || val === null || Array.isArray(val)) continue
+      const vId = '__vmap__' + name
+      const rawEntries = Object.entries(val)
+      const total = rawEntries.length
+      const max = total > 200 ? 200 : total
+      const displayEntries = rawEntries.slice(0, max).map(([k, v]) => ({ key: k, value: v }))
+      if (total > 200) displayEntries.push({ key: '...(共' + total + '个键值对)', value: '...' })
+      const allNumKeys = displayEntries
+        .filter(e => e.key !== null && String(e.key) !== 'undefined' && !String(e.key).startsWith('...(共'))
+        .every(e => !isNaN(Number(e.key)) && String(Number(e.key)) === String(e.key))
+      const keyType = allNumKeys && displayEntries.length > 0 && !String(displayEntries[0].key).startsWith('...(共')
+        ? 'Integer' : 'String'
+      const firstVal = displayEntries.find(e => e.value !== null && e.value !== undefined && !String(e.key).startsWith('...(共'))
+      const valType = firstVal
+        ? (typeof firstVal.value === 'number' ? 'Integer' : typeof firstVal.value === 'string' ? 'String' : typeof firstVal.value)
+        : '?'
+      entries[vId] = {
+        id: vId, name: name, type: 'HashMap',
+        _mapType: 'Map', keyType, valType, entries: displayEntries,
+      }
+    }
+  }
+  return entries
+})
+
 // ===== Heap data =====
-const heapMap = computed(() => store.currentHeap || {})
+const heapMap = computed(() => {
+  const base = store.currentHeap || {}
+  const vm = virtualMapEntries.value
+  if (Object.keys(vm).length === 0) return base
+  return { ...base, ...vm }
+})
 
 const idToHeapKey = computed(() => {
   const map = {}
@@ -245,7 +304,9 @@ const heapLabelMap = computed(() => {
     const hasSlots = obj.slots && obj.slots.length > 0
 
     let label
-    if (hasFields) {
+    if (obj._mapType === 'Map') {
+      label = `[映射 ${obj.name || key}]`
+    } else if (hasFields) {
       // Object type: detect common patterns (ListNode, TreeNode, etc.)
       const hasVal = f.hasOwnProperty('val')
       const isNode = hasVal && (f.hasOwnProperty('next') || f.hasOwnProperty('left') || f.hasOwnProperty('right'))
@@ -312,10 +373,17 @@ const stackItemGroups = computed(() => {
         refLabel = lbl || name
         const c = paletteFor(name)
         refColor = c.text
-        refStyle = {
-          '--ref-border': c.border,
-          '--ref-bg': c.bg,
-          '--ref-glow': c.glow,
+        refStyle = { '--ref-border': c.border, '--ref-bg': c.bg, '--ref-glow': c.glow }
+      } else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+        // Map data: reference virtual heap entry (computed separately, no circular deps)
+        const vId = '__vmap__' + name
+        if (heap[vId]) {
+          isRef = true
+          refId = vId
+          refLabel = '[映射 ' + name + ']'
+          const c = paletteFor(vId)
+          refColor = c.text
+          refStyle = { '--ref-border': c.border, '--ref-bg': c.bg, '--ref-glow': c.glow }
         }
       }
 
@@ -382,16 +450,31 @@ const heapObjects = computed(() => {
   const objs = []
   const heap = heapMap.value
   const keys = Object.keys(heap).sort()
+  // Track which real keys are covered by virtual map entries
+  const virtualRealNames = new Set()
+  for (const k of keys) {
+    if (k.startsWith('__vmap__')) {
+      const realName = k.slice('__vmap__'.length)
+      virtualRealNames.add(realName)
+    }
+  }
   for (const name of keys) {
+    // Skip real heap entry if a virtual map entry covers it
+    if (virtualRealNames.has(name) && !name.startsWith('__vmap__')) continue
     const obj = heap[name]
     const lm = heapLabelMap.value[name]
     const c = paletteFor(name)
+    const isMap = obj._mapType === 'Map'
     objs.push({
       name: obj.name || name,
       refId: obj.id || name,
-      type: obj.type || 'unknown',
-      slots: obj.slots || [],
-      fields: obj.fields || {},
+      type: isMap ? 'Map<>' : (obj.type || 'unknown'),
+      slots: isMap ? [] : (obj.slots || []),
+      fields: isMap ? {} : (obj.fields || {}),
+      isMap,
+      mapEntries: isMap ? (obj.entries || []) : [],
+      keyType: obj.keyType || '?',
+      valType: obj.valType || '?',
       label: lm?.label || name,
       color: c,
       tagStyle: { color: c.text, background: c.bg },
@@ -757,6 +840,86 @@ function frameArgStyle(arg) {
   transition: color 0.2s ease;
 }
 
+/* Map table inside heap cards */
+.mp-map-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-map-header {
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-h);
+  position: sticky;
+  top: 0;
+  background: var(--code-bg);
+  text-align: center;
+}
+
+.mp-map-header-arrow {
+  color: var(--accent-border);
+  opacity: 0.35;
+  font-size: 14px;
+}
+
+.mp-map-row {
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 8px;
+  transition: background 0.1s;
+}
+
+.mp-map-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.mp-map-row.mp-map-overflow {
+  opacity: 0.4;
+  font-style: italic;
+}
+
+.mp-map-card {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-map-key-card {
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.mp-map-val-card {
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.mp-map-arrow {
+  color: var(--primary);
+  opacity: 0.55;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 /* Stack card self-hover */
 .mp-stack-hovered {
   transform: translateX(3px) scale(1.015);
@@ -832,6 +995,8 @@ function frameArgStyle(arg) {
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
 }
 .mp-heap-chevron {
   color: var(--text-muted);

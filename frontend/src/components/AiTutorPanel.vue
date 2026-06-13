@@ -96,39 +96,64 @@
       <div v-else class="ai-hint">运行代码后自动分析。</div>
     </div>
 
-    <!-- 自定义 API Key（可折叠） -->
+    <!-- 自定义 API（可折叠） -->
     <div class="api-key-section">
       <div class="api-key-header" @click="apiOpen = !apiOpen">
         <svg class="api-chevron" :class="{ rotated: apiOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="9 18 15 12 9 6" />
         </svg>
         <span class="api-key-label">自定义 API</span>
-        <span v-if="store.userApiKey" class="api-status-saved">已保存</span>
-        <span v-else class="api-status-default">默认</span>
+        <span v-if="store.userApiKey" class="api-status-saved">{{ currentProviderLabel }}</span>
+        <span v-else class="api-status-default">智谱</span>
       </div>
       <div v-show="apiOpen" class="api-key-body">
+        <div class="api-provider-chips">
+          <button
+            v-for="(p, k) in store.apiProviders" :key="k"
+            class="api-provider-chip"
+            :class="{ active: selectedProvider === k }"
+            @click="selectedProvider = k; onProviderChange()"
+          >{{ p.label }}</button>
+        </div>
         <div class="api-key-row">
           <input
             type="password"
             class="api-key-input"
             v-model="apiKeyInput"
-            placeholder="sk-xxxxxxxxxxxxxxxx"
+            :placeholder="currentProviderPlaceholder"
             autocomplete="off"
             @keyup.enter="saveApiKey"
           />
           <button class="api-save-btn" @click="saveApiKey">保存</button>
+        </div>
+        <div v-if="selectedProvider === 'custom'" class="api-custom-fields">
+          <input class="api-custom-input" v-model="customUrl" placeholder="API URL (https://.../v1/chat/completions)" />
+          <input class="api-custom-input" v-model="customModel" placeholder="Model 名称" />
         </div>
         <div v-if="apiKeyError" class="api-key-error">{{ apiKeyError }}</div>
         <div v-if="store.userApiKey" class="api-key-row">
           <span class="api-key-saved-hint">已保存自定义 Key（仅本次会话）</span>
           <button class="api-clear-btn" @click="clearApiKey">清除</button>
         </div>
-        <p v-else class="api-key-hint">使用自己的 Key 调用模型。留空则使用默认服务。</p>
+        <p v-else class="api-key-hint">选择平台并填入 Key 可替换默认的智谱服务。</p>
       </div>
     </div>
 
-    <!-- Footer: manual explain button (解说 tab only) -->
+    <!-- Footer: manual explain buttons (解说 tab only) -->
     <div v-if="!store.autoExplain && store.activeAiTab === 'explain'" class="ai-footer">
+      <button
+        class="ai-explain-btn"
+        :disabled="!store.code || store.isExplaining"
+        @click="store.requestOverview()"
+        title="AI 综述整体代码的算法思路和数据结构"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        整体解说
+      </button>
       <button
         class="ai-explain-btn"
         :disabled="!store.code || store.isExplaining || store.totalSteps === 0"
@@ -140,7 +165,7 @@
         <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5z" />
         </svg>
-        {{ store.isExplaining ? '生成中…' : '解说' }}
+        {{ store.isExplaining ? '生成中…' : '单步解说' }}
       </button>
     </div>
   </div>
@@ -155,8 +180,24 @@ const bodyRef = ref(null)
 const apiOpen = ref(false)
 const apiKeyInput = ref('')
 const apiKeyError = ref('')
+const selectedProvider = ref('zhipu')
+const customUrl = ref('')
+const customModel = ref('')
 
-const KEY_PATTERN = /^[a-zA-Z0-9\-_.]{1,128}$/
+const currentProviderPlaceholder = computed(() => {
+  const p = store.apiProviders[selectedProvider.value]
+  return p ? p.keyHint : 'API Key'
+})
+
+const currentProviderLabel = computed(() => {
+  const p = store.apiProviders[store.apiProvider]
+  return p ? p.label : ''
+})
+
+function onProviderChange() {
+  apiKeyError.value = ''
+  apiKeyInput.value = ''
+}
 
 function saveApiKey() {
   const val = apiKeyInput.value.trim()
@@ -165,17 +206,31 @@ function saveApiKey() {
     apiKeyError.value = ''
     return
   }
-  if (!KEY_PATTERN.test(val)) {
-    apiKeyError.value = '格式无效：仅允许字母、数字、连字符、下划线和点号，长度 1-128'
+  const provider = selectedProvider.value
+  const p = store.apiProviders[provider]
+  if (!p) { apiKeyError.value = '未知平台'; return }
+
+  if (!p.keyRe.test(val)) {
+    apiKeyError.value = 'Key 格式不匹配 ' + p.label + ' 的要求（' + p.keyHint + '）'
     return
   }
+  store.apiProvider = provider
   store.userApiKey = val
+  if (provider === 'custom') {
+    store.apiUrl = customUrl.value.trim()
+    store.apiModel = customModel.value.trim()
+    if (!store.apiUrl) { apiKeyError.value = '请填写 API URL'; return }
+  }
   apiKeyError.value = ''
 }
 
 function clearApiKey() {
   store.userApiKey = ''
+  store.apiProvider = 'zhipu'
+  selectedProvider.value = 'zhipu'
   apiKeyInput.value = ''
+  customUrl.value = ''
+  customModel.value = ''
   apiKeyError.value = ''
 }
 
@@ -397,7 +452,7 @@ function explainTag(tagName) {
 .tag-slate   { background: rgba(148,163,184,0.12); color: #cbd5e1; }
 
 /* --- Footer --- */
-.ai-footer { display: flex; justify-content: flex-end; }
+.ai-footer { display: flex; justify-content: flex-end; gap: 8px; }
 .ai-explain-btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 14px; border-radius: 10px;
@@ -474,6 +529,49 @@ function explainTag(tagName) {
   gap: 6px;
   align-items: center;
 }
+.api-provider-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
+}
+.api-provider-chip {
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  outline: none;
+}
+.api-provider-chip:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+.api-provider-chip.active {
+  color: var(--primary);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.api-custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.api-custom-input {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.api-custom-input:focus { border-color: var(--accent-border); }
+.api-custom-input::placeholder { color: var(--text-muted); opacity: 0.5; }
 .api-key-input {
   flex: 1;
   font-family: var(--mono);

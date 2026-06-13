@@ -147,6 +147,13 @@ function findSvgNodes(container) {
   return container.querySelectorAll ? container.querySelectorAll('.node') : []
 }
 
+function extractNodeId(svgEl) {
+  // Mermaid generates SVG element ids like "flowchart-n0-3" or "mermaid_n0_3"
+  const id = svgEl?.id || ''
+  const m = id.match(/\b(n\d+)\b/)
+  return m ? m[1] : null
+}
+
 function applyHighlight(container, methodName) {
   if (!container || !controlFlowData.value) return
   const line = currentLine.value
@@ -159,24 +166,23 @@ function applyHighlight(container, methodName) {
 
   if (!line) return
 
-  // Find nodes matching current line
+  // Find nodes matching current line by line number
   const matchedNodes = method.nodes.filter(n => n.line === line)
   if (!matchedNodes.length) return
 
-  // Highlight matched SVG nodes
+  const matchedIds = new Set(matchedNodes.map(n => n.id))
+
+  // Highlight SVG nodes by matching Mermaid-internal node ID (unique, not label text)
   const nodeEls = container.querySelectorAll('.node')
   nodeEls.forEach(el => {
-    const labelEl = el.querySelector('.nodeLabel')
-    const label = labelEl?.textContent?.trim() || ''
-    const match = matchedNodes.find(n => label.startsWith(n.label?.slice(0, 25)))
-    if (match) {
+    const nodeId = extractNodeId(el)
+    if (nodeId && matchedIds.has(nodeId)) {
       el.classList.add('cf-active')
     }
   })
 
   // Highlight only edges pointing to matched nodes
-  const matchedIds = matchedNodes.map(n => n.id)
-  const incomingEdges = method.edges.filter(e => matchedIds.includes(e.to))
+  const incomingEdges = method.edges.filter(e => matchedIds.has(e.to))
   incomingEdges.forEach(edge => {
     const edgeEl = container.querySelector(`[id*="L-${edge.from}-${edge.to}"]`)
     if (edgeEl) edgeEl.classList.add('cf-edge-active')
@@ -195,14 +201,16 @@ async function render() {
     // Bind click events for drill-down
     if (mermaidRef.value) {
       const callNodes = (methods.value[methodName]?.nodes || []).filter(n => n.target)
+      const callNodeIds = new Set(callNodes.map(n => n.id))
+      const nodeIdToTarget = {}
+      callNodes.forEach(n => { nodeIdToTarget[n.id] = n.target })
       const svgEl = mermaidRef.value.querySelector('svg')
       if (svgEl) {
         svgEl.querySelectorAll('.node').forEach(el => {
-          const label = el.querySelector('.nodeLabel')?.textContent?.trim() || ''
-          const cn = callNodes.find(n => label.startsWith(n.label?.slice(0, 25)))
-          if (cn) {
+          const nodeId = extractNodeId(el)
+          if (nodeId && callNodeIds.has(nodeId)) {
             el.style.cursor = 'pointer'
-            el.addEventListener('click', () => drillDown(cn.target))
+            el.addEventListener('click', () => drillDown(nodeIdToTarget[nodeId]))
           }
         })
       }

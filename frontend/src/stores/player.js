@@ -23,10 +23,26 @@ export const usePlayerStore = defineStore('player', {
     controlFlowData: null,
     cfViewStack: [],
     activeAiTab: 'explain',
+    // 测试模式
+    testMode: false,
+    testCases: [],
+    methodName: '',
+    methodSignature: '',
     // File upload state
     rightTab: 'variables',
     userApiKey: '',
+    apiProvider: 'zhipu',  // zhipu | deepseek | openai | kimi | custom
+    apiUrl: '',
+    apiModel: '',
     pendingFiles: [],
+    // Provider presets for format validation and auto-fill
+    apiProviders: {
+      zhipu:  { label: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4.7', keyHint: 'xxxxxxxx.xxxxxxxx',   keyRe: /^[a-zA-Z0-9]{32}\.[a-zA-Z0-9]+$/ },
+      deepseek: { label: 'DeepSeek',      url: 'https://api.deepseek.com/v1/chat/completions',              model: 'deepseek-chat',  keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32}$/ },
+      openai:  { label: 'OpenAI',        url: 'https://api.openai.com/v1/chat/completions',                 model: 'gpt-4o',         keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32,}$/ },
+      kimi:    { label: '月之暗面 (Kimi)', url: 'https://api.moonshot.cn/v1/chat/completions',              model: 'moonshot-v1-8k', keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32,}$/ },
+      custom:  { label: '自定义',          url: '',  model: '',  keyHint: '任意 Key',                      keyRe: /^.{1,128}$/ },
+    },
     uploadHistory: (() => {
       try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
       catch { return [] }
@@ -73,10 +89,15 @@ export const usePlayerStore = defineStore('player', {
         this.explainAbortController = null
       }
       try {
+        const body = { code }
+        if (this.testMode) {
+          body.mode = 'test'
+          body.testCases = this.testCases
+        }
         const res = await fetch('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code })
+          body: JSON.stringify(body)
         })
         const data = await res.json()
         if (data.code === 200 || data.success) {
@@ -84,6 +105,8 @@ export const usePlayerStore = defineStore('player', {
           this.runId = data.runId
           this.output = data.output || ''
           this.currentStep = 0
+          if (data.methodName) this.methodName = data.methodName
+          if (data.methodSignature) this.methodSignature = data.methodSignature
           this.requestAnalysis()
           this.cfViewStack = []
           this.requestControlFlow()
@@ -116,6 +139,88 @@ export const usePlayerStore = defineStore('player', {
 
     // --- AI Explanation actions ---
 
+    _apiBody(extra = {}) {
+      const body = { code: this.code, ...extra }
+      if (this.userApiKey) {
+        body.apiKey = this.userApiKey
+        const p = this.apiProviders[this.apiProvider]
+        if (p) {
+          body.apiUrl = p.url
+          body.apiModel = p.model
+        }
+        // custom provider uses user-filled url/model
+        if (this.apiProvider === 'custom') {
+          body.apiUrl = this.apiUrl
+          body.apiModel = this.apiModel
+        }
+      }
+      if (this.testMode) body.mode = 'test'
+      return body
+    },
+
+    async requestOverview() {
+      if (this.explainAbortController) {
+        this.explainAbortController.abort()
+      }
+
+      if (!this.code) return
+
+      this.isExplaining = true
+      this.explainText = ''
+      this.explainError = null
+      this.explainAbortController = new AbortController()
+
+      try {
+        const response = await fetch('/api/explain/overview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this._apiBody()),
+          signal: this.explainAbortController.signal
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let currentEvent = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              currentEvent = line.slice(6).trim()
+            } else if (line.startsWith('data:')) {
+              const data = line.slice(5).trim()
+              if (!data) continue
+              if (currentEvent === 'error') {
+                this.explainError = data
+                currentEvent = ''
+                return
+              }
+              this.explainText += data
+              currentEvent = ''
+            }
+          }
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          this.explainError = e.message || '整体解说请求失败'
+        }
+      } finally {
+        this.isExplaining = false
+        this.explainAbortController = null
+      }
+    },
+
     async requestExplain(topic) {
       if (this.explainAbortController) {
         this.explainAbortController.abort()
@@ -136,15 +241,13 @@ export const usePlayerStore = defineStore('player', {
         const response = await fetch('/api/explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            code: this.code,
+          body: JSON.stringify(this._apiBody({
             runId: this.runId,
             step: this.currentStep,
             totalSteps: this.totalSteps,
             currentLine: this.currentLine,
             variables: vars,
-            apiKey: this.userApiKey || ''
-          }),
+          })),
           signal: this.explainAbortController.signal
         })
 
@@ -222,7 +325,7 @@ export const usePlayerStore = defineStore('player', {
         const res = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: this.code, apiKey: this.userApiKey || '' })
+          body: JSON.stringify(this._apiBody())
         })
         const data = await res.json()
         if (data.error) {
@@ -235,6 +338,20 @@ export const usePlayerStore = defineStore('player', {
       } finally {
         this.isAnalyzing = false
       }
+    },
+
+    // --- 测试模式 ---
+
+    saveTestCases(cases) {
+      this.testCases = [...cases]
+      this.testMode = cases.length > 0
+    },
+
+    clearTestCases() {
+      this.testCases = []
+      this.testMode = false
+      this.methodName = ''
+      this.methodSignature = ''
     },
 
     // --- File upload actions ---
