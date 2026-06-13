@@ -10,11 +10,26 @@
         <div class="editor-card-header">
           <span class="rc-dot" />
           <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
+          <span v-if="!store.testMode" class="testmode-hint" title="非测试模式：请输入包含 main 方法的完整 Java 代码">非测试模式请输完整代码</span>
           <span class="highlight-legend">
             <span class="legend-item"><span class="legend-arrow" style="color: rgba(128,128,128,0.50)">▶</span>上一步</span>
             <span class="legend-item"><span class="legend-arrow" style="color: #fbbf24">▶</span>当前</span>
             <span class="legend-item"><span class="legend-arrow" style="color: rgba(59,130,246,0.55)">▶</span>下一步</span>
           </span>
+          <button
+            class="upload-toggle-btn testmode-btn"
+            :class="{ active: store.testCases.length > 0, open: testCaseOpen }"
+            @click.stop="toggleTestCase"
+            title="测试模式"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="9" y1="9" x2="15" y2="9"/>
+              <line x1="9" y1="13" x2="15" y2="13"/>
+              <line x1="9" y1="17" x2="12" y2="17"/>
+            </svg>
+            <span class="upload-toggle-label">测试</span>
+          </button>
           <button
             class="upload-toggle-btn"
             :class="{ active: uploadOpen }"
@@ -33,6 +48,12 @@
         <transition name="upload-slide">
           <div v-if="uploadOpen" class="upload-panel-wrapper">
             <FileUploadPanel @loadCode="onFileLoad" />
+          </div>
+        </transition>
+        <!-- 测试用例面板（向下滑出） -->
+        <transition name="upload-slide">
+          <div v-if="testCaseOpen" class="upload-panel-wrapper">
+            <TestCasePanel @save="onSaveTestCases" @clear="onClearTestCases" />
           </div>
         </transition>
         <div class="flex-1 min-h-0">
@@ -218,6 +239,7 @@ import WallpaperSelector from './components/WallpaperSelector.vue'
 import VideoBackground from './components/VideoBackground.vue'
 import AudioBackground from './components/AudioBackground.vue'
 import Live2DWidget from './components/Live2DWidget.vue'
+import TestCasePanel from './components/TestCasePanel.vue'
 
 const store = usePlayerStore()
 const videoSrc = ref('')
@@ -233,6 +255,7 @@ const controlBarRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)  // 默认左侧占55%，右侧45%
 const uploadOpen = ref(false)
+const testCaseOpen = ref(false)
 const MIN_LEFT = 400   // 增加最小宽度从200到400
 const MIN_RIGHT = 350  // 增加最小宽度从200到350
 const leftWidth = computed(() => {
@@ -361,6 +384,20 @@ const runCode = async () => {
 
 function toggleUpload() {
   uploadOpen.value = !uploadOpen.value
+}
+
+function toggleTestCase() {
+  testCaseOpen.value = !testCaseOpen.value
+}
+
+const onSaveTestCases = (testCases) => {
+  store.saveTestCases(testCases)
+  testCaseOpen.value = false
+}
+
+const onClearTestCases = () => {
+  store.clearTestCases()
+  testCaseOpen.value = false
 }
 
 const onFileLoad = ({ name, code }) => {
@@ -582,6 +619,27 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .upload-toggle-label {
   font-size: 12px;
   font-weight: 500;
+}
+
+/* 测试模式按钮：贴近导入按钮 */
+.testmode-btn {
+  margin-left: auto;
+}
+.testmode-btn + .upload-toggle-btn {
+  margin-left: 6px;
+}
+
+/* 非测试模式提示 */
+.testmode-hint {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  font-size: 10px;
+  color: #fbbf24;
+  white-space: nowrap;
+  cursor: default;
 }
 
 /* 高亮图例 — "你的代码"右侧 */

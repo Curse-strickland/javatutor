@@ -1,13 +1,5 @@
 package com.javatutor.model;
-/** 这个类是后端返回给前端的 JSON 对象。
- * 前端期望的格式：
-{
-  "success": true,
-  "runId": "uuid-xxx",
-  "steps": [ ... ],
-  "error": "编译错误..."
-}
-*/
+
 import java.util.List;
 import java.util.Map;
 
@@ -17,38 +9,34 @@ public class RunResponse {
     private List<Map<String, Object>> steps;
     private String error;
     private String output;
-    //构造
+    private String methodName;
+    private String methodSignature;
+
     public RunResponse() {
     }
-    public RunResponse(boolean success, String runId, List<Map<String, Object>> steps, String error) {
-        this.success = success;
-        this.runId = runId; //标识第几步
-        this.steps = steps;
-        this.error = error;
-    }
 
-    // getter 和 setter 方法
     public boolean isSuccess() {
         return success;
     }
-
     public String getRunId() {
         return runId;
     }
-
     public List<Map<String, Object>> getSteps() {
         return steps;
     }
-
     public String getError() {
         return error;
     }
     public String getOutput() {
         return output;
     }
-    public void setOutput(String output) {
-        this.output = output;
+    public String getMethodName() {
+        return methodName;
     }
+    public String getMethodSignature() {
+        return methodSignature;
+    }
+
     public void setSuccess(boolean success) {
         this.success = success;
     }
@@ -61,15 +49,29 @@ public class RunResponse {
     public void setError(String error) {
         this.error = error;
     }
+    public void setOutput(String output) {
+        this.output = output;
+    }
+    public void setMethodName(String methodName) {
+        this.methodName = methodName;
+    }
+    public void setMethodSignature(String methodSignature) {
+        this.methodSignature = methodSignature;
+    }
 
-    //方法
-    //两种状态 ok / fail 下快速创建 RunResponse 对象的方法
     public static RunResponse ok(String runId, List<Map<String, Object>> steps, String output) {
+        return ok(runId, steps, output, null, null);
+    }
+
+    public static RunResponse ok(String runId, List<Map<String, Object>> steps, String output,
+                                  String methodName, String methodSignature) {
         RunResponse response = new RunResponse();
         response.setSuccess(true);
         response.setRunId(runId);
         response.setSteps(steps);
         response.setOutput(output);
+        response.setMethodName(methodName);
+        response.setMethodSignature(methodSignature);
         return response;
     }
 
