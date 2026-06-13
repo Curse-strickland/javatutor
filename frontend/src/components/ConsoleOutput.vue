@@ -19,7 +19,7 @@
         <polyline points="6 9 12 15 18 9" />
       </svg>
     </div>
-    <pre v-if="store.currentOutput" v-show="!collapsed" class="console-body">{{ store.currentOutput }}</pre>
+    <pre v-if="store.currentOutput || store.output" v-show="!collapsed" class="console-body">{{ store.currentOutput || store.output }}</pre>
     <div v-else v-show="!collapsed" class="console-empty">暂无输出</div>
   </div>
 </template>

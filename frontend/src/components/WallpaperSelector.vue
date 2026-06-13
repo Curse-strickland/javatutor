@@ -1291,7 +1291,13 @@ watch(cropImage, (val) => {
   margin: 16px 0;
 }
 
+.upload-row {
+  display: flex;
+  gap: 10px;
+}
+
 .upload-label {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
