@@ -27,6 +27,7 @@ Thumbs.db
 # Logs and env
 *.log
 .env
+CLAUDE.md
 
 # Frontend temp
 /frontend/.vite/
