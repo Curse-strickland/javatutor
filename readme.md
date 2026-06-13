@@ -215,19 +215,3 @@ Key 仅保存在当前浏览器会话中，不会上传到服务器存储。
 ## 设计系统
 
 前端设计规范见 [DESIGN.md](docs/DESIGN.md)。核心原则：深灰调 + 蓝色单一 accent、卡片统一用 `.card p-3 mb-3`、可折叠面板用蓝色圆点 + chevron SVG。
-
-## 文档索引
-
-| 文档 | 内容 |
-|------|------|
-| [DESIGN.md](docs/DESIGN.md) | 前端设计规范：调色板、字体、组件模式 |
-| [ROADMAP.md](docs/ROADMAP.md) | Phase 1-5 路线图 |
-| [CLAUDE.md](CLAUDE.md) | AI 助手指令（项目技术约定） |
-| [sandbox-design.md](docs/sandbox-design.md) | 沙箱四层架构设计 |
-| [sandbox-verification-checklist.md](docs/sandbox-verification-checklist.md) | 31 条沙箱验收用例 |
-| [前端分工.md](docs/前端分工.md) | 前后端分工与接口约定 |
-| [devlog/](devlog/) | 按日期归档的开发日志 |
-
-## License
-
-MIT
