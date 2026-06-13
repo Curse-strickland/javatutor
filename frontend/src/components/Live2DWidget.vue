@@ -48,8 +48,9 @@ function onPointerMove(e) {
     const newLeft = e.clientX - offsetX
     const newRight = window.innerWidth - newLeft - waifuEl.offsetWidth
 
-    // 仅水平方向，限制不超出屏幕边界
-    const maxRight = window.innerWidth - 80
+    // 仅水平方向，限制不超出屏幕边界（至少保留 120px 可见）
+    const minVisible = 400
+    const maxRight = window.innerWidth - minVisible
     const clampedRight = Math.max(0, Math.min(newRight, maxRight))
 
     waifuEl.style.right = clampedRight + 'px'

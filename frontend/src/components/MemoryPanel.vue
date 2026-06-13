@@ -534,8 +534,12 @@ function formatVal(v) {
 
 function frameArgStyle(arg) {
   const base = { color: arg.color }
-  if (hoverState.refId === arg.refId && hoverState.src !== 'none' && hoverState.src !== 'frame-arg') {
-    base.textShadow = `0 0 8px ${arg.color}`
+  if (hoverState.refId === arg.refId && hoverState.src !== 'none') {
+    if (hoverState.src === 'frame-arg') {
+      base.textShadow = `0 0 10px ${arg.color}, 0 0 20px ${arg.color}`
+    } else {
+      base.textShadow = `0 0 8px ${arg.color}`
+    }
   }
   return base
 }
