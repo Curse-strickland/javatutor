@@ -27,6 +27,42 @@ public class ExplainController {
         this.controlFlowService = controlFlowService;
     }
 
+    @PostMapping("/explain/overview")
+    public SseEmitter explainOverview(@RequestBody ExplainRequest request) {
+        SseEmitter emitter = new SseEmitter(120_000L);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                deepSeekService.explainOverview(
+                    request.getCode(),
+                    request.getMode(),
+                    chunk -> {
+                        try {
+                            emitter.send(SseEmitter.event()
+                                    .name("chunk")
+                                    .data(chunk));
+                        } catch (IOException e) {
+                            throw new RuntimeException("Client disconnected", e);
+                        }
+                    },
+                    request.getApiKey(),
+                    request.getApiUrl(),
+                    request.getApiModel()
+                );
+                emitter.complete();
+            } catch (Exception e) {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data(e.getMessage() != null ? e.getMessage() : "AI 服务异常"));
+                } catch (IOException ignored) {}
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
+    }
+
     @PostMapping("/explain")
     public SseEmitter explain(@RequestBody ExplainRequest request) {
         SseEmitter emitter = new SseEmitter(120_000L);
@@ -48,7 +84,10 @@ public class ExplainController {
                             throw new RuntimeException("Client disconnected", e);
                         }
                     },
-                    request.getApiKey()
+                    request.getApiKey(),
+                    request.getMode(),
+                    request.getApiUrl(),
+                    request.getApiModel()
                 );
                 emitter.complete();
             } catch (Exception e) {
