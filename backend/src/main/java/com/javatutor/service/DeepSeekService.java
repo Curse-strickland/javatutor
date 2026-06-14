@@ -54,6 +54,30 @@ public class DeepSeekService {
                                int maxTokens, Consumer<String> onChunk,
                                String effectiveKey, String effectiveUrl, String effectiveModel)
             throws IOException, InterruptedException {
+        int maxRetries = 2;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            if (attempt > 0) {
+                // 429 限流重试：等待 2 秒后重试
+                Thread.sleep(2000);
+            }
+            try {
+                streamRequestOnce(messages, maxTokens, onChunk, effectiveKey, effectiveUrl, effectiveModel);
+                return;
+            } catch (IOException e) {
+                String msg = e.getMessage();
+                if (msg != null && msg.contains("429") && attempt < maxRetries - 1) {
+                    continue;
+                }
+                throw e;
+            }
+        }
+        throw new IOException("智谱 API 限流 (429)，已重试仍失败。免费额度 QPS 较低，请稍等几秒后重试。");
+    }
+
+    private void streamRequestOnce(List<Map<String, String>> messages,
+                               int maxTokens, Consumer<String> onChunk,
+                               String effectiveKey, String effectiveUrl, String effectiveModel)
+            throws IOException, InterruptedException {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", effectiveModel);
         body.put("messages", messages);
