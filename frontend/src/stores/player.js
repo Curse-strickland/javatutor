@@ -37,7 +37,7 @@ export const usePlayerStore = defineStore('player', {
     pendingFiles: [],
     // Provider presets for format validation and auto-fill
     apiProviders: {
-      zhipu:  { label: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4.7', keyHint: 'xxxxxxxx.xxxxxxxx',   keyRe: /^[a-zA-Z0-9]{32}\.[a-zA-Z0-9]+$/ },
+      zhipu:  { label: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4.7-flash', keyHint: 'xxxxxxxx.xxxxxxxx',   keyRe: /^[a-zA-Z0-9]{32}\.[a-zA-Z0-9]+$/ },
       deepseek: { label: 'DeepSeek',      url: 'https://api.deepseek.com/v1/chat/completions',              model: 'deepseek-chat',  keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32}$/ },
       openai:  { label: 'OpenAI',        url: 'https://api.openai.com/v1/chat/completions',                 model: 'gpt-4o',         keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32,}$/ },
       kimi:    { label: '月之暗面 (Kimi)', url: 'https://api.moonshot.cn/v1/chat/completions',              model: 'moonshot-v1-8k', keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32,}$/ },
