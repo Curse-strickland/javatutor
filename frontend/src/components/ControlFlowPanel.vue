@@ -395,6 +395,14 @@ watch(() => store.cfViewStack, () => render(), { deep: true })
 }
 .cf-mermaid :deep(svg) { max-width: 100%; height: auto; }
 
+/* Thicker edge paths (arrows) */
+.cf-mermaid :deep(.edgePaths path),
+.cf-mermaid :deep(.edges path),
+.cf-fullscreen-svg :deep(.edgePaths path),
+.cf-fullscreen-svg :deep(.edges path) {
+  stroke-width: 2px;
+}
+
 .cf-hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
 /* Breathing glow — pure filter, no transform (avoids SVG positioning conflicts) */
