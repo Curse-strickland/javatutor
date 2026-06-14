@@ -41,7 +41,7 @@
 
 `application.properties` 追加 3 行：
 ```properties
-deepseek.api.key=sk-a09ad8373c4f438faec1a322fd64e6d8
+deepseek.api.key=<你的 DeepSeek API Key>
 deepseek.api.url=https://api.deepseek.com/v1/chat/completions
 deepseek.api.model=deepseek-chat
 ```
