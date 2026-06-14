@@ -1,0 +1,12 @@
+# Preserve LF line endings for shell scripts (required for Linux/macOS)
+*.sh    text eol=lf
+mvnw    text eol=lf
+
+# Windows batch files use CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binary files
+*.jar   binary
+*.png   binary
+*.jpg   binary
