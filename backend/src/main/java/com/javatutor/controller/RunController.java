@@ -123,6 +123,7 @@ public class RunController {
         "        obj.put(\"id\", id);\n" +
         "        obj.put(\"name\", name);\n" +
         "        obj.put(\"slots\", new ArrayList<>());\n" +
+        "        obj.put(\"category\", \"array\");\n" +
         "        heapObjects.put(name, obj);\n" +
         "        return id;\n" +
         "    }\n" +
@@ -134,9 +135,32 @@ public class RunController {
         "        heapObj.put(\"id\", id);\n" +
         "        heapObj.put(\"name\", name);\n" +
         "        heapObj.put(\"fields\", new LinkedHashMap<>());\n" +
+        "        heapObj.put(\"category\", categorize(obj));\n" +
         "        heapObj.put(\"_objRef\", obj);\n" +
         "        heapObjects.put(name, heapObj);\n" +
         "        return id;\n" +
+        "    }\n" +
+        "    private static String categorize(Object obj) {\n" +
+        "        if (obj == null) return \"object\";\n" +
+        "        Class<?> cls = obj.getClass();\n" +
+        "        if (cls.isArray()) return \"array\";\n" +
+        "        if (java.util.Map.class.isAssignableFrom(cls)) return \"map\";\n" +
+        "        if (java.util.Set.class.isAssignableFrom(cls)) return \"set\";\n" +
+        "        String n = cls.getSimpleName();\n" +
+        "        if (n.equals(\"ArrayList\") || n.equals(\"Vector\")) return \"list\";\n" +
+        "        if (n.equals(\"LinkedList\")) return \"linkedlist\";\n" +
+        "        if (n.equals(\"Stack\") || n.equals(\"ArrayDeque\")) return \"stack\";\n" +
+        "        if (java.util.Collection.class.isAssignableFrom(cls)) return \"collection\";\n" +
+        "        return \"object\";\n" +
+        "    }\n" +
+        "    private static void ensureHeapEntry(String name, Object obj) {\n" +
+        "        if (heapObjects.containsKey(name)) {\n" +
+        "            if (!heapObjects.get(name).containsKey(\"category\")) {\n" +
+        "                heapObjects.get(name).put(\"category\", categorize(obj));\n" +
+        "            }\n" +
+        "            return;\n" +
+        "        }\n" +
+        "        allocObject(name, obj);\n" +
         "    }\n" +
         "    private static void updateHeapSlots(String name, List<Object> arrayCopy) {\n" +
         "        if (!heapObjects.containsKey(name)) { allocArray(name, arrayCopy.size()); }\n" +
@@ -256,6 +280,7 @@ public class RunController {
         "                }\n" +
         "            } else if (v instanceof java.util.Collection<?>) {\n" +
         "                java.util.Collection<?> coll = (java.util.Collection<?>) v;\n" +
+        "                ensureHeapEntry(e.getKey(), v);\n" +
         "                int size = coll.size();\n" +
         "                int displaySize = size > 200 ? 200 : size;\n" +
         "                List<Object> copy = new ArrayList<>(displaySize + (size > 200 ? 1 : 0));\n" +
@@ -327,8 +352,6 @@ public class RunController {
         boolean isTestMode = "test".equals(request.getMode());
 
         try{
-            if (isTestMode) userCode = autoImportMissing(userCode);
-
             SandboxValidator.Result validation = SandboxValidator.validate(userCode);
             if (!validation.allowed) return RunResponse.fail(validation.reason);
 

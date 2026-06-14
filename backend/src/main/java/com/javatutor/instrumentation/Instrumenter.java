@@ -679,7 +679,12 @@ public class Instrumenter {
                 || name.equals("equals") || name.equals("hashCode") || name.equals("toString")
                 || name.equals("length") || name.equals("size") || name.equals("get")
                 || name.equals("charAt") || name.equals("substring")
-                || name.equals("valueOf") || name.equals("parseInt") || name.equals("parseDouble"))
+                || name.equals("valueOf") || name.equals("parseInt") || name.equals("parseDouble")
+                || name.equals("push") || name.equals("pop") || name.equals("peek")
+                || name.equals("poll") || name.equals("offer") || name.equals("add")
+                || name.equals("remove") || name.equals("contains") || name.equals("isEmpty")
+                || name.equals("put") || name.equals("clear") || name.equals("toArray")
+                || name.equals("iterator") || name.equals("compareTo") || name.equals("indexOf"))
                 return null;
             return name;
         }

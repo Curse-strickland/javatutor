@@ -19,17 +19,19 @@
         <polyline points="6 9 12 15 18 9" />
       </svg>
     </div>
-    <pre v-if="store.currentOutput || store.output" v-show="!collapsed" class="console-body">{{ store.currentOutput || store.output }}</pre>
+    <pre v-if="displayOutput" v-show="!collapsed" class="console-body">{{ displayOutput }}</pre>
     <div v-else v-show="!collapsed" class="console-empty">暂无输出</div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
 const collapsed = ref(false)
+
+const displayOutput = computed(() => store.testMode ? store.output : store.currentOutput)
 </script>
 
 <style scoped>

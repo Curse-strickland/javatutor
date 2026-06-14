@@ -47,9 +47,9 @@
                       class="mp-var-card mp-var-card-sm"
                       :class="{
                         'mp-stack-hovered': hoverState.src === 'stack' && (item.refId ? hoverState.refId === item.refId : hoverState.itemName === item.name),
-                        'mp-var-flash': flashVarNames.has(item.name)
+                        'mp-var-flash': flashVarNames.has(`${gi}:${item.name}`)
                       }"
-                      :style="flashVarNames.has(item.name) ? { '--flash-color': item.isRef ? (item.refColor || '#0a84ff') : '#0a84ff' } : {}"
+                      :style="flashVarNames.has(`${gi}:${item.name}`) ? { '--flash-color': item.isRef ? (item.refColor || '#0a84ff') : '#0a84ff' } : {}"
                       @mouseenter="onStackEnter(item)"
                       @mouseleave="onStackLeave()"
                     >
@@ -69,9 +69,9 @@
                     :class="{
                       'mp-stack-hovered': hoverState.src === 'stack' && hoverState.refId === item.refId,
                       'mp-stack-lit': hoverState.src !== 'stack' && hoverState.refId === item.refId,
-                      'mp-var-flash': flashVarNames.has(item.name)
+                      'mp-var-flash': flashVarNames.has(`${gi}:${item.name}`)
                     }"
-                    :style="refCardStyle(item)"
+                    :style="refCardStyle(item, flashVarNames.has(`${gi}:${item.name}`) ? (item.refColor || '#0a84ff') : null)"
                     @mouseenter="onStackEnter(item)"
                     @mouseleave="onStackLeave()"
                   >
@@ -107,9 +107,10 @@
             class="mp-heap-card"
             :class="{
               'mp-heap-highlight': hoverState.refId === obj.refId && hoverState.src !== 'none',
-              'mp-heap-self-hover': hoverState.src === 'heap' && hoverState.refId === obj.refId
+              'mp-heap-self-hover': hoverState.src === 'heap' && hoverState.refId === obj.refId,
+              'mp-var-flash': flashHeapCardKeys.has(obj.name)
             }"
-            :style="obj.colorStyle"
+            :style="heapCardStyle(obj)"
             @mouseenter="onHeapEnter(obj)"
             @mouseleave="onHeapLeave()"
           >
@@ -123,9 +124,9 @@
             <div v-show="!collapsedHeapCards.has(obj.refId)" class="mp-heap-cells">
               <!-- Array slots -->
               <template v-if="obj.slots && obj.slots.length">
-                <div v-for="slot in obj.slots" :key="'s'+slot.index" class="mp-heap-cell">
+                <div v-for="slot in obj.slots" :key="'s'+slot.index" class="mp-heap-cell" :class="{ 'mp-cell-flash': isHeapCellFlashing(obj.name, slot.index) }" :style="isHeapCellFlashing(obj.name, slot.index) ? heapCellFlashStyle(obj) : {}">
                   <span class="mp-cell-idx">[{{ slot.index }}]</span>
-                  <span class="mp-cell-val" :class="{ 'mp-cell-flash': isHeapCellFlashing(obj.name, slot.index) }" :style="isHeapCellFlashing(obj.name, slot.index) ? heapCellFlashStyle(obj) : {}">{{ slot.value }}</span>
+                  <span class="mp-cell-val">{{ slot.value }}</span>
                 </div>
               </template>
               <!-- Object fields (linked list nodes etc.) -->
@@ -134,7 +135,8 @@
                   v-for="(fv, fk) in obj.fields"
                   :key="'f'+fk"
                   class="mp-heap-cell mp-heap-field"
-                  :class="{ 'mp-field-ref': fv && fv.ref && idToHeapKey[fv.ref] }"
+                  :class="{ 'mp-field-ref': fv && fv.ref && idToHeapKey[fv.ref], 'mp-cell-flash': isHeapFieldFlashing(obj.name, fk) }"
+                  :style="isHeapFieldFlashing(obj.name, fk) ? heapCellFlashStyle(obj) : {}"
                   @mouseenter="fv && fv.ref && idToHeapKey[fv.ref] && onFieldEnter(fv.ref)"
                   @mouseleave="onStackLeave()"
                 >
@@ -290,6 +292,18 @@ const idToHeapKey = computed(() => {
   return map
 })
 
+// 类别 → 中文别名映射（对应后端 TraceEngine.categorize 返回的 category 值）
+const CATEGORY_ALIAS = {
+  'array': '数组',
+  'list': '列表',
+  'linkedlist': '链表',
+  'stack': '栈',
+  'set': '集合',
+  'collection': '集合',
+  'map': '映射',
+}
+const COLLECTION_CATEGORIES = new Set(['list', 'linkedlist', 'stack', 'set', 'collection', 'map'])
+
 const heapLabelMap = computed(() => {
   const map = {}
   const heap = heapMap.value
@@ -302,12 +316,16 @@ const heapLabelMap = computed(() => {
     const fieldKeys = Object.keys(f)
     const hasFields = fieldKeys.length > 0
     const hasSlots = obj.slots && obj.slots.length > 0
+    const catAlias = CATEGORY_ALIAS[obj.category]
 
     let label
     if (obj._mapType === 'Map') {
       label = `[映射 ${obj.name || key}]`
+    } else if (catAlias) {
+      // 使用后端返回的 category 决定别名，不受 slots 空/非空影响
+      label = `[${catAlias} ${obj.name || key}]`
     } else if (hasFields) {
-      // Object type: detect common patterns (ListNode, TreeNode, etc.)
+      // 用户自定义类型：检测 ListNode/TreeNode 等模式
       const hasVal = f.hasOwnProperty('val')
       const isNode = hasVal && (f.hasOwnProperty('next') || f.hasOwnProperty('left') || f.hasOwnProperty('right'))
       if (isNode) {
@@ -316,6 +334,7 @@ const heapLabelMap = computed(() => {
         label = `[${obj.name || key}]`
       }
     } else if (hasSlots) {
+      // 无 category 但有 slots → 兜底显示为数组
       label = `[数组 ${obj.name || key}]`
     } else {
       label = `[${obj.name || key}]`
@@ -530,6 +549,7 @@ function onFrameArgEnter(arg) {
 
 // ===== Value change flash on step transition =====
 const flashHeapCellKeys = reactive(new Set()) // keys: "heapKey:slotIndex"
+const flashHeapCardKeys = reactive(new Set()) // keys: heapKey — triggers full heap card glow
 
 watch(() => store.currentStep, (step) => {
   if (step <= 0) return
@@ -537,49 +557,89 @@ watch(() => store.currentStep, (step) => {
   const currStep = store.steps[step]
   if (!prevStep || !currStep) return
 
-  const prevFrames = prevStep.stackFrames || []
-  const currFrames = currStep.stackFrames || []
+  const prevFrames = prevStep.stackFrames?.length
+    ? [...prevStep.stackFrames].reverse()
+    : (prevStep.stackFrame ? [prevStep.stackFrame] : [])
+  const currFrames = currStep.stackFrames?.length
+    ? [...currStep.stackFrames].reverse()
+    : (currStep.stackFrame ? [currStep.stackFrame] : [])
   const fallbackPrev = prevStep.variables || {}
   const fallbackCurr = currStep.variables || {}
 
-  // Merge locals from all frames for comparison
-  const getMergedLocals = (frames, fallback) => {
-    const m = {}
-    if (frames.length) {
-      for (const f of frames) if (f.locals) Object.assign(m, f.locals)
-    }
-    return Object.keys(m).length ? m : fallback
+  // Match frames by method name so push/pop between steps don't misalign indices
+  const prevByMethod = {}
+  for (const f of prevFrames) { if (!prevByMethod[f.method]) prevByMethod[f.method] = f }
+  for (let fi = 0; fi < currFrames.length; fi++) {
+    const cf = currFrames[fi]
+    const pf = prevByMethod[cf.method]
+    const prevLocals = pf?.locals || (fi === 0 ? fallbackPrev : {})
+    const currLocals = cf.locals || (fi === 0 ? fallbackCurr : {})
+    const allNames = new Set([...Object.keys(prevLocals), ...Object.keys(currLocals)])
+    allNames.forEach(name => {
+      const a = JSON.stringify(prevLocals[name])
+      const b = JSON.stringify(currLocals[name])
+      if (a !== b) {
+        flashVarNames.add(`${fi}:${name}`)
+        setTimeout(() => flashVarNames.delete(`${fi}:${name}`), FLASH_MS)
+      }
+    })
   }
 
-  const prevLocals = getMergedLocals(prevFrames, fallbackPrev)
-  const currLocals = getMergedLocals(currFrames, fallbackCurr)
-
-  const allNames = new Set([...Object.keys(prevLocals), ...Object.keys(currLocals)])
-  allNames.forEach(name => {
-    const a = JSON.stringify(prevLocals[name])
-    const b = JSON.stringify(currLocals[name])
-    if (a !== b) {
-      flashVarNames.add(name)
-      setTimeout(() => flashVarNames.delete(name), FLASH_MS)
-    }
-  })
-
-  // Detect heap array slot changes
+  // Detect heap array slot changes and propagate to heap cards + stack aliases
   const prevHeap = prevStep.heap || {}
   const currHeap = currStep.heap || {}
+  // Build id→key lookup for alias detection
+  const idToKey = {}
+  for (const k of Object.keys(currHeap)) {
+    if (currHeap[k].id) idToKey[currHeap[k].id] = k
+  }
   const allHeapKeys = new Set([...Object.keys(prevHeap), ...Object.keys(currHeap)])
   allHeapKeys.forEach(key => {
     const prevSlots = prevHeap[key]?.slots || []
     const currSlots = currHeap[key]?.slots || []
     const maxLen = Math.max(prevSlots.length, currSlots.length)
+    let heapChanged = false
     for (let i = 0; i < maxLen; i++) {
       const prevVal = prevSlots[i]?.value
       const currVal = currSlots[i]?.value
       if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
-        const cellKey = `${key}:${i}`
-        flashHeapCellKeys.add(cellKey)
-        setTimeout(() => flashHeapCellKeys.delete(cellKey), FLASH_MS)
+        heapChanged = true
+        flashHeapCellKeys.add(`${key}:${i}`)
+        setTimeout(() => flashHeapCellKeys.delete(`${key}:${i}`), FLASH_MS)
       }
+    }
+    // Also detect object field changes (ListNode.val, ListNode.next, etc.)
+    const prevFields = prevHeap[key]?.fields || {}
+    const currFields = currHeap[key]?.fields || {}
+    const allFieldKeys = new Set([...Object.keys(prevFields), ...Object.keys(currFields)])
+    allFieldKeys.forEach(fk => {
+      const prevFv = prevFields[fk]
+      const currFv = currFields[fk]
+      const prevRaw = prevFv && typeof prevFv === 'object' && prevFv.ref ? prevFv.ref : prevFv
+      const currRaw = currFv && typeof currFv === 'object' && currFv.ref ? currFv.ref : currFv
+      if (JSON.stringify(prevRaw) !== JSON.stringify(currRaw)) {
+        heapChanged = true
+        flashHeapCellKeys.add(`${key}:f:${fk}`)
+        setTimeout(() => flashHeapCellKeys.delete(`${key}:f:${fk}`), FLASH_MS)
+      }
+    })
+    if (heapChanged) {
+      // Flash the heap card itself
+      flashHeapCardKeys.add(key)
+      setTimeout(() => flashHeapCardKeys.delete(key), FLASH_MS)
+      // Flash alias: stack variables in any frame that reference this heap object
+      currFrames.forEach((frame, fi) => {
+        const locals = frame.locals || {}
+        for (const [varName, val] of Object.entries(locals)) {
+          let refKey = null
+          if (typeof val === 'string' && idToKey[val]) refKey = idToKey[val]
+          else if (Array.isArray(val) && currHeap[varName]) refKey = varName
+          if (refKey === key) {
+            flashVarNames.add(`${fi}:${varName}`)
+            setTimeout(() => flashVarNames.delete(`${fi}:${varName}`), FLASH_MS)
+          }
+        }
+      })
     }
   })
 })
@@ -588,16 +648,15 @@ watch(() => store.currentStep, (step) => {
 watch(() => store.runId, () => {
   flashVarNames.clear()
   flashHeapCellKeys.clear()
+  flashHeapCardKeys.clear()
   hoverState.src = 'none'
   hoverState.refId = null
   hoverState.itemName = null
 })
 
-function refCardStyle(item) {
+function refCardStyle(item, flashColor) {
   const base = item.refStyle || {}
-  if (flashVarNames.has(item.name)) {
-    return { ...base, '--flash-color': item.refColor || '#0a84ff' }
-  }
+  if (flashColor) return { ...base, '--flash-color': flashColor }
   return base
 }
 
@@ -605,8 +664,19 @@ function isHeapCellFlashing(objName, slotIndex) {
   return flashHeapCellKeys.has(`${objName}:${slotIndex}`)
 }
 
+function isHeapFieldFlashing(objName, fieldName) {
+  return flashHeapCellKeys.has(`${objName}:f:${fieldName}`)
+}
+
 function heapCellFlashStyle(obj) {
   return { '--flash-color': (obj.color && obj.color.text) || '#0a84ff' }
+}
+
+function heapCardStyle(obj) {
+  if (flashHeapCardKeys.has(obj.name)) {
+    return { ...obj.colorStyle, '--flash-color': (obj.color && obj.color.text) || '#0a84ff' }
+  }
+  return obj.colorStyle
 }
 
 function formatVal(v) {
@@ -1054,19 +1124,18 @@ function frameArgStyle(arg) {
   font-weight: 500;
 }
 
-/* Heap cell flash — same fluorescence + scale, color via --flash-color */
+/* Heap cell flash — full cell fluorescence glow, color via --flash-color */
 .mp-cell-flash {
-  display: inline-block;
   --flash-color: #0a84ff;
   animation: mpFlashCell 900ms cubic-bezier(.4, 0, .2, 1);
   z-index: 1;
   position: relative;
 }
 @keyframes mpFlashCell {
-  0%   { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
-  14%  { transform: scale(1.08); filter: drop-shadow(0 0 12px var(--flash-color)); }
-  42%  { transform: scale(1.08); filter: drop-shadow(0 0 12px var(--flash-color)); }
-  100% { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
+  0%   { background: transparent; transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
+  14%  { background: rgba(251,191,36,0.12); transform: scale(1.06); filter: drop-shadow(0 0 10px var(--flash-color)); }
+  42%  { background: rgba(251,191,36,0.12); transform: scale(1.06); filter: drop-shadow(0 0 10px var(--flash-color)); }
+  100% { background: transparent; transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
 }
 
 /* Field reference — hoverable */
