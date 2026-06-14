@@ -47,6 +47,7 @@
       <div v-if="store.isAnalyzing" class="ai-loading">
         <span class="ai-loading-dot" />分析中…
       </div>
+      <div v-else-if="store.analysisError" class="ai-error">{{ store.analysisError }}</div>
       <div v-else-if="store.analysisData?.complexity" class="complexity-view">
         <div class="complexity-row">
           <div class="complexity-card">
@@ -61,6 +62,7 @@
           </div>
         </div>
       </div>
+      <div v-else-if="store.analysisError" class="ai-error">{{ store.analysisError }}</div>
       <div v-else class="ai-hint">运行代码后自动分析。</div>
     </div>
 
@@ -69,6 +71,7 @@
       <div v-if="store.isAnalyzing" class="ai-loading">
         <span class="ai-loading-dot" />分析中…
       </div>
+      <div v-else-if="store.analysisError" class="ai-error">{{ store.analysisError }}</div>
       <template v-else-if="store.analysisData?.algorithms || store.analysisData?.dataStructures">
         <div v-if="store.analysisData.algorithms?.length" class="tag-group">
           <div class="tag-group-label">算法</div>

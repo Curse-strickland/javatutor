@@ -38,10 +38,20 @@ public class AnalyzeService {
 
     public Map<String, Object> analyze(String code, String userApiKey) throws IOException, InterruptedException {
 
-        String effectiveKey = (userApiKey != null && !userApiKey.isBlank())
-                ? userApiKey : defaultKey;
-        if (!SAFE_KEY.matcher(effectiveKey).matches())
-            throw new IllegalArgumentException("API Key 格式无效");
+        String effectiveKey;
+        if (userApiKey != null && !userApiKey.isBlank()) {
+            if (!SAFE_KEY.matcher(userApiKey).matches())
+                throw new IllegalArgumentException("API Key 格式无效");
+            effectiveKey = userApiKey;
+        } else if (defaultKey != null && !defaultKey.isBlank()) {
+            effectiveKey = defaultKey;
+        } else {
+            throw new IllegalArgumentException(
+                "未配置 AI Key。请在右侧 AI 面板展开自定义设置，选择智谱并填入你的 API Key。"
+                + "智谱提供免费额度：https://open.bigmodel.cn 注册即可获取。");
+        }
+        System.out.println("[AnalyzeService] using key=" + effectiveKey.substring(0, Math.min(8, effectiveKey.length())) + "***"
+            + " url=" + apiUrl + " model=" + model);
 
         String systemPrompt =
             "你是一个算法分析专家。分析以下Java代码，返回严格的JSON（只返回JSON，不要markdown代码块，不要任何其他文字）：\n" +
@@ -77,39 +87,58 @@ public class AnalyzeService {
 
         String jsonBody = objectMapper.writeValueAsString(body);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(apiUrl))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + effectiveKey)
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
+        int maxRetries = 2;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            if (attempt > 0) Thread.sleep(2000);
 
-        HttpResponse<java.io.InputStream> response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofInputStream());
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiUrl))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + effectiveKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
 
-        byte[] responseBytes = response.body().readAllBytes();
-        int status = response.statusCode();
-        if (status != 200) {
-            System.err.println("AI API error " + status + ": " + new String(responseBytes, StandardCharsets.UTF_8));
-            throw new IOException("API 调用失败 (HTTP " + status + ")" +
-                (effectiveKey != null ? "，请检查 API Key 是否正确" : "，匿名 AI 服务暂不可用，请稍后重试或配置 API Key"));
+            HttpResponse<java.io.InputStream> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofInputStream());
+
+            byte[] responseBytes = response.body().readAllBytes();
+            int status = response.statusCode();
+            if (status != 200) {
+                String errorBody = new String(responseBytes, StandardCharsets.UTF_8);
+                System.err.println("AI API error " + status + ": " + errorBody);
+                String detail = errorBody;
+                try {
+                    JsonNode errNode = objectMapper.readTree(errorBody);
+                    JsonNode apiErr = errNode.get("error");
+                    if (apiErr != null) {
+                        String errCode = apiErr.has("code") ? apiErr.get("code").asText() : "";
+                        String msg = apiErr.has("message") ? apiErr.get("message").asText() : "";
+                        detail = (errCode.isEmpty() ? "" : "[" + errCode + "] ") + msg;
+                    }
+                } catch (Exception ignored) {}
+                IOException ex = new IOException("API 调用失败 (HTTP " + status + "): " + detail);
+                if (status == 429 && attempt < maxRetries - 1) {
+                    continue;
+                }
+                throw ex;
+            }
+
+            String raw = new String(responseBytes, StandardCharsets.UTF_8);
+            JsonNode root = objectMapper.readTree(raw);
+            String content = root.at("/choices/0/message/content").asText();
+
+            String json = content.trim();
+            int jsonStart = json.indexOf("{");
+            int jsonEnd = json.lastIndexOf("}");
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                json = json.substring(jsonStart, jsonEnd + 1);
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = objectMapper.readValue(json, Map.class);
+            return result;
         }
-
-        String raw = new String(responseBytes, StandardCharsets.UTF_8);
-        JsonNode root = objectMapper.readTree(raw);
-        String content = root.at("/choices/0/message/content").asText();
-
-        // Extract JSON from response (may be wrapped in markdown)
-        String json = content.trim();
-        int jsonStart = json.indexOf("{");
-        int jsonEnd = json.lastIndexOf("}");
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-            json = json.substring(jsonStart, jsonEnd + 1);
-        }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> result = objectMapper.readValue(json, Map.class);
-        return result;
+        throw new IOException("智谱 API 限流 (429)，已重试仍失败。免费额度 QPS 较低，请稍等几秒后重试。");
     }
 
     private Map<String, String> mapOf(String k1, String v1, String k2, String v2) {

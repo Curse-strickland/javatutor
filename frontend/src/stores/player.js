@@ -19,6 +19,7 @@ export const usePlayerStore = defineStore('player', {
     explainHistory: {},
     // Code analysis state
     analysisData: null,
+    analysisError: null,
     isAnalyzing: false,
     controlFlowData: null,
     cfViewStack: [],
@@ -83,6 +84,7 @@ export const usePlayerStore = defineStore('player', {
       this.explainError = null
       this.explainHistory = {}
       this.analysisData = null
+      this.analysisError = null
       this.activeAiTab = 'explain'
       if (this.explainAbortController) {
         this.explainAbortController.abort()
@@ -321,6 +323,7 @@ export const usePlayerStore = defineStore('player', {
       if (!this.code) return
       this.isAnalyzing = true
       this.analysisData = null
+      this.analysisError = null
       try {
         const res = await fetch('/api/analyze', {
           method: 'POST',
@@ -329,12 +332,12 @@ export const usePlayerStore = defineStore('player', {
         })
         const data = await res.json()
         if (data.error) {
-          console.warn('Analysis failed:', data.error)
+          this.analysisError = data.error
         } else {
           this.analysisData = data
         }
       } catch (e) {
-        console.warn('Analysis request failed:', e.message)
+        this.analysisError = e.message || '分析请求失败'
       } finally {
         this.isAnalyzing = false
       }
