@@ -1,0 +1,69 @@
+#!/bin/sh
+# ============================================================
+# JavaTutor Maven Wrapper — finds or downloads Maven 3.9.9
+# ============================================================
+
+MAVEN_VERSION="3.9.9"
+MAVEN_ZIP="apache-maven-${MAVEN_VERSION}-bin.zip"
+MAVEN_URL="https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/${MAVEN_ZIP}"
+MAVEN_HOME="${HOME}/.m2/wrapper/apache-maven-${MAVEN_VERSION}"
+
+# ---- 1. Try mvn on PATH ----
+if command -v mvn >/dev/null 2>&1; then
+    exec mvn "$@"
+fi
+
+# ---- 2. Try MAVEN_HOME env var ----
+if [ -n "$MAVEN_HOME" ] && [ -f "$MAVEN_HOME/bin/mvn" ]; then
+    exec "$MAVEN_HOME/bin/mvn" "$@"
+fi
+
+# ---- 3. Try common install locations ----
+for d in /usr/local/apache-maven-* /opt/apache-maven-* "$HOME/apache-maven-"*; do
+    if [ -f "$d/bin/mvn" ]; then
+        exec "$d/bin/mvn" "$@"
+    fi
+done
+
+# ---- 4. Check if wrapper already downloaded ----
+if [ -f "$MAVEN_HOME/bin/mvn" ]; then
+    exec "$MAVEN_HOME/bin/mvn" "$@"
+fi
+
+# ---- 5. Auto-download Maven ----
+echo ""
+echo "[JavaTutor] Maven not found. Downloading Maven ${MAVEN_VERSION}..."
+echo "[JavaTutor] This is a one-time setup (~10 MB)."
+echo ""
+
+mkdir -p "${HOME}/.m2/wrapper"
+
+if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$MAVEN_URL" -o "/tmp/${MAVEN_ZIP}"
+elif command -v wget >/dev/null 2>&1; then
+    wget -q "$MAVEN_URL" -O "/tmp/${MAVEN_ZIP}"
+else
+    echo "[ERROR] Neither curl nor wget found. Please install Maven manually:"
+    echo "        https://maven.apache.org/download.cgi"
+    exit 1
+fi
+
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed to download Maven. Please install it manually:"
+    echo "        https://maven.apache.org/download.cgi"
+    exit 1
+fi
+
+echo "[JavaTutor] Extracting Maven..."
+unzip -qo "/tmp/${MAVEN_ZIP}" -d "${HOME}/.m2/wrapper/"
+rm -f "/tmp/${MAVEN_ZIP}"
+
+if [ ! -f "$MAVEN_HOME/bin/mvn" ]; then
+    echo "[ERROR] Maven extraction failed. Please install Maven manually:"
+    echo "        https://maven.apache.org/download.cgi"
+    exit 1
+fi
+
+echo "[JavaTutor] Maven ${MAVEN_VERSION} installed successfully."
+echo ""
+exec "$MAVEN_HOME/bin/mvn" "$@"
