@@ -36,13 +36,17 @@ public class DeepSeekService {
 
     private static final java.util.regex.Pattern SAFE_KEY = java.util.regex.Pattern.compile("^[a-zA-Z0-9\\-_.]{1,128}$");
 
-    /** Resolve effective key: user override → default (Zhipu GLM-4 Flash). */
+    /** Resolve effective key: user override → env var → error. */
     private String resolveKey(String userApiKey) {
         if (userApiKey != null && !userApiKey.isBlank()) {
             if (!SAFE_KEY.matcher(userApiKey).matches())
                 throw new IllegalArgumentException("API Key 格式无效");
             return userApiKey;
         }
+        if (defaultKey == null || defaultKey.isBlank())
+            throw new IllegalArgumentException(
+                "未配置 AI Key。请在右侧 AI 面板展开自定义设置，选择智谱并填入你的 API Key。"
+                + "智谱提供免费额度：https://open.bigmodel.cn 注册即可获取。");
         return defaultKey;
     }
 
@@ -74,7 +78,17 @@ public class DeepSeekService {
             byte[] errorBytes = response.body().readAllBytes();
             String errorBody = new String(errorBytes, StandardCharsets.UTF_8);
             System.err.println("AI API error " + status + ": " + errorBody);
-            throw new IOException("API 调用失败 (HTTP " + status + ")，请检查 API Key 是否正确");
+            String detail = errorBody;
+            try {
+                JsonNode errNode = objectMapper.readTree(errorBody);
+                JsonNode apiErr = errNode.get("error");
+                if (apiErr != null) {
+                    String code = apiErr.has("code") ? apiErr.get("code").asText() : "";
+                    String msg = apiErr.has("message") ? apiErr.get("message").asText() : "";
+                    detail = (code.isEmpty() ? "" : "[" + code + "] ") + msg;
+                }
+            } catch (Exception ignored) {}
+            throw new IOException("API 调用失败 (HTTP " + status + "): " + detail);
         }
 
         try (BufferedReader reader = new BufferedReader(

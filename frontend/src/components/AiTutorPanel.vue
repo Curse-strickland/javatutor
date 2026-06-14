@@ -107,6 +107,19 @@
         <span v-else class="api-status-default">智谱</span>
       </div>
       <div v-show="apiOpen" class="api-key-body">
+        <!-- 智谱免费 Key 引导（未配置 Key 时显示） -->
+        <div v-if="!store.userApiKey" class="api-zhipu-guide">
+          <div class="api-zhipu-guide-title">智谱 GLM-4-Flash 免费额度</div>
+          <p class="api-zhipu-guide-text">
+            注册智谱 AI 开放平台即可获取免费 API Key，用于 AI 解说功能。
+          </p>
+          <a
+            class="api-zhipu-guide-link"
+            href="https://open.bigmodel.cn"
+            target="_blank"
+            rel="noopener"
+          >前往 open.bigmodel.cn 注册获取 Key</a>
+        </div>
         <div class="api-provider-chips">
           <button
             v-for="(p, k) in store.apiProviders" :key="k"
@@ -135,7 +148,7 @@
           <span class="api-key-saved-hint">已保存自定义 Key（仅本次会话）</span>
           <button class="api-clear-btn" @click="clearApiKey">清除</button>
         </div>
-        <p v-else class="api-key-hint">选择平台并填入 Key 可替换默认的智谱服务。</p>
+        <p v-else class="api-key-hint">选择平台并填入 Key 即可使用 AI 解说。</p>
       </div>
     </div>
 
@@ -634,6 +647,42 @@ function explainTag(tagName) {
   font-size: 10px;
   color: var(--text-muted);
   margin: 0;
+}
+
+/* 智谱免费 Key 引导 */
+.api-zhipu-guide {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: rgba(10,132,255,0.06);
+  border: 1px solid rgba(10,132,255,0.12);
+}
+.api-zhipu-guide-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+.api-zhipu-guide-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+.api-zhipu-guide-link {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  transition: background 0.15s;
+}
+.api-zhipu-guide-link:hover {
+  background: rgba(10,132,255,0.18);
 }
 
 @media (prefers-reduced-motion: reduce) {
