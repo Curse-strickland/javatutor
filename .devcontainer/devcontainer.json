@@ -28,7 +28,7 @@
 
   "postCreateCommand": "chmod +x backend/mvnw && cd frontend && npm install",
 
-  "postStartCommand": "cd backend && nohup ./mvnw spring-boot:run -DskipTests > /tmp/backend.log 2>&1 & cd .. && cd frontend && nohup npm run dev > /tmp/frontend.log 2>&1 & echo 'Services starting...'",
+  "postStartCommand": "cd backend && nohup ./mvnw spring-boot:run -DskipTests > /tmp/backend.log 2>&1 & disown ; cd frontend && nohup npm run dev > /tmp/frontend.log 2>&1 & disown ; echo 'Services starting...'",
 
   "customizations": {
     "vscode": {
