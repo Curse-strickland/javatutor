@@ -45,7 +45,7 @@ public class DeepSeekService {
         }
         if (defaultKey == null || defaultKey.isBlank())
             throw new IllegalArgumentException(
-                "未配置 AI Key。请在右侧 AI 面板展开自定义设置，选择智谱并填入你的 API Key。"
+                "未配置 AI Key。请在右侧 AI 面板展开「自定义 API」，选择平台并填入你的 API Key。"
                 + "智谱提供免费额度：https://open.bigmodel.cn 注册即可获取。");
         return defaultKey;
     }

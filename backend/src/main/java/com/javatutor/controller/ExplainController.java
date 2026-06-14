@@ -104,13 +104,13 @@ public class ExplainController {
     }
 
     @PostMapping("/analyze")
-    public Map<String, Object> analyze(@RequestBody Map<String, String> request) {
-        String code = request.get("code");
+    public Map<String, Object> analyze(@RequestBody ExplainRequest request) {
+        String code = request.getCode();
         if (code == null || code.isBlank()) {
             return Map.of("error", "代码不能为空");
         }
         try {
-            return analyzeService.analyze(code, request.get("apiKey"));
+            return analyzeService.analyze(code, request.getApiKey());
         } catch (Exception e) {
             return Map.of("error", e.getMessage() != null ? e.getMessage() : "分析失败");
         }
