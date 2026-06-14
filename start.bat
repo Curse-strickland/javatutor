@@ -65,16 +65,56 @@ if "%JAVA_CMD%"=="" (
 if "%JAVA_CMD%"=="" (
     echo [ERROR] Java 17+ not found.
     echo  Please install JDK 17+ from: https://adoptium.net/
-    echo  Or set JAVA_HOME to your JDK directory.
+    echo  Or set JAVA_HOME to your JDK 17+ directory.
     pause
     exit /b 1
 )
 
-:: Verify version
+:: Verify version >= 17
+set "JAVA_VER="
 for /f "tokens=3" %%v in ('""%JAVA_CMD%" -version 2>&1 | findstr /i "version""') do set "JAVA_VER=%%v"
 set "JAVA_VER=%JAVA_VER:"=%"
+
+:: Extract major version (handle 1.8.0_x vs 17.x.x formats)
+set "JAVA_MAJOR="
+for /f "tokens=1-3 delims=." %%a in ("%JAVA_VER%") do (
+    if "%%a"=="1" (
+        set "JAVA_MAJOR=%%b"
+    ) else (
+        set "JAVA_MAJOR=%%a"
+    )
+)
+
+if %JAVA_MAJOR% LSS 17 (
+    echo [WARN] Java %JAVA_VER% is too old (need 17+), searching other locations...
+    set "JAVA_CMD="
+    goto :search_more
+)
+
 echo [OK] Java found: %JAVA_VER%
 set "PATH=%JAVA_HOME%\bin;%PATH%"
+goto :java_done
+
+:search_more
+:: Continue searching: try to find Java 17+ nearby
+if defined JAVA_HOME (
+    for /d %%d in ("%JAVA_HOME%\..\jdk-17*" "%JAVA_HOME%\..\jdk-21*" "%JAVA_HOME%\..\*-17*" "%JAVA_HOME%\..\*-21*") do (
+        if exist "%%d\bin\java.exe" (
+            set "JAVA_CMD=%%d\bin\java.exe"
+            set "JAVA_HOME=%%d"
+            goto :java_found
+        )
+    )
+)
+
+echo [ERROR] Java 17+ not found. System default is Java %JAVA_VER%.
+echo  Please install JDK 17+ from: https://adoptium.net/
+echo  Or set JAVA_HOME to your JDK 17+ directory, e.g.:
+echo    set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.0.35-hotspot
+pause
+exit /b 1
+
+:java_done
 
 :: ============================================================
 :: 2. Maven (via mvnw.cmd - auto-downloads if not installed)
