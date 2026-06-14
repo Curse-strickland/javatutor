@@ -17,9 +17,9 @@
             <span class="legend-item"><span class="legend-arrow" style="color: rgba(59,130,246,0.55)">▶</span>下一步</span>
           </span>
           <button
-            class="upload-toggle-btn testmode-btn"
+            class="testmode-btn"
             :class="{ active: store.testCases.length > 0, open: testCaseOpen }"
-            @click.stop="toggleTestCase"
+            @click="toggleTestCase"
             title="测试模式"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -33,7 +33,7 @@
           <button
             class="upload-toggle-btn"
             :class="{ active: uploadOpen }"
-            @click.stop="toggleUpload"
+            @click="toggleUpload"
             title="导入文件"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -621,9 +621,32 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   font-weight: 500;
 }
 
-/* 测试模式按钮：贴近导入按钮 */
+/* 测试模式按钮：与导入按钮共享样式，但独立 class 供看板娘精准匹配 */
 .testmode-btn {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.15s, border-color 0.2s;
+  position: relative;
+  z-index: 100;
+}
+.testmode-btn:hover {
+  color: var(--text-h);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+.testmode-btn.active {
+  color: var(--primary);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
 }
 .testmode-btn + .upload-toggle-btn {
   margin-left: 6px;

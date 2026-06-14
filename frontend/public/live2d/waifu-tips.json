@@ -1,6 +1,22 @@
 {
   "mouseover": [
     {
+      "selector": ".testmode-btn",
+      "text": [
+        "测试模式按钮～粘贴 class Solution 片段就能直接调试，不用写 main 方法啦！",
+        "开了测试模式就可以只写核心算法～系统会自动生成 Launcher 帮你跑。",
+        "点这里打开测试用例面板～输入参数就能一键运行！"
+      ]
+    },
+    {
+      "selector": ".upload-toggle-btn",
+      "text": [
+        "导入文件按钮～可以从电脑加载 .java 文件到编辑器！",
+        "点击导入可以加载本地 Java 文件～还支持拖拽文件夹哦。",
+        "文件导入在这里～支持 .java 单个文件或整个文件夹批量加载。"
+      ]
+    },
+    {
       "selector": ".editor-card",
       "text": [
         "这里是你写代码的地方哦～悄悄看一眼…哇，好厉害的感觉！",
@@ -390,22 +406,6 @@
       ]
     },
     {
-      "selector": ".testmode-btn",
-      "text": [
-        "测试模式按钮～粘贴 class Solution 片段就能直接调试，不用写 main 方法啦！",
-        "开了测试模式就可以只写核心算法～系统会自动生成 Launcher 帮你跑。",
-        "点这里打开测试用例面板～输入参数就能一键运行！"
-      ]
-    },
-    {
-      "selector": ".upload-toggle-btn",
-      "text": [
-        "导入文件按钮～可以从电脑加载 .java 文件到编辑器！",
-        "点击导入可以加载本地 Java 文件～还支持拖拽文件夹哦。",
-        "文件导入在这里～支持 .java 单个文件或整个文件夹批量加载。"
-      ]
-    },
-    {
       "selector": ".testmode-hint",
       "text": [
         "看到这个提示了吗？现在是默认模式，需要写完整的 main 方法哦～",
@@ -648,6 +648,20 @@
       ]
     },
     {
+      "selector": ".testmode-btn",
+      "text": [
+        "测试模式开！粘贴 class Solution 片段就能跑～",
+        "测试模式关掉了～记得写完整的 main 方法哦！"
+      ]
+    },
+    {
+      "selector": ".upload-toggle-btn",
+      "text": [
+        "导入面板打开了！从电脑加载 Java 文件吧～",
+        "导入面板收起来了～需要的时候再打开！"
+      ]
+    },
+    {
       "selector": ".editor-card",
       "text": [
         "不要戳编辑器啦…戳我会更开心的…（小声）",
@@ -701,20 +715,6 @@
       "text": [
         "堆对象展开了～仔细看看每个字段的值对不对！",
         "堆对象折叠起来啦～需要的时候再展开！"
-      ]
-    },
-    {
-      "selector": ".testmode-btn",
-      "text": [
-        "测试模式开！粘贴 class Solution 片段就能跑～",
-        "测试模式关掉了～记得写完整的 main 方法哦！"
-      ]
-    },
-    {
-      "selector": ".upload-toggle-btn",
-      "text": [
-        "导入面板打开了！从电脑加载 Java 文件吧～",
-        "导入面板收起来了～需要的时候再打开！"
       ]
     },
     {

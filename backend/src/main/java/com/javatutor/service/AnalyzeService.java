@@ -33,10 +33,18 @@ public class AnalyzeService {
     private static final java.util.regex.Pattern SAFE_KEY = java.util.regex.Pattern.compile("^[a-zA-Z0-9\\-_.]{1,128}$");
 
     public Map<String, Object> analyze(String code) throws IOException, InterruptedException {
-        return analyze(code, null);
+        return analyze(code, null, null, null);
     }
 
     public Map<String, Object> analyze(String code, String userApiKey) throws IOException, InterruptedException {
+        return analyze(code, userApiKey, null, null);
+    }
+
+    public Map<String, Object> analyze(String code, String userApiKey,
+                                       String customUrl, String customModel) throws IOException, InterruptedException {
+
+        String effectiveUrl = (customUrl != null && !customUrl.isBlank()) ? customUrl : apiUrl;
+        String effectiveModel = (customModel != null && !customModel.isBlank()) ? customModel : model;
 
         String effectiveKey;
         if (userApiKey != null && !userApiKey.isBlank()) {
@@ -51,7 +59,7 @@ public class AnalyzeService {
                 + "智谱提供免费额度：https://open.bigmodel.cn 注册即可获取。");
         }
         System.out.println("[AnalyzeService] using key=" + effectiveKey.substring(0, Math.min(8, effectiveKey.length())) + "***"
-            + " url=" + apiUrl + " model=" + model);
+            + " url=" + effectiveUrl + " model=" + effectiveModel);
 
         String systemPrompt =
             "你是一个算法分析专家。分析以下Java代码，返回严格的JSON（只返回JSON，不要markdown代码块，不要任何其他文字）：\n" +
@@ -79,7 +87,7 @@ public class AnalyzeService {
         );
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", model);
+        body.put("model", effectiveModel);
         body.put("messages", messages);
         body.put("stream", false);
         body.put("temperature", 0.3);
@@ -92,7 +100,7 @@ public class AnalyzeService {
             if (attempt > 0) Thread.sleep(2000);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiUrl))
+                    .uri(URI.create(effectiveUrl))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + effectiveKey)
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))

@@ -65,6 +65,10 @@ public class ExplainController {
 
     @PostMapping("/explain")
     public SseEmitter explain(@RequestBody ExplainRequest request) {
+        String key = request.getApiKey();
+        System.out.println("[ExplainController.explain] received apiKey="
+            + (key != null && key.length() >= 8 ? key.substring(0, 8) + "***" : "null/empty")
+            + " apiUrl=" + request.getApiUrl() + " apiModel=" + request.getApiModel());
         SseEmitter emitter = new SseEmitter(120_000L);
 
         CompletableFuture.runAsync(() -> {
@@ -109,8 +113,13 @@ public class ExplainController {
         if (code == null || code.isBlank()) {
             return Map.of("error", "代码不能为空");
         }
+        String key = request.getApiKey();
+        System.out.println("[ExplainController.analyze] received apiKey="
+            + (key != null && key.length() >= 8 ? key.substring(0, 8) + "***" : "null/empty")
+            + " apiUrl=" + request.getApiUrl() + " apiModel=" + request.getApiModel());
         try {
-            return analyzeService.analyze(code, request.getApiKey());
+            return analyzeService.analyze(code, key,
+                request.getApiUrl(), request.getApiModel());
         } catch (Exception e) {
             return Map.of("error", e.getMessage() != null ? e.getMessage() : "分析失败");
         }
