@@ -114,11 +114,11 @@ if %ERRORLEVEL% NEQ 0 (
     tar -xf "%JDK_ZIP%" -C "%RUNTIME%" 2>nul
 )
 
-:: Temurin extracts to a versioned dir like jdk-17.0.9+9 â€” find it
+:: Temurin extracts to a versioned dir like jdk-17.0.9+9 â€?find it
 for /d %%d in ("%RUNTIME%\jdk-17*" "%RUNTIME%\OpenJDK*" "%RUNTIME%\temurin*") do (
     if exist "%%d\bin\java.exe" (
         rename "%%d" "jdk-17" >nul 2>&1 || (
-            :: Can't rename (e.g. dir already exists) â€” use it directly
+            :: Can't rename (e.g. dir already exists) â€?use it directly
             set "JDK_HOME=%%d"
         )
     )
@@ -146,7 +146,7 @@ echo [OK] Java: %JAVA_VER%
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
 :: ============================================================
-:: 2. Maven (via mvnw â€” auto-downloads if needed)
+:: 2. Maven (via mvnw â€?auto-downloads if needed)
 :: ============================================================
 set "MVNW=%PROJECT_ROOT%\backend\mvnw.cmd"
 if not exist "%MVNW%" (
@@ -195,7 +195,7 @@ if "%NODE_CMD%"=="" (
     if %ERRORLEVEL% NEQ 0 (
         tar -xf "%NODE_ZIP%" -C "%RUNTIME%" 2>nul
     )
-    :: Node zip extracts to node-v20.18.1-win-x64 â€” rename to node
+    :: Node zip extracts to node-v20.18.1-win-x64 â€?rename to node
     for /d %%d in ("%RUNTIME%\node-v*") do (
         rename "%%d" "node" >nul 2>&1 || set "NODE_HOME=%%d"
     )
@@ -229,7 +229,7 @@ if exist "%PROJECT_ROOT%\.env" (
 )
 if "%ZHIPU_API_KEY%"=="" (
     echo.
-    echo [NOTE] No ZHIPU_API_KEY in .env â€” AI features will ask for a key.
+    echo [NOTE] No ZHIPU_API_KEY in .env â€?AI features will ask for a key.
     echo        Free keys: https://open.bigmodel.cn
 )
 

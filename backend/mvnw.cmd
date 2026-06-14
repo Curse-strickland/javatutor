@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: ============================================================
-:: JavaTutor Maven Wrapper â€” finds or downloads Maven 3.9.9
+:: JavaTutor Maven Wrapper â€?finds or downloads Maven 3.9.9
 :: ============================================================
 
 set "MAVEN_VERSION=3.9.9"
