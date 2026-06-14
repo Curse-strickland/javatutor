@@ -2,7 +2,7 @@
 title JavaTutor Shutdown
 
 echo ========================================
-echo   JavaTutor — Stopping...
+echo   JavaTutor - Stopping...
 echo ========================================
 echo.
 
