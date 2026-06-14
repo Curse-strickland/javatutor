@@ -1,0 +1,42 @@
+{
+  "name": "JavaTutor",
+  "image": "mcr.microsoft.com/devcontainers/base:jammy",
+
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installMaven": "true",
+      "installGradle": "false"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+
+  "forwardPorts": [8080, 5173],
+
+  "portsAttributes": {
+    "8080": {
+      "label": "Backend (Spring Boot)",
+      "onAutoForward": "silent"
+    },
+    "5173": {
+      "label": "Frontend (Vite)",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "postCreateCommand": "cd frontend && npm install",
+
+  "postStartCommand": "nohup bash -c 'cd backend && ./mvnw spring-boot:run -DskipTests > /tmp/backend.log 2>&1 &' ; nohup bash -c 'cd frontend && npm run dev > /tmp/frontend.log 2>&1 &' ; echo 'Services starting...'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vue.volar",
+        "bradlc.vscode-tailwindcss",
+        "vscjava.vscode-java-pack"
+      ]
+    }
+  }
+}
