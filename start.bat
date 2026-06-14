@@ -9,6 +9,8 @@ cd /d "%PROJECT_ROOT%"
 
 set "RUNTIME=%USERPROFILE%\.javatutor\runtime"
 if not exist "%RUNTIME%" mkdir "%RUNTIME%"
+set "PF=%ProgramFiles%"
+set "PF86=%ProgramFiles(x86)%"
 
 echo =============================================
 echo   JavaTutor - Starting...
@@ -19,39 +21,24 @@ echo.
 :: 1. Find or download JDK 17+
 :: ============================================================
 set "FOUND_JDK=%RUNTIME%\jdk-17"
-set "PF=%ProgramFiles%"
-set "PF86=%ProgramFiles(x86)%"
 
 :: 1a. JAVA_HOME
-if defined JAVA_HOME (
-    if exist "%JAVA_HOME%\bin\java.exe" (
-        call :check_java "%JAVA_HOME%\bin\java.exe" && goto :java_ok
-    )
-)
+set "JHOME=%JAVA_HOME%"
+if defined JHOME if exist "%JHOME%\bin\java.exe" call :testjava "%JHOME%\bin\java.exe" && set "JAVA_HOME=%JHOME%" && goto :java_ok
 
 :: 1b. PATH
 where java >nul 2>nul
-if !ERRORLEVEL! EQU 0 (
-    call :check_java java && goto :java_ok
-)
+if !ERRORLEVEL! EQU 0 call :testjava java && goto :java_ok
 
-:: 1c. JetBrains / IntelliJ JDKs
+:: 1c. JetBrains JDKs
 if exist "%USERPROFILE%\.jdks\" (
     for /f "delims=" %%j in ('dir /b /ad "%USERPROFILE%\.jdks\*17*" 2^>nul') do (
-        if exist "%USERPROFILE%\.jdks\%%j\bin\java.exe" (
-            call :check_java "%USERPROFILE%\.jdks\%%j\bin\java.exe" && (
-                set "JAVA_HOME=%USERPROFILE%\.jdks\%%j"
-                goto :java_ok
-            )
-        )
+        set "JDIR=%USERPROFILE%\.jdks\%%j"
+        call :testjava "!JDIR!\bin\java.exe" && set "JAVA_HOME=!JDIR!" && goto :java_ok
     )
     for /f "delims=" %%j in ('dir /b /ad "%USERPROFILE%\.jdks\*21*" 2^>nul') do (
-        if exist "%USERPROFILE%\.jdks\%%j\bin\java.exe" (
-            call :check_java "%USERPROFILE%\.jdks\%%j\bin\java.exe" && (
-                set "JAVA_HOME=%USERPROFILE%\.jdks\%%j"
-                goto :java_ok
-            )
-        )
+        set "JDIR=%USERPROFILE%\.jdks\%%j"
+        call :testjava "!JDIR!\bin\java.exe" && set "JAVA_HOME=!JDIR!" && goto :java_ok
     )
 )
 
@@ -60,24 +47,12 @@ for %%d in (
     "%PF%\Java\jdk-17*" "%PF%\Java\jdk-21*"
     "%PF%\Eclipse Adoptium\jdk-17*" "%PF%\Eclipse Adoptium\jdk-21*"
     "%PF%\Microsoft\jdk-17*" "%PF%\Semeru\jdk-17*"
-) do (
-    for /d %%j in (%%d) do (
-        if exist "%%j\bin\java.exe" (
-            call :check_java "%%j\bin\java.exe" && (
-                set "JAVA_HOME=%%j"
-                goto :java_ok
-            )
-        )
-    )
+) do for /d %%j in (%%d) do (
+    call :testjava "%%j\bin\java.exe" && set "JAVA_HOME=%%j" && goto :java_ok
 )
 
 :: 1e. Auto-downloaded
-if exist "%FOUND_JDK%\bin\java.exe" (
-    call :check_java "%FOUND_JDK%\bin\java.exe" && (
-        set "JAVA_HOME=%FOUND_JDK%"
-        goto :java_ok
-    )
-)
+call :testjava "%FOUND_JDK%\bin\java.exe" && set "JAVA_HOME=%FOUND_JDK%" && goto :java_ok
 
 :: 1f. Download JDK
 echo [SETUP] JDK 17+ not found. Downloading Eclipse Temurin JDK 17...
@@ -104,29 +79,23 @@ for /f "tokens=3" %%v in ('""%JAVA_HOME%\bin\java.exe" -version 2>&1 | findstr /
 echo [OK] Java: %JV:"=%
 
 :: ============================================================
-:: 2. Maven (via mvnw.cmd)
+:: 2. Maven
 :: ============================================================
 set "MVNW=%PROJECT_ROOT%\backend\mvnw.cmd"
-if not exist "%MVNW%" (
-    echo [ERROR] mvnw.cmd not found
-    pause & exit /b 1
-)
+if not exist "%MVNW%" (echo [ERROR] mvnw.cmd not found & pause & exit /b 1)
 echo [OK] Maven: wrapper
 
 :: ============================================================
-:: 3. Find or download Node.js
+:: 3. Node.js
 :: ============================================================
 set "NODE_CMD="
 set "FOUND_NODE=%RUNTIME%\node"
-:: 3a. Check known install locations (single-line if â€?no blocks)
+
 if exist "%PF%\nodejs\node.exe" set "NODE_CMD=%PF%\nodejs\node.exe"
 if "%NODE_CMD%"=="" if exist "!PF86!\nodejs\node.exe" set "NODE_CMD=!PF86!\nodejs\node.exe"
 if "%NODE_CMD%"=="" if exist "%FOUND_NODE%\node.exe" set "NODE_CMD=%FOUND_NODE%\node.exe"
-
-:: 3b. Try PATH
 if "%NODE_CMD%"=="" node -v >nul 2>nul && set "NODE_CMD=node"
 
-:: 3c. Download if still not found
 if not "%NODE_CMD%"=="" goto :node_ok
 
 echo.
@@ -206,22 +175,19 @@ pause
 endlocal
 exit /b 0
 
-:: ============================================================
-:: Helper: check Java version >= 17
-:: Usage: call :check_java "path\to\java.exe" && echo OK
-:: ============================================================
-:check_java
-for /f "tokens=3" %%v in ('"%~1 -version 2>&1 | findstr /i version"') do set "JV=%%v"
-set "JV=%JV:"=%"
-for /f "tokens=1-3 delims=." %%a in ("%JV%") do (
-    if "%%a"=="1" (set "JM=%%b") else (set "JM=%%a")
-)
-if %JM% GEQ 17 (
-    set "JAVA_CMD=%~1"
-    if "%~1"=="java" (
-        for /f "delims=" %%i in ('where java') do set "JAVA_HOME=%%~dpi\.."
-    )
+:: ---- Subroutines ----
+:jdk_fail
+echo [ERROR] Failed to set up JDK 17. Install manually: https://adoptium.net/
+pause & exit /b 1
+
+:testjava
+set "TJ="
+for /f "tokens=3" %%v in ('"%~1 -version 2>&1 | findstr /i version"') do set "TJ=%%v"
+set "TJ=%TJ:"=%"
+for /f "tokens=1-3 delims=." %%a in ("%TJ%") do (if "%%a"=="1" (set "TM=%%b") else (set "TM=%%a"))
+if %TM% GEQ 17 (
+    if "%~1"=="java" (for /f "delims=" %%i in ('where java') do set "JAVA_HOME=%%~dpi\..")
     exit /b 0
 )
-echo [INFO] Java %JV% is too old (need 17+)
+echo [INFO] Java %TJ% is too old (need 17+)
 exit /b 1
