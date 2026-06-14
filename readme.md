@@ -91,8 +91,7 @@ javatutor/
 │   └── style.css                     # 全局设计系统变量
 ├── docs/                             # 技术设计文档（沙箱、AST、堆栈等）
 ├── devlog/                           # 开发日志（按日期）
-├── start.bat / start.sh              # 一键启动脚本
-├── stop.bat                          # 一键停止脚本
+├── .devcontainer/                    # GitHub Codespaces 配置
 ├── docs/
 │   ├── DESIGN.md                     # 前端设计规范
 │   └── ROADMAP.md                    # 路线图
@@ -101,20 +100,28 @@ javatutor/
 
 ## 快速开始
 
-**Windows**：双击 `start.bat`，浏览器自动打开 `localhost:5173`。
+### GitHub Codespaces（推荐，零安装）
 
-**macOS / Linux**：
+点击仓库页绿色 Code → Codespaces → Create codespace on main，等待环境自动构建（约 2 分钟）。
+
+构建完成后，打开两个终端分别启动：
+
 ```bash
-./start.sh
+# 终端 1 — 后端 (8080)
+cd backend && ./mvnw spring-boot:run
+
+# 终端 2 — 前端 (5173)
+cd frontend && npm run dev
 ```
 
-**手动启动**：
+在 Ports 面板点击 5173 端口的小地球图标，浏览器中打开即可使用。
 
-前提：JDK 17、Maven、Node.js 18+
+### 本地启动
+
+前提：JDK 17+、Maven、Node.js 18+
 
 ```bash
 # 终端 1 — 后端
-export JAVA_HOME="/path/to/jdk-17"
 cd backend
 mvn spring-boot:run          # 端口 8080
 
@@ -124,7 +131,7 @@ npm install
 npm run dev                   # 端口 5173，/api 代理到 8080
 ```
 
-停止：双击 `stop.bat`，或 `Ctrl+C` 两个终端。
+浏览器打开 `localhost:5173`。停止：`Ctrl+C` 两个终端。
 
 ## API
 
