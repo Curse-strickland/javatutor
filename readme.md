@@ -2,7 +2,9 @@
 
 浏览器中编写 Java 代码 → 后端 AST 插桩 + 内存编译 + 沙箱执行 → 前端逐步播放变量快照 + 行高亮 + AI 解说。
 
-面向算法与数据结构初学者，让抽象的代码执行过程变得可见。
+JavaTutor 让 Java 程序的执行过程变得**完全可见**。无论是算法初学者观察数据变化轨迹，还是日常开发中快速验证一段逻辑、可视化调试复杂嵌套调用，都可以通过逐步播放变量状态、堆栈内存变化和控制流图来直观理解代码的每一步在做什么。测试模式支持直接粘贴 LeetCode 风格的 `class Solution { method }` 片段，无需手写 main 和 import，也适合刷题时快速验证思路。
+
+详细项目文档见 [项目文档.md](项目文档.md)，部署与使用教程见 [使用指南.md](使用指南.md)。
 
 ## 功能
 
@@ -23,7 +25,6 @@
 - 方法调用钻取（点击蓝色节点进入子方法流程图）
 
 **AI 解说**
-- 零配置可用：内置智谱 GLM-4.7 免费模型，无需任何 API Key
 - 单步解说：每一步执行时解释当前行在做什么
 - 整体解说：综述算法的目标、策略、数据结构、复杂度
 - 自动解说模式：步进时自动生成解说
@@ -44,12 +45,40 @@
 
 ## 技术栈
 
-| 层 | 技术 |
-|----|------|
-| 后端 | Java 17, Spring Boot 3.2, Maven, JavaParser 3.25 |
-| 前端 | Vue 3.5, Pinia 3, Monaco Editor 0.55, Mermaid 11, Tailwind CSS 3, Vite 8 |
-| AI | 智谱 GLM-4.7（默认免费）, OpenAI 兼容 API, SSE 流式 |
-| 安全 | AST 黑名单扫描 + 内存编译 + SecurityManager 运行时沙箱 |
+### 后端
+
+<table>
+<tr><th>类别</th><th>技术</th></tr>
+<tr><td>语言与运行时</td><td>Java 17</td></tr>
+<tr><td>Web 框架</td><td>Spring Boot 3.2（内嵌 Tomcat）</td></tr>
+<tr><td>构建工具</td><td>Maven 3.9+</td></tr>
+<tr><td>AST 解析</td><td>JavaParser 3.25（含 symbol-solver）</td></tr>
+<tr><td>动态编译</td><td>javax.tools.JavaCompiler（内存编译，不落盘）</td></tr>
+<tr><td>安全沙箱</td><td>AST 黑名单扫描 + SecurityManager 运行时拦截 + 线程隔离超时</td></tr>
+</table>
+
+### 前端
+
+<table>
+<tr><th>类别</th><th>技术</th></tr>
+<tr><td>框架</td><td>Vue 3.5（Composition API）</td></tr>
+<tr><td>状态管理</td><td>Pinia 3</td></tr>
+<tr><td>代码编辑器</td><td>Monaco Editor 0.55</td></tr>
+<tr><td>构建工具</td><td>Vite 8</td></tr>
+<tr><td>CSS 框架</td><td>Tailwind CSS 3</td></tr>
+<tr><td>流程图</td><td>Mermaid 11</td></tr>
+<tr><td>HTTP 客户端</td><td>Axios</td></tr>
+<tr><td>Markdown 渲染</td><td>marked</td></tr>
+</table>
+
+### AI 集成
+
+<table>
+<tr><th>类别</th><th>技术</th></tr>
+<tr><td>通信协议</td><td>SSE（Server-Sent Events）流式输出</td></tr>
+<tr><td>模型支持</td><td>GLM-4.7 / DeepSeek / GPT-4o / Kimi / 自定义 OpenAI 兼容端点</td></tr>
+<tr><td>Key 管理</td><td>前端会话级存储，不上传服务器</td></tr>
+</table>
 
 ## 项目结构
 
@@ -92,10 +121,9 @@ javatutor/
 ├── docs/                             # 技术设计文档（沙箱、AST、堆栈等）
 ├── devlog/                           # 开发日志（按日期）
 ├── .devcontainer/                    # GitHub Codespaces 配置
-├── docs/
-│   ├── DESIGN.md                     # 前端设计规范
-│   └── ROADMAP.md                    # 路线图
-└── CLAUDE.md                         # AI 助手指令
+├── 项目文档.md                       # 项目文档（目标、进度、分工）
+├── 使用指南.md                       # 部署与使用教程
+└── readme.md                         # 本文件
 ```
 
 ## 快速开始
@@ -191,16 +219,18 @@ npm run dev                   # 端口 5173，/api 代理到 8080
 
 ## AI 解说配置
 
-默认使用智谱 GLM-4.7 免费模型，无需任何配置即可使用。
+项目部署上线后将内置默认 API 服务。当前需自行申请免费 API Key：
 
-如需切换平台，在右侧 AI 面板展开"自定义 API"，选择平台并填入 Key：
-- 智谱：`xxxxxxxx.xxxxxxxx` 格式
-- DeepSeek：`sk-` 开头 32 位
-- OpenAI：`sk-` 开头
-- 月之暗面 (Kimi)：`sk-` 开头
-- 自定义：任意 OpenAI 兼容端点
+- **智谱 GLM-4.7-Flash**（推荐）：前往 [open.bigmodel.cn](https://open.bigmodel.cn) 注册，免费额度充足
+- **DeepSeek**：前往 [platform.deepseek.com](https://platform.deepseek.com) 注册
+- 其他支持 OpenAI 兼容接口的服务商也可使用
 
-Key 仅保存在当前浏览器会话中，不会上传到服务器存储。
+在右侧 AI 面板展开"自定义 API"，选择平台并填入 Key 后保存即可。Key 仅保存在当前浏览器会话中，不会上传到服务器存储。
+
+Key 格式：
+- 智谱：`xxxxxxxx.xxxxxxxx`
+- DeepSeek / OpenAI / Kimi：`sk-` 开头
+- 自定义：任意 OpenAI 兼容端点，需额外填写 API URL 和模型名称
 
 ## 安全模型
 
@@ -219,6 +249,49 @@ Key 仅保存在当前浏览器会话中，不会上传到服务器存储。
 
 已知局限：`while(true){}` 纯 CPU 死循环无法被 `Thread.interrupt()` 中断；SecurityManager 在 Java 17 已标记废弃，未来计划迁移到 Docker 容器隔离。
 
-## 设计系统
+## 贡献指南
 
-前端设计规范见 [DESIGN.md](docs/DESIGN.md)。核心原则：深灰调 + 蓝色单一 accent、卡片统一用 `.card p-3 mb-3`、可折叠面板用蓝色圆点 + chevron SVG。
+### 文档导航
+
+<table>
+<tr><th>文档</th><th>内容</th></tr>
+<tr><td><a href="项目文档.md">项目文档.md</a></td><td>项目文档：目标定位、完成进度、人员分工、技术栈、项目结构</td></tr>
+<tr><td><a href="使用指南.md">使用指南.md</a></td><td>使用指南：环境部署、基本使用、测试模式、AI 解说、控制流图等</td></tr>
+<tr><td><a href="docs/">docs/</a></td><td>技术设计文档：沙箱设计、堆栈可视化方案、设计规范、路线图</td></tr>
+<tr><td><a href="devlog/">devlog/</a></td><td>开发日志：按日期记录的功能开发、问题排查与设计决策</td></tr>
+</table>
+
+### 开发环境搭建
+
+```bash
+# 克隆仓库
+git clone https://github.com/Curse-strickland/javatutor.git
+cd javatutor
+
+# 后端 — 端口 8080
+cd backend
+./mvnw spring-boot:run        # Windows: mvnw.cmd spring-boot:run
+
+# 前端 — 端口 5173（另开终端）
+cd frontend
+npm install
+npm run dev
+```
+
+也可使用 GitHub Codespaces 零安装开发（见上方快速开始）。
+
+### 项目约定
+
+- **分支策略**：`main` 为稳定分支，功能开发在 feature 分支进行，完成后 PR 合并
+- **提交信息**：中文简述，格式 `类型: 说明`（如 `feat: 新增 xxx`、`fix: 修复 xxx`、`refactor: 重构 xxx`）
+- **后端代码**：Java 17，遵循 Spring Boot 约定，控制器编排逻辑、Service 处理业务、Model 定义 DTO
+- **前端代码**：Vue 3 Composition API，状态集中在 Pinia store，组件按功能拆分
+- **安全红线**：禁止提交 API Key 等敏感信息到仓库；沙箱相关改动需同步更新验收清单
+
+### 贡献流程
+
+1. Fork 本仓库
+2. 创建 feature 分支：`git checkout -b feature/xxx`
+3. 提交代码并推送
+4. 提交 Pull Request，描述改动内容和验证方式
+5. 至少一位成员 Code Review 后合并
