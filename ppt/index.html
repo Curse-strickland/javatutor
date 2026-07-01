@@ -1583,22 +1583,22 @@
     <div class="chrome-min"><div class="l" data-editable="">AI 解说</div><div class="r">SS · 06 / 10</div></div>
     <div style="flex:1;min-height:0;display:grid;grid-template-columns:4.8fr 5.2fr;gap:2.4vw">
       <!-- 左栏：深色面板 -->
-      <div style="background:var(--ink);border-radius:8px;padding:4vh 2.4vw;display:flex;flex-direction:column;gap:2.4vh;min-height:0;overflow:hidden">
+      <div style="background:var(--ink);border-radius:8px;padding:3vh 2.4vw;display:flex;flex-direction:column;gap:1.4vh;min-height:0;overflow:hidden">
         <div class="t-meta" style="color:rgba(255,255,255,.5);letter-spacing:.22em">GET /api/explain/{runId}/{step}</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.2vw,7.5vh);line-height:1;color:#fff;margin:0">AI 逐行<span style="font-style:italic;font-weight:300">解说</span></h2>
-        <div style="display:flex;flex-direction:column;gap:1.4vh">
-          <div style="color:rgba(255,255,255,.78);font-size:max(16px,1vw);line-height:1.5">SSE 流式推送，每步自动触发</div>
-          <div style="color:rgba(255,255,255,.78);font-size:max(16px,1vw);line-height:1.5">自然语言解释变量变化与循环逻辑</div>
-          <div style="color:rgba(255,255,255,.78);font-size:max(16px,1vw);line-height:1.5">深色主题沉浸式学习体验</div>
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(3.6vw,6.5vh);line-height:1;color:#fff;margin:0">AI 逐行<span style="font-style:italic;font-weight:300">解说</span></h2>
+        <div style="display:flex;flex-direction:column;gap:0.8vh">
+          <div style="color:rgba(255,255,255,.78);font-size:max(15px,.95vw);line-height:1.4">SSE 流式推送，每步自动触发</div>
+          <div style="color:rgba(255,255,255,.78);font-size:max(15px,.95vw);line-height:1.4">自然语言解释变量变化与循环逻辑</div>
+          <div style="color:rgba(255,255,255,.78);font-size:max(15px,.95vw);line-height:1.4">深色主题沉浸式学习体验</div>
         </div>
-        <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding-top:1.5vh">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding-top:0">
           <div style="flex:1;min-height:0;overflow:hidden;border-radius:6px">
             <img src="images/ai_1.png" alt="AI解说-第一步" style="width:100%;height:100%;object-fit:contain;display:block">
           </div>
         </div>
       </div>
       <!-- 右栏：两张图片 -->
-      <div style="display:flex;flex-direction:column;gap:1.2vh;min-height:0;padding-top:6vh">
+      <div style="display:flex;flex-direction:column;gap:1.2vh;min-height:0;padding-top:0">
         <div style="flex:58;min-height:0;overflow:hidden;border-radius:6px;background:var(--grey-1)"><img src="images/ai_3.png" alt="AI解说-第三步" style="width:100%;height:100%;object-fit:contain;display:block"></div>
         <div style="flex:64;min-height:0;overflow:hidden;border-radius:6px;background:var(--grey-1)"><img src="images/ai_2.png" alt="AI解说-第二步" style="width:100%;height:100%;object-fit:contain;display:block"></div>
       </div>
@@ -1775,376 +1775,8 @@
     <h3>幻灯片管理</h3>
     <button class="ppt-sidebar-close" onclick="toggleSidebar()" title="关闭">✕</button>
   </div>
-  <div class="ppt-sidebar-list" id="pptSlideList"><div class="ppt-thumb" draggable="true" data-idx="0"><div class="ppt-thumb-inner"><div class="clone"><section class="slide accent" data-layout="cover" data-animate="hero">
-  <div class="canvas-card">
-    <canvas class="ascii-bg" aria-hidden="true" width="2788" height="1646"></canvas>
-    <div class="chrome-min" style="opacity: 1;">
-      <div class="l" data-editable="" contenteditable="false" style="position: relative;">JavaTutor · Java 算法可视化开发平台<button class="ppt-text-del" title="删除文本框">✕</button></div>
-      <div class="r">SS · 01 / 10</div>
-    </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:2vh">
-      <div data-anim="kicker" class="t-meta" style="color: rgba(255, 255, 255, 0.78); letter-spacing: 0.22em; position: relative; opacity: 1; transform: none;" data-editable="" contenteditable="false">EL 智能程序设计大赛<button class="ppt-text-del" title="删除文本框">✕</button></div>
-      <div data-anim="title" style="align-self: start; display: flex; flex-direction: column; gap: 1.6vh; padding: 0px; opacity: 1; transform: none;">
-        <h1 style="font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(11.6vw, 19vh); line-height: 0.94; letter-spacing: -0.025em; color: rgb(255, 255, 255); margin: 0px; position: relative; transform: translate(-14px, 123px);" data-editable="" contenteditable="false" class="">Java<span style="font-style:italic;font-weight:300">Tutor</span><button class="ppt-text-del" title="删除文本框">✕</button></h1>
-        <div style="display:flex;flex-direction:column;gap:.6vh">
-          <div data-anim="subtitle" style="font-family: var(--sans),var(--sans-zh); font-weight: 300; font-size: min(1.7vw, 3vh); color: rgba(255, 255, 255, 0.68); letter-spacing: 0.06em; position: absolute; left: -2.30469px; top: 307.984px; margin: 0px; width: 712px; opacity: 1; transform: none;" data-editable="" contenteditable="true" class=""><font style="font-size: 32px;"><b style="">集成大模型的Java代码可视化开发平台</b></font><button class="ppt-text-del" title="删除文本框">✕</button></div>
-          <div style="font-family:var(--sans),var(--sans-zh);font-size:min(1.2vw,2.2vh);color:rgba(255,255,255,.55);letter-spacing:.04em;line-height:1.7;padding-top:.6vh">
-            <div data-editable="" contenteditable="false" style="position: relative; transform: translate(-2px, 250px);" class=""><font style="font-size: 24px;">答辩团队：喵喵喵喵组</font><button class="ppt-text-del" title="删除文本框">✕</button></div>
-            <div data-editable="" contenteditable="false" style="position: relative; transform: translate(-2px, 252px);" class=""><font style="font-size: 24px;">答辩时间：2026年7月5日</font><button class="ppt-text-del" title="删除文本框">✕</button></div>
-          </div>
-        </div>
-      </div>
-      <div data-anim="bottom" style="display: flex; justify-content: center; align-items: end; border-top: 1px solid rgba(255, 255, 255, 0.22); padding-top: 1.8vh; opacity: 1; transform: none;">
-        <div class="t-meta" style="color: rgba(255, 255, 255, 0.6); position: relative;" data-editable="" contenteditable="false">南京大学 · 2026<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <div class="t-meta" style="color:rgba(255,255,255,.6)">→ ← 翻页 · ESC 索引</div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#1</span><span>COVER</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(0)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="1"><div class="ppt-thumb-inner"><div class="clone"><section class="slide split" data-layout="S03" data-animate="split-statement">
-  <div class="canvas-card">
-    <div class="split-half">
-      <div class="half b-accent" style="padding: 5.6vh 3.6vw 4.4vh; justify-content: flex-start; opacity: 1;">
-        <div class="chrome-min" style="margin-bottom:0"><div class="l" style="color: rgba(255, 255, 255, 0.7); position: relative;" data-editable="" contenteditable="false">目录<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r" style="color:rgba(255,255,255,.5)">SS · 02 / 10</div></div>
-        <div style="display:flex;flex-direction:column;gap:1.4vh;justify-content:center;flex:1">
-          <div data-anim="kicker" class="t-meta" style="color: rgba(255, 255, 255, 0.62); letter-spacing: 0.22em; position: relative; opacity: 1; transform: none;" data-editable="" contenteditable="false">CONTENTS<button class="ppt-text-del" title="删除文本框">✕</button></div>
-          <h2 style="font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(9vw, 15vh); line-height: 0.92; color: rgb(255, 255, 255); position: relative;" data-editable="" contenteditable="false">目录<button class="ppt-text-del" title="删除文本框">✕</button></h2>
-        </div>
-      </div>
-      <div class="half" style="padding: 5.6vh 3.6vw 4.4vh; justify-content: flex-start; opacity: 1;">
-        <div class="chrome-min"><div class="l" data-editable="" contenteditable="false" style="position: relative;">答辩内容<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r">AGENDA</div></div>
-        <div data-anim="rules" style="display: flex; flex-direction: column; gap: 0px; justify-content: center; flex: 1 1 0%; width: 100%; max-width: 38ch; opacity: 1; transform: none;">
-          <div style="display:grid;grid-template-columns:48px 1fr;gap:1.2vw 1.8vw;align-items:center;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(2.8vw,4.8vh);line-height:.9;color:var(--accent)">01</div>
-            <div><h3 style="font-size: max(18px, 1.5vw); line-height: 1.3; color: var(--text-primary); font-weight: 400; position: relative;" data-editable="" contenteditable="false">项目背景<button class="ppt-text-del" title="删除文本框">✕</button></h3></div>
-          </div>
-          <div style="display:grid;grid-template-columns:48px 1fr;gap:1.2vw 1.8vw;align-items:center;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(2.8vw,4.8vh);line-height:.9;color:var(--accent)">02</div>
-            <div><h3 style="font-size: max(18px, 1.5vw); line-height: 1.3; color: var(--text-primary); font-weight: 400; position: relative;" data-editable="" contenteditable="false">框架与思路<button class="ppt-text-del" title="删除文本框">✕</button></h3></div>
-          </div>
-          <div style="display:grid;grid-template-columns:48px 1fr;gap:1.2vw 1.8vw;align-items:center;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(2.8vw,4.8vh);line-height:.9;color:var(--accent)">03</div>
-            <div><h3 style="font-size: max(18px, 1.5vw); line-height: 1.3; color: var(--text-primary); font-weight: 400; position: relative;" data-editable="" contenteditable="false">功能实现<button class="ppt-text-del" title="删除文本框">✕</button></h3></div>
-          </div>
-          <div style="display:grid;grid-template-columns:48px 1fr;gap:1.2vw 1.8vw;align-items:center;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(2.8vw,4.8vh);line-height:.9;color:var(--accent)">04</div>
-            <div><h3 style="font-size: max(18px, 1.5vw); line-height: 1.3; color: var(--text-primary); font-weight: 400; position: relative;" data-editable="" contenteditable="false">难点<button class="ppt-text-del" title="删除文本框">✕</button></h3></div>
-          </div>
-          <div style="display:grid;grid-template-columns:48px 1fr;gap:1.2vw 1.8vw;align-items:center;padding:2.2vh 0;border-top:1px solid var(--border-subtle);border-bottom:2px solid var(--accent)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(2.8vw,4.8vh);line-height:.9;color:var(--accent)">05</div>
-            <div><h3 style="font-size: max(18px, 1.5vw); line-height: 1.3; color: var(--text-primary); font-weight: 400; position: relative;" data-editable="" contenteditable="false">收获与展望<button class="ppt-text-del" title="删除文本框">✕</button></h3></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#2</span><span>S03</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(1)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="2"><div class="ppt-thumb-inner"><div class="clone"><section class="slide split" data-layout="S03" data-animate="split-statement">
-  <div class="canvas-card">
-    <div class="split-half">
-      <div class="half b-accent" style="padding: 5.6vh 3.6vw 4.4vh; justify-content: flex-start; opacity: 1;">
-        <div class="chrome-min" style="margin-bottom:0"><div class="l" style="color: rgba(255, 255, 255, 0.7); position: relative;" data-editable="" contenteditable="false">背景<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r" style="color:rgba(255,255,255,.5)">SS · 03 / 10</div></div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:2.4vh;justify-content:center">
-          <h2 style="font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(5vw, 9vh); line-height: 0.96; color: rgb(255, 255, 255); margin: 0px; position: relative;" data-editable="" contenteditable="false">项目背景<button class="ppt-text-del" title="删除文本框">✕</button></h2>
-          <div style="display:flex;flex-direction:column;gap:1.6vh">
-            <!-- Pain Points -->
-            <div>
-              <div class="t-cat" style="color:var(--accent-bright);margin-bottom:.8vh">痛点与需求</div>
-              <div style="display:flex;flex-direction:column;gap:.6vh">
-                <div data-editable="" style="color: rgba(255, 255, 255, 0.84); font-size: 17px; line-height: 1.5; position: relative;" contenteditable="false">① 算法初学者：传统课本算法是静态的<button class="ppt-text-del" title="删除文本框">✕</button></div>
-                <div data-editable="" style="color: rgba(255, 255, 255, 0.84); font-size: 17px; line-height: 1.5; position: relative;" contenteditable="false">② 日常开发者：传统调试不直观<button class="ppt-text-del" title="删除文本框">✕</button></div>
-              </div>
-            </div>
-            <!-- Existing Solutions -->
-            <div style="padding-top:.4vh">
-              <div class="t-cat" style="color:var(--accent-bright);margin-bottom:.8vh">现有方案</div>
-              <div style="display:flex;flex-direction:column;gap:.6vh">
-                <div data-editable="" style="color: rgba(255, 255, 255, 0.84); font-size: 17px; line-height: 1.5; position: relative;" contenteditable="false">① 传统 IDE（VSCode 等）：无可视化，无法回放<button class="ppt-text-del" title="删除文本框">✕</button></div>
-                <div data-editable="" style="color: rgba(255, 255, 255, 0.84); font-size: 17px; line-height: 1.5; position: relative;" contenteditable="false">② PythonTutor 等可视化平台：执行启动慢（复杂代码需数秒），缺乏 AI 实时解说<button class="ppt-text-del" title="删除文本框">✕</button></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="t-meta" style="color: rgba(255, 255, 255, 0.5); position: relative;" data-editable="" contenteditable="false">痛点：代码执行是黑盒<button class="ppt-text-del" title="删除文本框">✕</button></div>
-      </div>
-      <div class="half" style="padding: 5.6vh 3.6vw 4.4vh; justify-content: flex-start; opacity: 1;">
-        <div class="chrome-min"><div class="l" data-editable="" contenteditable="false" style="position: relative;">意义<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r">MOTIVATION</div></div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:3vh;justify-content:center">
-          <h2 style="font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(5vw, 9vh); line-height: 0.96; position: relative;" data-editable="" contenteditable="false">我们的回答<button class="ppt-text-del" title="删除文本框">✕</button></h2>
-          <div style="display:flex;flex-direction:column;gap:2vh">
-            <div data-editable="" style="font-size: 18px; line-height: 1.5; color: var(--text-primary); position: relative;" contenteditable="false">① 零安装：浏览器打开即用，输入代码即可快速执行<button class="ppt-text-del" title="删除文本框">✕</button></div>
-            <div data-editable="" style="font-size: 18px; line-height: 1.5; color: var(--text-primary); position: relative;" contenteditable="false">② 可视化：每一步变量变化可见，多种可回放的可视化形式<button class="ppt-text-del" title="删除文本框">✕</button></div>
-            <div data-editable="" style="font-size: 18px; line-height: 1.5; color: var(--text-primary); position: relative;" contenteditable="false">③ AI 解说：自然语言解释算法逻辑，跟随程序步进<button class="ppt-text-del" title="删除文本框">✕</button></div>
-          </div>
-        </div>
-        <div class="t-meta" style="color: var(--text-helper); position: relative;" data-editable="" contenteditable="false">目标：打造 Java 版 PythonTutor + AI 增强<button class="ppt-text-del" title="删除文本框">✕</button></div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#3</span><span>S03</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(2)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="3"><div class="ppt-thumb-inner"><div class="clone"><section class="slide light" data-layout="S17" data-animate="grid-reveal">
-  <div class="canvas-card">
-    <div class="chrome-min"><div class="l" data-editable="">技术架构</div><div class="r">SS · 04 / 10</div></div>
-    <div style="flex:1;padding:0;display:flex;flex-direction:column;gap:var(--sp-7)">
-      <div style="display:flex;flex-direction:column;gap:1.4vh">
-        <div class="t-cat" data-editable="">ARCHITECTURE</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(5.2vw,9.2vh);line-height:1;letter-spacing:-.02em" data-editable="">技术栈全览</h2>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-5);flex:1">
-        <!-- 前端层 -->
-        <div class="card-accent" style="padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-4);overflow:hidden">
-          <div class="t-cat" style="color:var(--accent-on);font-size:max(15px,1.1vw);border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:var(--sp-3)">前端层</div>
-          <div style="display:flex;flex-direction:column;gap:var(--sp-3);flex:1">
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">框架</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Vue 3.5（Composition API）</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">状态管理</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Pinia 3</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">代码编辑器</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Monaco Editor 0.55</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">构建工具</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Vite 8</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">CSS 框架</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Tailwind CSS 3</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">流程图</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Mermaid 11</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">HTTP 客户端</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">Axios</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.5);display:block">Markdown 渲染</span><span style="font-size:max(15px,1vw);color:var(--accent-on);font-weight:400">marked</span></div>
-          </div>
-        </div>
-        <!-- 后端层 -->
-        <div class="card-fill" style="padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-4);overflow:hidden">
-          <div class="t-cat" style="margin-bottom:0;font-size:max(15px,1.1vw);border-bottom:2px solid var(--accent);padding-bottom:var(--sp-3)">后端层</div>
-          <div style="display:flex;flex-direction:column;gap:var(--sp-3);flex:1">
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">语言与运行时</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">Java 17</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">Web 框架</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">Spring Boot 3.2（内嵌 Tomcat）</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">构建工具</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">Maven 3.9+</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">AST 解析</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">JavaParser 3.25（含 symbol-solver）</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">动态编译</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">javax.tools.JavaCompiler（内存编译，不落盘）</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">安全沙箱</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">AST 黑名单 + SecurityManager 运行时拦截 + 线程隔离超时</span></div>
-          </div>
-        </div>
-        <!-- AI 集成 -->
-        <div class="card-fill" style="padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-4);overflow:hidden">
-          <div class="t-cat" style="margin-bottom:0;font-size:max(15px,1.1vw);border-bottom:2px solid var(--accent);padding-bottom:var(--sp-3)">AI 集成</div>
-          <div style="display:flex;flex-direction:column;gap:var(--sp-3);flex:1">
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">通信协议</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">SSE（Server-Sent Events）流式输出</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">模型支持</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">GLM-4.7 / DeepSeek / GPT-4o / Kimi / 自定义 OpenAI 兼容端点</span></div>
-            <div><span style="font-family:var(--mono);font-size:12px;color:var(--text-helper);display:block">Key 管理</span><span style="font-size:max(15px,1vw);color:var(--text-primary);font-weight:400">前端会话级存储，不上传服务器</span></div>
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-5);background:var(--grey-1);border-radius:0">
-        <div style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent);white-space:nowrap" data-editable="">流水线</div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--text-secondary)" data-editable="">用户代码 → AST 插桩 → 沙箱校验 → 内存编译 → SecurityManager → 执行 → 变量快照 → 前端播放</div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#4</span><span>S17</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(3)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="4"><div class="ppt-thumb-inner"><div class="clone"><section class="slide light" data-layout="S19" data-animate="grid-reveal">
-  <div class="canvas-card">
-    <div class="chrome-min"><div class="l" data-editable="" contenteditable="false" style="position: relative;">基础功能<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r">SS · 05 / 10</div></div>
-    <div style="flex:1;padding:0;display:flex;flex-direction:column;gap:var(--sp-9)">
-      <div style="display:flex;flex-direction:column;gap:1.4vh">
-        <div class="t-cat" data-editable="" contenteditable="false" style="position: relative;">CORE FEATURES<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <h2 style="font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(5.2vw, 9.2vh); line-height: 1; letter-spacing: -0.02em; position: relative;" data-editable="" contenteditable="false">四大核心能力<button class="ppt-text-del" title="删除文本框">✕</button></h2>
-      </div>
-      <div class="four-cards">
-        <div class="card-fill" data-editable="" contenteditable="false" style="position: relative;">
-          <div style="font-family:var(--mono);font-size:min(4vw,7vh);font-weight:200;color:var(--accent);margin-bottom:1.2vh">01</div>
-          <div class="t-cat" style="margin-bottom:1vh">可视化逐步执行</div>
-          <p style="font-size:16px;line-height:1.5">行高亮 + 变量快照，每一步代码执行过程清晰可见</p>
-          <div style="margin-top: 2vh; border: 2px dashed var(--border-subtle); padding: 2vh; text-align: center; font-size: 13px; color: var(--text-helper); position: relative;" data-editable="" contenteditable="false">[ 截图/GIF 槽位 · 05-visualize.gif ]<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <button class="ppt-text-del" title="删除文本框">✕</button><button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <div class="card-fill" data-editable="" contenteditable="false" style="position: relative;">
-          <div style="font-family:var(--mono);font-size:min(4vw,7vh);font-weight:200;color:var(--accent);margin-bottom:1.2vh">02</div>
-          <div class="t-cat" style="margin-bottom:1vh">控制流图生成</div>
-          <p style="font-size:16px;line-height:1.5">自动生成 AST 控制流图，直观展示分支、循环逻辑</p>
-          <div style="margin-top: 2vh; border: 2px dashed var(--border-subtle); padding: 2vh; text-align: center; font-size: 13px; color: var(--text-helper); position: relative;" data-editable="" contenteditable="false">[ 截图槽位 · 05-flowchart.png ]<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <button class="ppt-text-del" title="删除文本框">✕</button><button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <div class="card-fill" data-editable="" contenteditable="false" style="position: relative;">
-          <div style="font-family:var(--mono);font-size:min(4vw,7vh);font-weight:200;color:var(--accent);margin-bottom:1.2vh">03</div>
-          <div class="t-cat" style="margin-bottom:1vh">文件上传执行</div>
-          <p style="font-size:16px;line-height:1.5">上传 .java 文件直接运行，支持批量导入教学用例</p>
-        <button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <div class="card-fill" data-editable="" contenteditable="false" style="position: relative;">
-          <div style="font-family:var(--mono);font-size:min(4vw,7vh);font-weight:200;color:var(--accent);margin-bottom:1.2vh">06</div>
-          <div class="t-cat" style="margin-bottom:1vh">看板娘与自定义环境</div>
-          <p style="font-size:16px;line-height:1.5">交互式角色引导 + 可定制执行参数，提升学习趣味性</p>
-          <div style="margin-top: 2vh; border: 2px dashed var(--border-subtle); padding: 2vh; text-align: center; font-size: 13px; color: var(--text-helper); position: relative;" data-editable="" contenteditable="false">[ 截图槽位 · 05-mascot.png ]<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <button class="ppt-text-del" title="删除文本框">✕</button><button class="ppt-text-del" title="删除文本框">✕</button></div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#5</span><span>S19</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(4)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="5"><div class="ppt-thumb-inner"><div class="clone"><section class="slide light" data-layout="S19" data-animate="grid-reveal">
-  <div class="canvas-card">
-    <div class="chrome-min"><div class="l" data-editable="">AI 解说</div><div class="r">SS · 06 / 10</div></div>
-    <div style="flex:1;min-height:0;display:grid;grid-template-columns:4.8fr 5.2fr;gap:2.4vw">
-      <div style="background:var(--ink);border-radius:8px;padding:4vh 2.4vw;display:flex;flex-direction:column;gap:2.4vh;min-height:0;overflow:hidden">
-        <div class="t-meta" style="color:rgba(255,255,255,.5);letter-spacing:.22em">GET /api/explain/{runId}/{step}</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.2vw,7.5vh);line-height:1;color:#fff;margin:0">AI 逐行<span style="font-style:italic;font-weight:300">解说</span></h2>
-        <div style="display:flex;flex-direction:column;gap:1.6vh">
-          <div style="color:rgba(255,255,255,.78);font-size:max(16px,1vw);line-height:1.5">SSE 流式推送，每步自动触发</div>
-          <div style="color:rgba(255,255,255,.78);font-size:max(16px,1vw);line-height:1.5">自然语言解释变量变化与循环逻辑</div>
-          <div style="color:rgba(255,255,255,.78);font-size:max(16px,1vw);line-height:1.5">深色主题沉浸式学习体验</div>
-        </div>
-        <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding-top:1.5vh">
-          <div style="flex:1;min-height:0;overflow:hidden;border-radius:6px">
-            <img src="images/ai_1.png" alt="AI解说-第一步" style="width:100%;height:100%;object-fit:contain;display:block">
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:1.2vh;min-height:0;padding-top:6vh">
-        <div style="flex:58;min-height:0;overflow:hidden;border-radius:6px;background:var(--grey-1)"><img src="images/ai_3.png" alt="AI解说-第三步" style="width:100%;height:100%;object-fit:contain;display:block"></div>
-        <div style="flex:64;min-height:0;overflow:hidden;border-radius:6px;background:var(--grey-1)"><img src="images/ai_2.png" alt="AI解说-第二步" style="width:100%;height:100%;object-fit:contain;display:block"></div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#6</span><span>S03</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(5)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="6"><div class="ppt-thumb-inner"><div class="clone"><section class="slide hero light" data-layout="S08" data-animate="grid-reveal">
-  <div class="canvas-card">
-    <div class="chrome-min"><div class="l" data-editable="" contenteditable="false" style="position: relative;">场景对比<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r">SS · 07 / 10</div></div>
-    <div style="flex:1;padding:0;display:flex;flex-direction:column;gap:var(--sp-5)">
-      <div style="display:flex;flex-direction:column;gap:1.4vh">
-        <div class="t-cat" data-editable="" contenteditable="false" style="position: relative;">LEETCODE VS JAVATUTOR<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        <h2 style="font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(5.2vw, 9.2vh); line-height: 1; letter-spacing: -0.02em; position: relative;" data-editable="" contenteditable="false">刷题场景 × 测试模式<button class="ppt-text-del" title="删除文本框">✕</button></h2>
-      </div>
-      <div style="display:grid;grid-template-columns:6fr 6fr;gap:3vw;flex:1;min-height:0;align-items:start">
-        <div style="display:flex;flex-direction:column;gap:var(--sp-5);min-width:0">
-          <div style="display:flex;flex-direction:column;gap:0.8vh">
-            <div class="t-cat" style="color: var(--grey-3); position: relative;" data-editable="" contenteditable="false">LEETCODE 痛点<button class="ppt-text-del" title="删除文本框">✕</button></div>
-            <div class="card-fill" style="padding: var(--sp-6); position: relative;" data-editable="" contenteditable="false">
-              <p style="font-size:18px;line-height:1.6;margin-bottom:0.8vh">会员付费才解锁调试功能</p>
-              <p style="font-size:18px;line-height:1.6;margin-bottom:0.8vh">纯文本输出，无可视化执行过程</p>
-              <p style="font-size:18px;line-height:1.6;margin:0">新手背题不理解算法原理</p>
-            <button class="ppt-text-del" title="删除文本框">✕</button></div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:0.8vh">
-            <div class="t-cat" style="color: var(--accent); position: relative;" data-editable="" contenteditable="false">JAVATUTOR 测试模式<button class="ppt-text-del" title="删除文本框">✕</button></div>
-            <div class="card-accent" style="padding: var(--sp-6); position: relative;" data-editable="" contenteditable="false">
-              <p style="font-size:18px;line-height:1.6;margin-bottom:0.8vh;color:var(--accent-on)">完全免费，可视化逐步调试</p>
-              <p style="font-size:18px;line-height:1.6;margin-bottom:0.8vh;color:var(--accent-on)">变量快照 + 行高亮，理解算法逻辑</p>
-              <p style="font-size:18px;line-height:1.6;color:var(--accent-on);margin:0">测试模式模拟刷题场景，AI 辅助讲解</p>
-            <button class="ppt-text-del" title="删除文本框">✕</button></div>
-          </div>
-        </div>
-        <figure class="tile" style="align-self:start;margin:0">
-          <div class="frame-img fit-contain" style="aspect-ratio:4/3;max-height:58vh;border-radius:8px;overflow:hidden;background:var(--grey-1)">
-            <img src="images/test.png" alt="测试模式截图">
-          </div>
-          <figcaption class="swiss-img-caption" style="margin-top:1vh"><strong>测试模式</strong><span>刷题场景 · 可视化调试</span></figcaption>
-        </figure>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#7</span><span>S08</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(6)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="7"><div class="ppt-thumb-inner"><div class="clone"><section class="slide light" data-layout="S19" data-animate="grid-reveal">
-  <div class="canvas-card">
-    <div class="chrome-min"><div class="l" data-editable="">难点</div><div class="r">SS · 08 / 10</div></div>
-    <div style="flex:1;padding:0;display:flex;flex-direction:column;gap:3vh;min-height:0">
-      <div style="display:flex;flex-direction:column;gap:1vh">
-        <div class="t-cat">CHALLENGE · 引用可视化映射</div>
-        <h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.2vw,7vh);line-height:1;letter-spacing:-0.02em;margin:0">难点：从箭头连线到<span style="font-style:italic;font-weight:300">色彩标签</span></h2>
-      </div>
-      <div class="card-fill" style="border-left:3px solid var(--accent)">
-        <div class="t-cat" style="margin-bottom:0.8vh">问题</div>
-        <p style="font-size:max(15px,0.92vw);line-height:1.6;color:var(--text-secondary);margin:0">希望在堆/栈内存可视化中，像 PythonTutor 一样使用箭头连线直观表示引用关系——变量指向堆对象的路径。但动态数据更新与传统图库的渲染生命周期存在根本冲突。 </p>
-      </div>
-<!-- 两栏对比 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4vw;flex:1;min-height:0">
-        <!-- 左侧：三次尝试 -->
-        <div class="card-fill" style="display:flex;flex-direction:column;gap:1.2vh">
-          <div style="display:flex;align-items:center;gap:0.5vw;margin-bottom:0.4vh">
-            <span style="font-size:max(15px,0.92vw);font-weight:600">三次尝试 · 均未成功</span>
-          </div>
-          <!-- Mermaid -->
-          <div style="background:var(--grey-1);border-radius:6px;padding:1.2vh 1vw">
-            <div style="display:flex;align-items:center;gap:0.5vw;margin-bottom:0.4vh">
-              <span style="font-family:var(--mono);font-size:11px;background:var(--bg);padding:2px 6px;border-radius:3px">①</span>
-              <span style="font-weight:600;font-size:max(13px,0.82vw)">Mermaid</span>
-            </div>
-            <p style="font-size:max(12px,0.78vw);line-height:1.5;color:var(--text-secondary);margin:0">尝试用它画出引用连线，但声明式语法只能生成静态流程图，步骤切换时必须重建整张图，箭头指向根本跟不上变量变化。</p>
-          </div>
-          <!-- AntV X6 -->
-          <div style="background:var(--grey-1);border-radius:6px;padding:1.2vh 1vw">
-            <div style="display:flex;align-items:center;gap:0.5vw;margin-bottom:0.4vh">
-              <span style="font-family:var(--mono);font-size:11px;background:var(--bg);padding:2px 6px;border-radius:3px">②</span>
-              <span style="font-weight:600;font-size:max(13px,0.82vw)">AntV X6</span>
-            </div>
-            <p style="font-size:max(12px,0.78vw);line-height:1.5;color:var(--text-secondary);margin:0">想用专业图库实现稳定连线，但 X6 的画布坐标系统和 Vue 的响应式面板冲突——每次步骤数据更新，所有节点位置都要重算，画面持续闪烁，根本无法稳定绘制引用路径。</p>
-          </div>
-          <!-- VueFlow + ELK -->
-          <div style="background:var(--grey-1);border-radius:6px;padding:1.2vh 1vw">
-            <div style="display:flex;align-items:center;gap:0.5vw;margin-bottom:0.4vh">
-              <span style="font-family:var(--mono);font-size:11px;background:var(--bg);padding:2px 6px;border-radius:3px">③</span>
-              <span style="font-weight:600;font-size:max(13px,0.82vw)">VueFlow + ELK</span>
-            </div>
-            <p style="font-size:max(12px,0.78vw);line-height:1.5;color:var(--text-secondary);margin:0">最接近成功的一次：Canvas 自动布局 + 贝塞尔曲线，但 Handle 中心点偏移 4px、ELK 自动布局产生 NaN 坐标、直角连线被卡片遮挡。更重要的是，越多箭头视觉越杂乱，用户反而看不清引用关系。</p>
-          </div>
-        </div>
-        <!-- 右侧：最终方案 -->
-        <div class="card-fill" style="display:flex;flex-direction:column;gap:1.2vh;justify-content:center;border-left:3px solid var(--accent)">
-          <div style="display:flex;align-items:center;gap:0.5vw;margin-bottom:0.4vh">
-            <span style="font-size:max(15px,0.92vw);font-weight:600">最终方案</span>
-          </div>
-          <p style="font-size:max(14px,0.85vw);line-height:1.6;color:var(--text-primary);margin:0">放弃箭头连线。转而用<strong style="color:var(--accent)">颜色一致性</strong>实现视觉联动。</p>
-          <p style="font-size:max(13px,0.8vw);line-height:1.5;color:var(--text-secondary);margin-top:0.6vh">每个堆对象分配专属色，中文别名替代 0x 地址，悬浮变量时目标卡片跨区高亮。零新增依赖。</p>
-          <div style="display:flex;gap:0.6vw;flex-wrap:wrap;margin-top:0.4vh">
-            <span style="background:var(--bg);padding:2px 8px;border-radius:4px;font-size:max(12px,0.76vw)">8 色调色板</span>
-            <span style="background:var(--bg);padding:2px 8px;border-radius:4px;font-size:max(12px,0.76vw)">中文别名标签</span>
-            <span style="background:var(--bg);padding:2px 8px;border-radius:4px;font-size:max(12px,0.76vw)">隔空呼吸灯</span>
-            <span style="background:var(--bg);padding:2px 8px;border-radius:4px;font-size:max(12px,0.76vw);color:var(--text-muted)">零连线 · 零新增依赖</span>
-          </div>
-          <p style="font-size:max(13px,0.8vw);line-height:1.5;color:var(--text-muted);margin-top:0.6vh">结果：无连线的方案反而比任何箭头方案更清晰、更稳定。</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#8</span><span>S19</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(7)" title="删除">🗑</button></div></div><div class="ppt-thumb" draggable="true" data-idx="8"><div class="ppt-thumb-inner"><div class="clone"><section class="slide split" data-layout="S10" data-animate="split-statement">
-  <div class="canvas-card">
-    <div class="split-half">
-      <div class="half b-accent" style="padding: 5.6vh 3.6vw 4.4vh; justify-content: center; position: relative; overflow: hidden; opacity: 1;">
-        <canvas class="ascii-bg" aria-hidden="true" width="1394" height="1646"></canvas>
-        <div class="chrome-min" style="margin-bottom:0;position:relative;z-index:1"><div class="l" style="color: rgba(255, 255, 255, 0.7); position: relative;" data-editable="" contenteditable="false">收获与展望<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r" style="color:rgba(255,255,255,.5)">SS · 09 / 10</div></div>
-        <div data-anim="manifesto" style="display: flex; flex-direction: column; gap: 2vh; position: relative; z-index: 1; opacity: 1; transform: none;">
-          <div class="t-meta" style="color: rgba(255, 255, 255, 0.78); letter-spacing: 0.22em; margin-bottom: 1.6vh; position: relative;" data-editable="" contenteditable="false">WHAT WE LEARNED<button class="ppt-text-del" title="删除文本框">✕</button></div>
-          <h2 style="font-family: var(--sans),var(--sans-zh); font-size: min(5.6vw, 10vh); line-height: 0.94; letter-spacing: -0.025em; font-weight: 200; color: rgb(255, 255, 255); position: relative;" data-editable="" contenteditable="false">收获与展望<button class="ppt-text-del" title="删除文本框">✕</button></h2>
-          <div style="font-size: 18px; line-height: 1.6; color: rgba(255, 255, 255, 0.82); font-weight: 400; max-width: 36ch; margin-top: 1.4vh; position: relative;" data-editable="" contenteditable="false">&nbsp;大一的我们，第一次完整交付了一个前后端项目<button class="ppt-text-del" title="删除文本框">✕</button></div>
-        </div>
-        <div data-anim="signature" style="display: flex; justify-content: center; align-items: end; border-top: 1px solid rgba(255, 255, 255, 0.22); padding-top: 2vh; position: relative; z-index: 1; opacity: 1; transform: none;">
-          <div class="t-meta" style="color: rgba(255, 255, 255, 0.62); position: relative;" data-editable="" contenteditable="false">南京大学 · EL 智能程序设计大赛<button class="ppt-text-del" title="删除文本框">✕</button></div>
-          <div class="t-meta" style="color:rgba(255,255,255,.62)">2026.06</div>
-        </div>
-      </div>
-      <div class="half" style="padding: 5.6vh 3.6vw 4.4vh; justify-content: flex-start; opacity: 1;">
-        <div class="chrome-min"><div class="l" data-editable="" contenteditable="false" style="position: relative;">收获<button class="ppt-text-del" title="删除文本框">✕</button></div><div class="r">TAKEAWAYS</div></div>
-        <div data-anim="rules" style="display: flex; flex-direction: column; gap: 0px; opacity: 1; transform: none;">
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(4vw,7vh);line-height:.9;color:var(--text-primary)">01</div>
-            <div><h3 style="font-size: max(16px, 1.6vw); line-height: 1.2; color: var(--text-primary); margin-bottom: 0.8vh; position: relative;" data-editable="" contenteditable="false">Git 协作流实践<button class="ppt-text-del" title="删除文本框">✕</button></h3><p style="font-size: 15px; line-height: 1.5; color: var(--text-secondary); position: relative;" data-editable="" contenteditable="false">分支管理、Code Review、Issue Tracking，真实团队协作<button class="ppt-text-del" title="删除文本框">✕</button></p></div>
-          </div>
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(4vw,7vh);line-height:.9;color:var(--text-primary)">02</div>
-            <div><h3 style="font-size: max(16px, 1.6vw); line-height: 1.2; color: var(--text-primary); margin-bottom: 0.8vh; position: relative;" data-editable="" contenteditable="false">Vue + Spring Boot 全栈理解<button class="ppt-text-del" title="删除文本框">✕</button></h3><p style="font-size: 15px; line-height: 1.5; color: var(--text-secondary); position: relative;" data-editable="" contenteditable="false">从 REST API 到 SSE 流式推送，从 AST 插桩到沙箱执行<button class="ppt-text-del" title="删除文本框">✕</button></p></div>
-          </div>
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;padding:2.2vh 0;border-top:1px solid var(--border-subtle);border-bottom:2px solid var(--accent)">
-            <div style="font-family:var(--sans);font-weight:200;font-size:min(4vw,7vh);line-height:.9;color:var(--accent)">03</div>
-            <div><h3 style="font-size: max(16px, 1.6vw); line-height: 1.2; color: var(--accent); margin-bottom: 0.8vh; position: relative;" data-editable="" contenteditable="false">AI4Coding 实战经验<button class="ppt-text-del" title="删除文本框">✕</button></h3><p style="font-size: 15px; line-height: 1.5; color: var(--text-secondary); position: relative;" data-editable="" contenteditable="false">AI 辅助开发 + AI 解说集成，掌握 AI 时代开发范式<button class="ppt-text-del" title="删除文本框">✕</button></p></div>
-          </div>
-        </div>
-        <div style="border-top:1px solid var(--border-subtle);padding-top:2vh">
-          <div class="t-cat" style="margin-bottom: 1.2vh; position: relative;" data-editable="" contenteditable="false">展望 FUTURE<button class="ppt-text-del" title="删除文本框">✕</button></div>
-          <p style="font-size: 15px; line-height: 1.6; color: var(--text-secondary); position: relative;" data-editable="" contenteditable="false">服务器部署公网，随时随地使用  ·  融合 PythonTutor 箭头与高亮映射  ·  AI 错因分析 + 分层练习设计<button class="ppt-text-del" title="删除文本框">✕</button></p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#9</span><span>S10</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(8)" title="删除">🗑</button></div></div><div class="ppt-thumb active" draggable="true" data-idx="9"><div class="ppt-thumb-inner"><div class="clone"><section class="slide accent" data-layout="closing" data-animate="hero">
-  <div class="canvas-card">
-    <canvas class="ascii-bg" aria-hidden="true" width="2788" height="1646"></canvas>
-    <div class="chrome-min" style="opacity: 1;">
-      <div class="l" style="color: rgba(255, 255, 255, 0.7); position: relative; transform: translate(0px, 0px);" data-editable="" contenteditable="false"><br><button class="ppt-text-del" title="删除文本框">✕</button></div>
-      <div class="r" style="color:rgba(255,255,255,.5)">SS · 10 / 10</div>
-    </div>
-    <div style="flex:1;padding:0;display:grid;grid-template-rows:auto 1fr auto;gap:2.6vh">
-      <div data-anim="kicker" class="t-meta" style="color: rgba(255, 255, 255, 0.78); letter-spacing: 0.22em; position: relative; opacity: 1; transform: none;" data-editable="" contenteditable="false"><font style="font-size: 40px;">THANKs for watching</font><button class="ppt-text-del" title="删除文本框">✕</button></div>
-      <h1 data-anim="title" style="align-self: center; font-family: var(--sans),var(--sans-zh); font-weight: 200; font-size: min(9vw, 16vh); line-height: 1; letter-spacing: -0.025em; color: rgb(255, 255, 255); position: relative; opacity: 1; transform: none;" data-editable="" contenteditable="false" class=""><i>欢迎提问</i><div><br></div><button class="ppt-text-del" title="删除文本框">✕</button></h1>
-      <div data-anim="bottom" style="display: grid; grid-template-rows: auto auto; gap: 1.6vh; border-top: 1px solid rgba(255, 255, 255, 0.22); padding-top: 2vh; opacity: 1; transform: none;">
-        <div style="display:flex;justify-content:space-between;align-items:end">
-          <div class="t-meta" style="color: rgba(255, 255, 255, 0.6); position: relative;" data-editable="" contenteditable="false">南京大学 · EL 智能程序设计大赛<button class="ppt-text-del" title="删除文本框">✕</button></div>
-          <div class="t-meta" style="color:rgba(255,255,255,.6)">→ 完 · END</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section></div></div><div class="ppt-thumb-label"><span>#10</span><span>CLOSING</span></div><div class="ppt-thumb-actions"><button onclick="event.stopPropagation();deleteSlide(9)" title="删除">🗑</button></div></div></div>
+  <div class="ppt-sidebar-list" id="pptSlideList">
+</div>
   <div class="ppt-sidebar-footer">
     <button class="ppt-btn" onclick="addSlide()" title="添加空白页">+ 添加</button>
     <button class="ppt-btn" onclick="duplicateSlide()" title="复制当前页">⧉ 复制</button>
@@ -2185,7 +1817,7 @@
 <!-- ============ PPT 编辑器 · Toast ============ -->
 <div class="ppt-toast" id="pptToast">已删除</div>
 
-<div id="nav"><button class="dot" data-i="0" aria-label="Page 1"></button><button class="dot" data-i="1" aria-label="Page 2"></button><button class="dot" data-i="2" aria-label="Page 3"></button><button class="dot" data-i="3" aria-label="Page 4"></button><button class="dot" data-i="4" aria-label="Page 5"></button><button class="dot" data-i="5" aria-label="Page 6"></button><button class="dot" data-i="6" aria-label="Page 7"></button><button class="dot" data-i="7" aria-label="Page 8"></button><button class="dot" data-i="8" aria-label="Page 9"></button><button class="dot active" data-i="9" aria-label="Page 10"></button></div>
+<div id="nav"></div>
 
 <script>
 /* =============== WebGL 网格背景 (瑞士风专用) ===============
@@ -2337,9 +1969,9 @@ addEventListener('swiss-low-power-change', e=>{e.detail.on ? stopGrid() : startG
 
 // =============== 导航 ===============
 const deck=document.getElementById('deck');
-const slides=deck.querySelectorAll('.slide');
+const slides=document.querySelectorAll('#deck > .slide');
 const nav=document.getElementById('nav');
-let idx=0,total=slides.length,lock=false;
+let idx=0,total=slides.length,lock=false;window.__getTotal=()=>document.querySelectorAll('#deck > .slide').length;
 
 deck.style.width=(total*100)+'vw';
 
@@ -2352,7 +1984,7 @@ slides.forEach((s,i)=>{
 
 function go(n){
   if(lock)return;
-  idx=Math.max(0,Math.min(total-1,n));
+  const liveTotal=window.__getTotal?window.__getTotal():total;idx=Math.max(0,Math.min(liveTotal-1,n));
   window.__currentSlideIndex = idx;
   deck.style.transform=`translateX(${-idx*100}vw)`;
   nav.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
@@ -2651,7 +2283,7 @@ go(Number.isFinite(initialSlide) ? initialSlide : 0);
   }
 
   // ── Slide CRUD ──
-  function reindexSlides(){
+  function reindexSlides(){ total=document.querySelectorAll('#deck > .slide').length;
     const slides=document.querySelectorAll('#deck .slide');
     const total=slides.length;
     window.totalSlides=total;
