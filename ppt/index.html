@@ -1689,18 +1689,14 @@
               <span style="font-weight:600;font-size:max(15px,0.95vw)">VueFlow + ELK</span>
             </div>
             <p style="font-size:max(14px,0.88vw);line-height:1.5;color:var(--text-secondary);margin:0">最接近成功的一次：Canvas 自动布局 + 贝塞尔曲线，但 Handle 中心点偏移 4px、ELK 自动布局产生 NaN 坐标、直角连线被卡片遮挡。更重要的是，越多箭头视觉越杂乱，用户反而看不清引用关系。</p>
-          
-          
+          </div>
+          <!-- 最终方案 -->
           <span style="font-size:max(18px,1.1vw);font-weight:600">最终方案</span>
-          <!-- 最终方案 卡片 -->
           <div style="background:var(--grey-1);border-radius:6px;padding:1.2vh 1vw">
-
-            </div>
             <p style="font-size:max(14px,0.88vw);line-height:1.5;color:var(--text-secondary);margin:0">放弃箭头连线。转而用<strong style="color:var(--accent)">颜色一致性</strong>实现视觉联动。每个堆对象分配专属色，中文别名替代 0x 地址，悬浮变量时目标卡片跨区高亮。零新增依赖。</p>
           </div>
-          </div>
-        
-          <!--      <!-- 右侧：图片 -->
+        </div>
+        <!-- 右侧：图片 -->
       <div style="display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;background:var(--grey-1)">
         <img src="images/challenge.png" alt="引用可视化挑战" style="width:100%;height:100%;object-fit:contain;display:block">
       </div>     
@@ -1710,7 +1706,7 @@
 <section class="slide split" data-layout="S10" data-animate="split-statement">
   <div class="canvas-card">
     <div class="split-half">
-      <div class="half" style="background:var(--accent);padding:5.6vh 3.6vw 4.4vh;justify-content:space-between;opacity:1">
+      <div class="half" style="color:#ffffff;background:var(--accent);padding:5.6vh 3.6vw 4.4vh;justify-content:space-between;opacity:1">
         <div class="chrome-min"><div class="l" data-editable="">收获</div><div class="r">ACHIEVEMENTS</div></div>
         <div style="flex:1;display:flex;flex-direction:column;justify-content:center"><h2 style="font-family:var(--sans),var(--sans-zh);font-weight:200;font-size:min(4.2vw,7vh);line-height:1;letter-spacing:-0.02em;text-align:left;margin:1.5vh 0">收获</h2>
         <div data-anim="rules" style="display: flex; flex-direction: column; gap: 0px; opacity: 1; transform: none;">
