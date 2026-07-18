@@ -27,14 +27,13 @@
 
 <script setup>
 import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import loader from '@monaco-editor/loader'
 
 const root = ref(null)
 const editorContainer = ref(null)
 const fileInputRef = ref(null)
 const loadingTextarea = ref(null)
 let editor = null
-let monaco = null  // 动态加载后保存引用
+let monaco = null
 let currentDecorations = []
 let ro = null
 const loadError = ref(false)
@@ -86,17 +85,11 @@ const fallbackCode = ref(`public class UserCode {
 
 onMounted(async () => {
   try {
-    // 1. 配置 Monaco CDN 加载器（从 CDN 加载，不打包进应用 JS）
-    loader.config({
-      paths: {
-        vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs'
-      }
-    })
+    // 从 npm 包加载 Monaco Editor
+    const monacoModule = await import('monaco-editor')
+    monaco = monacoModule.default || monacoModule
 
-    // 2. 从 CDN 加载 Monaco（浏览器会缓存，后续访问瞬间完成）
-    monaco = await loader.init()
-
-    // 3. 等 DOM 更新完成
+    // 等 DOM 更新完成
     await nextTick()
 
     if (!editorContainer.value) return

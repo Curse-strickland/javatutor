@@ -33,6 +33,7 @@ class InstrumenterTest {
         "    private static List<String> callStack = new ArrayList<>();\n" +
         "    private static List<LinkedHashMap<String,Object>> frameLocals = new ArrayList<>();\n" +
         "    public static String pushFrame(String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); return name; }\n" +
+        "    public static String pushFrame(String name, Object... pairs) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); return name; }\n" +
         "    public static String popFrame() { return callStack.isEmpty() ? \"???\" : callStack.remove(callStack.size()-1); }\n" +
         "    public static String allocArray(String name, int length) {\n" +
         "        if (disabled) return \"0x0000\";\n" +

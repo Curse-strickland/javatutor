@@ -38,3 +38,8 @@ CLAUDE.md
 backend/target/
 reviews/
 test-sandbox.sh
+
+# PPT
+*.pptx
+ppt/
+projects/
