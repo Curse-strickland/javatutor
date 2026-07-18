@@ -1,0 +1,5 @@
+# 编译产物（不提交到 Git）
+backend/*.jar
+frontend/dist/
+*.log
+*.pid

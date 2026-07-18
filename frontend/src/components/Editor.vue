@@ -8,22 +8,37 @@
       style="display: none"
       @change="onFileSelected"
     />
-    <div v-if="!loadError" ref="editorContainer" class="editor-container" style="width:100%; height:100%;"></div>
-    <textarea v-else v-model="fallbackCode" class="editor-textarea"></textarea>
+    <!-- Monaco 加载中 → 显示骨架屏（轻量 textarea 占位 + 加载提示）-->
+    <div v-if="!monacoReady && !loadError" class="editor-loading">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">代码编辑器加载中…</p>
+      <textarea
+        ref="loadingTextarea"
+        v-model="fallbackCode"
+        class="editor-textarea"
+        disabled
+        placeholder="编辑器加载中…"
+      ></textarea>
+    </div>
+    <div v-if="monacoReady && !loadError" ref="editorContainer" class="editor-container" style="width:100%; height:100%;"></div>
+    <textarea v-else-if="loadError" v-model="fallbackCode" class="editor-textarea"></textarea>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import * as monaco from 'monaco-editor'
+import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import loader from '@monaco-editor/loader'
 
 const root = ref(null)
 const editorContainer = ref(null)
 const fileInputRef = ref(null)
+const loadingTextarea = ref(null)
 let editor = null
+let monaco = null  // 动态加载后保存引用
 let currentDecorations = []
 let ro = null
 const loadError = ref(false)
+const monacoReady = ref(false)
 
 /** 点击「导入」按钮 → 触发隐藏的文件选择器 */
 const triggerImport = () => {
@@ -69,66 +84,77 @@ const fallbackCode = ref(`public class UserCode {
   }
 }`)
 
-onMounted(() => {
-  if (editorContainer.value) {
-    try {
-      // 等待字体加载完成后再初始化编辑器
-      document.fonts.ready.then(() => {
-        editor = monaco.editor.create(editorContainer.value, {
-          value: fallbackCode.value,
-          language: 'java',
-          theme: 'vs-dark',
-          automaticLayout: false,
-          fontSize: 16,
-          fontFamily: 'Maple Mono, ui-monospace, Consolas, monospace',
-          fontLigatures: false,
-          letterSpacing: 0.5,
-          cursorBlinking: 'smooth',
-          cursorStyle: 'line',
-          lineHeight: 24,
-          useTabStops: true,
-          renderWhitespace: 'none',
-          minimap: { enabled: false },
-          glyphMargin: true,  // 启用字形边距以显示箭头
-          lineNumbersMinChars: 3,
-          lineDecorationsWidth: 6,
-          wordWrap: 'on',
-          padding: { top: 8, left: 12 }
-        })
+onMounted(async () => {
+  try {
+    // 1. 配置 Monaco CDN 加载器（从 CDN 加载，不打包进应用 JS）
+    loader.config({
+      paths: {
+        vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs'
+      }
+    })
 
-        // 强制重新计算布局以确保光标位置正确
-        setTimeout(() => {
-          if (editor) {
-            editor.layout()
-            // 触发一次内容更新以刷新光标位置
-            const model = editor.getModel()
-            if (model) {
-              const value = model.getValue()
-              model.setValue(value)
-            }
-          }
-        }, 100)
+    // 2. 从 CDN 加载 Monaco（浏览器会缓存，后续访问瞬间完成）
+    monaco = await loader.init()
 
-        // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
-        editor.onDidChangeModelContent(() => {
-          clearHighlights()
-        })
+    // 3. 等 DOM 更新完成
+    await nextTick()
 
-        // 监听容器尺寸变化，重新 layout
-        if (window.ResizeObserver) {
-          ro = new ResizeObserver(() => {
-            if (editor) editor.layout()
-          })
-          ro.observe(root.value)
-        } else {
-          window.addEventListener('resize', () => editor.layout())
+    if (!editorContainer.value) return
+
+    // 4. 创建编辑器
+    editor = monaco.editor.create(editorContainer.value, {
+      value: fallbackCode.value,
+      language: 'java',
+      theme: 'vs-dark',
+      automaticLayout: false,
+      fontSize: 16,
+      fontFamily: 'Maple Mono, ui-monospace, Consolas, monospace',
+      fontLigatures: false,
+      letterSpacing: 0.5,
+      cursorBlinking: 'smooth',
+      cursorStyle: 'line',
+      lineHeight: 24,
+      useTabStops: true,
+      renderWhitespace: 'none',
+      minimap: { enabled: false },
+      glyphMargin: true,
+      lineNumbersMinChars: 3,
+      lineDecorationsWidth: 6,
+      wordWrap: 'on',
+      padding: { top: 8, left: 12 }
+    })
+
+    monacoReady.value = true
+
+    // 5. 延迟重新布局（让字体有时间加载，避免光标偏移）
+    setTimeout(() => {
+      if (editor) {
+        editor.layout()
+        const model = editor.getModel()
+        if (model) {
+          const value = model.getValue()
+          model.setValue(value)
         }
+      }
+    }, 100)
+
+    // 6. 用户编辑代码时清除旧高亮
+    editor.onDidChangeModelContent(() => {
+      clearHighlights()
+    })
+
+    // 7. 监听容器尺寸变化
+    if (window.ResizeObserver) {
+      ro = new ResizeObserver(() => {
+        if (editor) editor.layout()
       })
-    } catch (e) {
-      // Monaco 加载或初始化失败时，回退到可编辑的 textarea
-      console.error('Monaco init failed, falling back to textarea:', e)
-      loadError.value = true
+      ro.observe(root.value)
+    } else {
+      window.addEventListener('resize', () => editor.layout())
     }
+  } catch (e) {
+    console.error('Monaco init failed, falling back to textarea:', e)
+    loadError.value = true
   }
 })
 
@@ -280,5 +306,38 @@ body.wallpaper-mesh .editor-container .monaco-editor .inputarea.ime-input {
   color: var(--text-h, #f3f4f6);
   border: none;
   resize: none;
+}
+
+/* 加载中状态 - 加载指示器 */
+.editor-loading {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.editor-loading .loading-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #4f9cf7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.editor-loading .loading-text {
+  position: absolute;
+  top: calc(50% + 26px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #888;
+  font-size: 13px;
+  white-space: nowrap;
+}
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 </style>
