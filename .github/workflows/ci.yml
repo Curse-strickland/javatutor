@@ -1,0 +1,66 @@
+# ============================================================
+# CI（持续集成）— 每次 push 和 PR 自动运行
+# 作用：保证代码能编译通过、测试不挂，才允许合并
+# ============================================================
+
+name: CI  # 在 GitHub Actions 标签页显示的名称
+
+# ── 触发条件 ──────────────────────────────────────────────
+on:
+  push:
+    branches: [main]           # main 分支有推送时触发
+  pull_request:
+    branches: [main]           # 向 main 分支提 PR 时触发
+
+# ── 任务定义 ──────────────────────────────────────────────
+jobs:
+
+  # ============================================================
+  # 任务 1：后端 — Maven 编译 + 单元测试
+  # ============================================================
+  backend:
+    runs-on: ubuntu-latest     # 跑在 GitHub 托管的 Ubuntu 虚拟机上
+
+    steps:
+      # Step 1：拉取代码
+      - uses: actions/checkout@v4
+        # 这是 GitHub 官方 action，把仓库代码拉到 CI 环境里
+
+      # Step 2：安装 JDK 17
+      - name: 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'            # Java 版本
+          distribution: 'temurin'       # Eclipse Temurin（开源 JDK，无授权问题）
+          cache: maven                  # 自动缓存 ~/.m2，下次构建不重复下载依赖
+
+      # Step 3：编译 + 运行测试
+      - name: 编译 + 测试
+        run: cd backend && ./mvnw test
+        # ./mvnw = Maven Wrapper（项目自带），无需 CI 环境预装 Maven
+        # test = 先编译再跑所有单元测试，任一失败则此任务标红
+
+  # ============================================================
+  # 任务 2：前端 — npm 安装依赖 + 构建
+  # ============================================================
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1：拉取代码
+      - uses: actions/checkout@v4
+
+      # Step 2：安装 Node.js 18
+      - name: 设置 Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm                                               # 缓存 node_modules
+          cache-dependency-path: frontend/package-lock.json       # 告诉缓存机制 lock 文件在哪
+
+      # Step 3：安装依赖 + Vite 构建
+      - name: 安装依赖 + 构建
+        run: cd frontend && npm ci && npm run build
+        # npm ci = 严格按 package-lock.json 安装（CI 专用，比 npm install 快且稳定）
+        # npm run build = 执行 vite build，产出 dist/ 目录
+        # 构建成功 = 前端没有 import 错误、语法错误、类型问题（TS 项目）

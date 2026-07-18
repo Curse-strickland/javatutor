@@ -1,0 +1,111 @@
+# ============================================================
+# CD（持续部署）— 只当 push 到 main 分支时触发
+# 作用：代码合并后自动构建 → 推到服务器 → 重启服务
+# ============================================================
+
+name: Deploy  # 在 GitHub Actions 标签页显示的名称
+
+# ── 触发条件 ──────────────────────────────────────────────
+on:
+  push:
+    branches: [main]           # 只有 main 分支 push 才触发部署
+  # 注意：PR 不会触发此文件，避免未审核代码直接上生产
+  # 如果希望手动触发部署，可以取消下面这行的注释：
+  # workflow_dispatch: {}
+
+# ── 任务定义 ──────────────────────────────────────────────
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ==========================================================
+      # Step 1：拉取代码
+      # ==========================================================
+      - uses: actions/checkout@v4
+        # GitHub 官方 action，把仓库代码 checkout 到 CI 环境
+
+      # ==========================================================
+      # Step 2：安装 JDK 17
+      # ==========================================================
+      - name: 设置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'       # Eclipse Temurin（开源无授权风险）
+          cache: maven                  # 缓存 Maven 依赖（~/.m2），加速后续构建
+
+      # ==========================================================
+      # Step 3：Maven 打包 → 产出可执行 jar
+      # ==========================================================
+      - name: 构建后端 jar
+        run: cd backend && ./mvnw package -DskipTests
+        # package = 编译 + 打包成 .jar（spring-boot-maven-plugin 会生成 fat jar）
+        # -DskipTests = 跳过测试（CI 文件里已经跑过测试了，这里省时间不复跑）
+        # 产物路径：backend/target/javatutor-backend-0.1.0.jar
+
+      # ==========================================================
+      # Step 4：安装 Node.js 18
+      # ==========================================================
+      - name: 设置 Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # ==========================================================
+      # Step 5：Vite 构建前端静态文件
+      # ==========================================================
+      - name: 构建前端 dist
+        run: cd frontend && npm ci && npm run build
+        # npm ci = 严格按 lock 文件安装（CI 环境专用，不用 npm install）
+        # npm run build = vite build → 产出 frontend/dist/
+        # dist/ 里的 index.html + js/css 就是前端全部（纯静态文件）
+
+      # ==========================================================
+      # Step 6：通过 rsync + SSH 把构建产物传到服务器
+      # ==========================================================
+      - name: 部署到服务器
+        uses: easingthemes/ssh-deploy@v5
+        # 这是一个社区 action，封装了 rsync over SSH 的逻辑
+        with:
+          # ── SSH 认证（全部来自 GitHub Secrets，不写死在代码里）──
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          # ↑ 私钥内容（不是文件路径），在 Settings → Secrets 里设置
+
+          REMOTE_HOST: ${{ secrets.SSH_HOST }}
+          # ↑ 服务器公网 IP
+
+          REMOTE_USER: ${{ secrets.SSH_USER }}
+          # ↑ 登录用户名（建议用非 root 用户，如 javatutor）
+
+          REMOTE_PORT: ${{ secrets.SSH_PORT }}
+          # ↑ SSH 端口（你改过的非 22 端口，如 2222）
+
+          # ── rsync 参数 ─────────────────────────────────────
+          ARGS: "-avz --delete"
+          # -a = 归档模式，保留文件权限和时间戳
+          # -v = 输出详细信息（方便排查部署失败）
+          # -z = 传输时压缩（省带宽）
+          # --delete = 删除服务器上多余的文件（保证服务器和构建结果完全一致）
+
+          # ── 要传输的文件/目录（相对于仓库根目录）────────
+          SOURCE: "backend/target/javatutor-backend-0.1.0.jar frontend/dist/"
+          # 空格分隔多个路径，会全部传到 TARGET 目录下
+          # 注意：dist/ 尾部有 / = 传目录内容而非目录本身
+
+          # ── 服务器目标路径 ────────────────────────────────
+          TARGET: "/opt/javatutor/"
+          # 最终服务器上的结构：
+          #   /opt/javatutor/backend/target/javatutor-backend-0.1.0.jar
+          #   /opt/javatutor/frontend/dist/index.html
+          #   /opt/javatutor/frontend/dist/assets/...
+
+          # ── 传输完成后在服务器上执行的命令 ────────────────
+          SCRIPT_AFTER: |
+            sudo systemctl restart javatutor
+            sudo systemctl reload nginx
+          # restart javatutor = 重启 Spring Boot 后端（新的 jar 生效）
+          # reload nginx = 让 nginx 重新读配置 + 刷新静态文件缓存
+          # 注意：这两个命令要求服务器上已配置好 systemd 服务和 nginx
