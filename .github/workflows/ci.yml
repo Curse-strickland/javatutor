@@ -34,7 +34,11 @@ jobs:
           distribution: 'temurin'       # Eclipse Temurin（开源 JDK，无授权问题）
           cache: maven                  # 自动缓存 ~/.m2，下次构建不重复下载依赖
 
-      # Step 3：编译 + 运行测试
+      # Step 3：修复 mvnw 的可执行权限（Windows 提交的文件在 Linux 上没有 +x）
+      - name: 赋予 mvnw 执行权限
+        run: chmod +x backend/mvnw
+
+      # Step 4：编译 + 运行测试
       - name: 编译 + 测试
         run: cd backend && ./mvnw test
         # ./mvnw = Maven Wrapper（项目自带），无需 CI 环境预装 Maven
@@ -54,7 +58,7 @@ jobs:
       - name: 设置 Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: npm                                               # 缓存 node_modules
           cache-dependency-path: frontend/package-lock.json       # 告诉缓存机制 lock 文件在哪
 

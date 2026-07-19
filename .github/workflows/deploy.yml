@@ -36,7 +36,13 @@ jobs:
           cache: maven                  # 缓存 Maven 依赖（~/.m2），加速后续构建
 
       # ==========================================================
-      # Step 3：Maven 打包 → 产出可执行 jar
+      # Step 3：修复 mvnw 可执行权限（Windows 提交的文件在 Linux 上没有 +x）
+      # ==========================================================
+      - name: 赋予 mvnw 执行权限
+        run: chmod +x backend/mvnw
+
+      # ==========================================================
+      # Step 4：Maven 打包 → 产出可执行 jar
       # ==========================================================
       - name: 构建后端 jar
         run: cd backend && ./mvnw package -DskipTests
@@ -50,7 +56,7 @@ jobs:
       - name: 设置 Node.js 18
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -67,7 +73,7 @@ jobs:
       # Step 6：通过 rsync + SSH 把构建产物传到服务器
       # ==========================================================
       - name: 部署到服务器
-        uses: easingthemes/ssh-deploy@v5
+        uses: easingthemes/ssh-deploy@v5.1.1
         # 这是一个社区 action，封装了 rsync over SSH 的逻辑
         with:
           # ── SSH 认证（全部来自 GitHub Secrets，不写死在代码里）──
