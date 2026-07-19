@@ -13,6 +13,12 @@ on:
   # 如果希望手动触发部署，可以取消下面这行的注释：
   # workflow_dispatch: {}
 
+# ── 权限配置 ──────────────────────────────────────────────
+# GITHUB_TOKEN 默认不能创建 Deployment 记录，需要显式授权
+permissions:
+  contents: read
+  deployments: write
+
 # ── 任务定义 ──────────────────────────────────────────────
 jobs:
   deploy:
