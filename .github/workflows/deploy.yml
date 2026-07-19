@@ -70,7 +70,19 @@ jobs:
         # dist/ 里的 index.html + js/css 就是前端全部（纯静态文件）
 
       # ==========================================================
-      # Step 6：通过 rsync + SSH 把构建产物传到服务器
+      # Step 6：创建 GitHub Deployment 记录（右侧面板可见）
+      # ==========================================================
+      - name: 开始部署
+        uses: bobheadxi/deployments@v1
+        id: deployment
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          desc: "部署到阿里云 ECS"
+
+      # ==========================================================
+      # Step 7：通过 rsync + SSH 把构建产物传到服务器
       # ==========================================================
       - name: 部署到服务器
         uses: easingthemes/ssh-deploy@v5.1.1
@@ -97,16 +109,16 @@ jobs:
           # --delete = 删除服务器上多余的文件（保证服务器和构建结果完全一致）
 
           # ── 要传输的文件/目录（相对于仓库根目录）────────
-          SOURCE: "backend/target/javatutor-backend-0.1.0.jar frontend/dist/"
-          # 空格分隔多个路径，会全部传到 TARGET 目录下
-          # 注意：dist/ 尾部有 / = 传目录内容而非目录本身
+          SOURCE: "backend/target/javatutor-backend-0.1.0.jar frontend/dist"
+          # dist 尾部无 / = 保留 dist 目录本身传到 TARGET 下
+          # jar 是单个文件，直接放在 TARGET 根目录
 
           # ── 服务器目标路径 ────────────────────────────────
           TARGET: "/opt/javatutor/"
-          # 最终服务器上的结构：
-          #   /opt/javatutor/backend/target/javatutor-backend-0.1.0.jar
-          #   /opt/javatutor/frontend/dist/index.html
-          #   /opt/javatutor/frontend/dist/assets/...
+          # rsync 传过去后的实际结构（扁平化）：
+          #   /opt/javatutor/javatutor-backend-0.1.0.jar
+          #   /opt/javatutor/dist/index.html
+          #   /opt/javatutor/dist/assets/...
 
           # ── 传输完成后在服务器上执行的命令 ────────────────
           SCRIPT_AFTER: |
@@ -115,3 +127,26 @@ jobs:
           # restart javatutor = 重启 Spring Boot 后端（新的 jar 生效）
           # reload nginx = 让 nginx 重新读配置 + 刷新静态文件缓存
           # 注意：这两个命令要求服务器上已配置好 systemd 服务和 nginx
+
+      # ==========================================================
+      # Step 8：标记部署状态（成功 / 失败）
+      # ==========================================================
+      - name: 标记部署成功
+        uses: bobheadxi/deployments@v1
+        if: success()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          status: success
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+
+      - name: 标记部署失败
+        uses: bobheadxi/deployments@v1
+        if: failure()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          status: failure
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
