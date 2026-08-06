@@ -1,7 +1,7 @@
 # Boot Intro × 前端应用集成 — Design Spec
 
 **Date:** 2026-08-06  
-**Status:** Approved in conversation; awaiting user review of this written spec  
+**Status:** Approved  
 **Source:** `javatutor-intro.html` (design / preview source of truth for visuals)
 
 ## Goal

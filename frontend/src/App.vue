@@ -1,5 +1,6 @@
 <template>
   <div class="app-shell">
+    <BootIntro v-if="showBootIntro" @done="showBootIntro = false" />
     <VideoBackground />
     <AudioBackground />
     <Live2DWidget />
@@ -240,7 +241,9 @@ import VideoBackground from './components/VideoBackground.vue'
 import AudioBackground from './components/AudioBackground.vue'
 import Live2DWidget from './components/Live2DWidget.vue'
 import TestCasePanel from './components/TestCasePanel.vue'
+import BootIntro from './components/BootIntro.vue'
 
+const showBootIntro = ref(true)
 const store = usePlayerStore()
 const videoSrc = ref('')
 provide('videoSrc', videoSrc)
