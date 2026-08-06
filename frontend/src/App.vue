@@ -5,11 +5,35 @@
     <AudioBackground />
     <Live2DWidget />
     <GlobalStatus />
+
+    <div class="runtime-wire" aria-label="运行时数据流">
+      <div class="wire-left">
+        <span class="wire-mark" aria-hidden="true"><span class="wire-pulse" /></span>
+        <span class="wire-title">
+          <b>RUNTIME WIRE</b>
+          <span>教学终端 · HEARTBEAT</span>
+        </span>
+      </div>
+      <div class="wire-row">
+        <div class="marquee-track">
+          <span v-for="(item, i) in wireItems" :key="'a'+i" class="wire-item">
+            <span class="wire-dot">·</span>{{ item.name }}
+            <span class="wire-coord">{{ item.coord }}</span>
+          </span>
+          <span v-for="(item, i) in wireItems" :key="'b'+i" class="wire-item" aria-hidden="true">
+            <span class="wire-dot">·</span>{{ item.name }}
+            <span class="wire-coord">{{ item.coord }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
     <div ref="containerRef" class="main-area">
       <!-- 左侧：代码编辑器卡片 -->
       <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none flex flex-col">
         <div class="editor-card-header">
           <span class="rc-dot" />
+          <span class="panel-kicker">Nº CODE</span>
           <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
           <span v-if="!store.testMode" class="testmode-hint" title="非测试模式：请输入包含 main 方法的完整 Java 代码">非测试模式请输完整代码</span>
           <span class="highlight-legend">
@@ -71,6 +95,7 @@
       <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
+          <span class="panel-kicker">Nº INSPECT</span>
           <button
             class="right-tab"
             :class="{ active: store.rightTab === 'variables' }"
@@ -133,33 +158,33 @@
         <!-- 播放控制按钮组 -->
         <div class="ctrl-btn-group">
           <button class="ctrl-btn" @click="store.goToFirst" title="跳到第一步" :disabled="store.totalSteps === 0">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <rect x="4" y="5" width="2.5" height="14" rx="0.5"/>
-              <polygon points="20,5 9,12 20,19"/>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+              <path d="M5 5v14" />
+              <path d="M19 5l-10 7 10 7V5z" />
             </svg>
           </button>
           <button class="ctrl-btn" @click="store.prevStep" title="上一步" :disabled="store.currentStep <= 0">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <polygon points="15,5 6,12 15,19"/>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+              <path d="M15.5 5L7 12l8.5 7V5z" />
             </svg>
           </button>
           <button class="ctrl-btn run-btn" @click="runCode" :disabled="store.isLoading" title="运行代码">
-            <svg v-if="!store.isLoading" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-              <polygon points="6,3 21,12 6,21"/>
+            <svg v-if="!store.isLoading" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M7 4.2v15.6L19.5 12 7 4.2z" />
             </svg>
-            <svg v-else class="spin" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14"/>
+            <svg v-else class="spin" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75">
+              <circle cx="12" cy="12" r="8.5" stroke-dasharray="40" stroke-dashoffset="12" />
             </svg>
           </button>
           <button class="ctrl-btn" @click="store.nextStep" title="下一步" :disabled="store.currentStep >= store.totalSteps - 1">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <polygon points="9,5 18,12 9,19"/>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+              <path d="M8.5 5L17 12l-8.5 7V5z" />
             </svg>
           </button>
           <button class="ctrl-btn" @click="store.goToLast" title="跳到最后" :disabled="store.totalSteps === 0">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <polygon points="4,5 15,12 4,19"/>
-              <rect x="17.5" y="5" width="2.5" height="14" rx="0.5"/>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+              <path d="M5 5l10 7-10 7V5z" />
+              <path d="M19 5v14" />
             </svg>
           </button>
         </div>
@@ -182,12 +207,11 @@
         <!-- 右侧：自动播放 + 速度 + AI -->
         <div class="ctrl-right-group">
           <button class="ctrl-btn" @click="toggleAutoPlay" :title="isAutoPlaying ? '暂停自动播放' : '开始自动播放'" :disabled="store.totalSteps === 0">
-            <svg v-if="isAutoPlaying" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <rect x="5" y="4" width="5" height="16" rx="1"/>
-              <rect x="14" y="4" width="5" height="16" rx="1"/>
+            <svg v-if="isAutoPlaying" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
             </svg>
-            <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <polygon points="7,4 19,12 7,20"/>
+            <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+              <path d="M8 5.2v13.6L18.5 12 8 5.2z" />
             </svg>
           </button>
           <!-- 自定义速度选择器 -->
@@ -213,10 +237,10 @@
             @click="toggleAiPanel"
             title="AI 解说"
           >
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-              <path d="M15.5 2C8.6 2 3 7.6 3 14.5S8.6 27 15.5 27c.8 0 1.5-.1 2.3-.3l4.2 3.7c.3.3.8.4 1.2.2.4-.2.6-.6.6-1v-4c4-2.2 6.7-6.5 6.7-11.3C30.5 7.6 24.9 2 17.5 2h-2z" fill="currentColor"/>
-              <circle cx="12" cy="14" r="2" fill="var(--card-bg)"/>
-              <circle cx="19" cy="14" r="2" fill="var(--card-bg)"/>
+            <svg width="18" height="18" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+              <path d="M6 8h14l6 6v10H6V8z" />
+              <path d="M20 8v6h6" />
+              <path d="M11 18h10M11 22h6" />
             </svg>
           </button>
         </div>
@@ -245,6 +269,15 @@ import BootIntro from './components/BootIntro.vue'
 
 const showBootIntro = ref(true)
 const store = usePlayerStore()
+const wireItems = [
+  { name: 'TRACE', coord: 'AST' },
+  { name: 'STEP', coord: 'PLAYBACK' },
+  { name: 'HEAP', coord: 'VIEW' },
+  { name: 'STACK', coord: 'FRAME' },
+  { name: 'AI TUTOR', coord: 'COZE' },
+  { name: 'SANDBOX', coord: 'JDK17' },
+  { name: 'LIVE2D', coord: 'OP' },
+]
 const videoSrc = ref('')
 provide('videoSrc', videoSrc)
 const audioSrc = ref('')
@@ -560,15 +593,121 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background-color: var(--bg);
+  background: transparent;
   position: relative;
+  font-family: var(--sans);
+}
+
+/* ---- Runtime wire banner (prototype .wire, compact) ---- */
+.runtime-wire {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) 1fr;
+  align-items: stretch;
+  min-height: 40px;
+  margin: 8px 12px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow: var(--shadow);
+}
+.runtime-wire::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 120px;
+  height: 2px;
+  background: var(--accent);
+}
+.wire-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-right: 1px solid var(--border);
+}
+.wire-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+.wire-pulse {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  animation: wire-pulse 1.6s steps(2) infinite;
+}
+@keyframes wire-pulse { 50% { opacity: 0.25; } }
+.wire-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+.wire-title b {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-h);
+}
+.wire-title span {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.wire-row {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  min-width: 0;
+}
+.marquee-track {
+  display: inline-flex;
+  gap: 28px;
+  padding-right: 28px;
+  animation: wire-marquee 42s linear infinite;
+}
+.wire-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.wire-dot { color: var(--accent); }
+.wire-coord {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+@keyframes wire-marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+  .wire-pulse { animation: none; }
+}
+@media (max-width: 720px) {
+  .runtime-wire { grid-template-columns: 1fr; }
+  .wire-left { border-right: none; border-bottom: 1px solid var(--border); }
 }
 
 .main-area {
   display: flex;
   flex: 1;
   min-height: 0;
-  padding: 12px;
+  padding: 10px 12px 12px;
   gap: 0;
   background: transparent;
   align-items: stretch;
@@ -577,11 +716,18 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 
 .editor-card {
+  --cut: 12px;
   background: var(--card-bg);
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
+  clip-path: polygon(
+    var(--cut) 0, 100% 0,
+    100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+    0 100%, 0 var(--cut)
+  );
+  backdrop-filter: blur(10px);
 }
 .editor-card-header {
   display: flex;
@@ -590,6 +736,26 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  position: relative;
+  background: rgba(255, 255, 255, 0.55);
+}
+.editor-card-header::after,
+.right-card-header::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  bottom: -1px;
+  width: 88px;
+  height: 2px;
+  background: var(--accent);
+}
+.panel-kicker {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 /* Upload toggle button in editor header */
@@ -598,30 +764,34 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 0;
+  border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: color 0.2s, background 0.15s, border-color 0.2s;
   position: relative;
-  z-index: 100;  /* ✅ 确保按钮在最上层 */
+  z-index: 100;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
 .upload-toggle-btn:hover {
   color: var(--text-h);
-  border-color: var(--accent-border);
+  border-color: var(--accent);
   background: var(--accent-bg);
 }
 .upload-toggle-btn.active {
-  color: var(--primary);
-  border-color: var(--accent-border);
+  color: var(--accent);
+  border-color: var(--accent);
   background: var(--accent-bg);
 }
 .upload-toggle-label {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 /* 测试模式按钮：与导入按钮共享样式，但独立 class 供看板娘精准匹配 */
@@ -630,25 +800,29 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 0;
+  border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: color 0.2s, background 0.15s, border-color 0.2s;
   position: relative;
   z-index: 100;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 }
 .testmode-btn:hover {
   color: var(--text-h);
-  border-color: var(--accent-border);
+  border-color: var(--accent);
   background: var(--accent-bg);
 }
 .testmode-btn.active {
-  color: var(--primary);
-  border-color: var(--accent-border);
+  color: var(--accent);
+  border-color: var(--accent);
   background: var(--accent-bg);
 }
 .testmode-btn + .upload-toggle-btn {
@@ -659,11 +833,14 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .testmode-hint {
   margin-left: 10px;
   padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.25);
-  font-size: 10px;
-  color: #fbbf24;
+  border-radius: 0;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  background: rgba(13, 158, 196, 0.08);
+  border: 1px solid var(--accent-border);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
   white-space: nowrap;
   cursor: default;
 }
@@ -674,8 +851,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   align-items: center;
   gap: 10px;
   margin-left: 12px;
-  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
 }
 .legend-item {
@@ -695,7 +873,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border-bottom: 1px solid var(--border);
   max-height: 360px;
   overflow-y: auto;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0;
 }
 .upload-slide-enter-active {
   transition: max-height 0.3s cubic-bezier(.22,.9,.27,1), opacity 0.25s, padding 0.25s;
@@ -718,6 +896,12 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 
 .right-card {
   overflow: hidden;
+  --cut: 12px;
+  clip-path: polygon(
+    var(--cut) 0, 100% 0,
+    100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+    0 100%, 0 var(--cut)
+  );
 }
 .right-card-header {
   display: flex;
@@ -727,12 +911,16 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   position: relative;
+  background: rgba(255, 255, 255, 0.55);
 }
 .rc-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--primary);
-  opacity: 0.8;
+  width: 7px;
+  height: 7px;
+  border-radius: 0;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  opacity: 1;
+  animation: wire-pulse 2s steps(2) infinite;
 }
 .right-card-body {
   padding: 12px;
@@ -742,23 +930,28 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .right-tab {
   background: none;
   border: none;
-  padding: 4px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 5px 12px 6px;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.2s, background 0.15s;
+  transition: color 0.2s, background 0.15s, box-shadow 0.15s;
+  position: relative;
 }
-.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.right-tab:hover { color: var(--text-h); background: var(--accent-bg); }
 .right-tab.active {
-  color: var(--primary);
-  background: var(--accent-bg);
+  color: var(--accent);
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 /* Splitter */
 .splitter {
-  width: 12px;  /* 增加宽度，更容易拖拽 */
+  width: 12px;
   cursor: col-resize;
   display: flex;
   align-items: center;
@@ -768,24 +961,25 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   flex-shrink: 0;
   position: relative;
 }
-.splitter:hover { 
-  background-color: rgba(255,255,255,0.06); 
+.splitter:hover {
+  background-color: rgba(13, 158, 196, 0.06);
 }
 .splitter:hover .splitter-handle {
-  background-color: var(--primary);  /* 悬停时高亮显示 */
-  opacity: 0.8;
+  background-color: var(--accent);
+  opacity: 0.9;
 }
 .splitter .splitter-handle {
-  width: 3px; height: 60px;  /* 增加手柄尺寸 */
-  background-color: rgba(255,255,255,0.15);
-  border-radius: 2px;
+  width: 3px;
+  height: 60px;
+  background-color: var(--line-strong);
+  border-radius: 0;
   transition: all 0.2s ease;
 }
-.splitter.dragging { 
-  background-color: rgba(255,255,255,0.08); 
+.splitter.dragging {
+  background-color: rgba(13, 158, 196, 0.1);
 }
 .splitter.dragging .splitter-handle {
-  background-color: var(--primary);
+  background-color: var(--accent);
   opacity: 1;
   transform: scaleY(1.1);
 }
@@ -798,18 +992,24 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   flex-direction: column;
   padding: 8px 14px;
   background: var(--card-bg);
-  border-radius: 16px;
+  border-radius: 0;
   border: 1px solid var(--border);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
   width: fit-content;
   max-width: calc(100vw - 40px);
   min-width: 380px;
   transition: box-shadow 0.2s;
   overflow: visible;
+  --cut: 12px;
+  clip-path: polygon(
+    var(--cut) 0, 100% 0,
+    100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+    0 100%, 0 var(--cut)
+  );
 }
 .control-bar:has(.drag-handle:active) {
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  box-shadow: 0 18px 40px -20px rgba(18, 22, 29, 0.45);
 }
 
 /* Control row */
@@ -829,8 +1029,14 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   overflow: hidden;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  border-radius: 0;
+  --cut: 12px;
+  clip-path: polygon(
+    var(--cut) 0, 100% 0,
+    100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+    0 100%, 0 var(--cut)
+  );
+  box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
   padding: 10px 15px;
 }
@@ -869,14 +1075,14 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   display: flex;
   align-items: center;
   padding: 4px 2px;
-  border-radius: 4px;
+  border-radius: 0;
   color: var(--text-muted);
   transition: color 0.15s, background 0.15s;
   flex-shrink: 0;
 }
 .drag-handle:hover {
-  color: var(--text);
-  background: rgba(255,255,255,0.06);
+  color: var(--text-h);
+  background: var(--accent-bg);
 }
 .drag-handle:active {
   cursor: grabbing;
@@ -886,7 +1092,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .ctrl-btn-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 .ctrl-right-group {
   display: flex;
@@ -895,60 +1101,63 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   margin-left: auto;
 }
 
-/* Control buttons */
+/* Control buttons — Rhodes HUD */
 .ctrl-btn {
-  background: transparent;
+  background: #fff;
   border: none;
   padding: 7px;
-  border-radius: 8px;
+  border-radius: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
+  color: var(--text-h);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, transform 0.1s;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: color 0.15s, transform 0.12s, box-shadow 0.15s, background 0.15s;
 }
 .ctrl-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.08);
+  background: var(--accent-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
 }
 .ctrl-btn:active:not(:disabled) {
-  transform: scale(0.92);
+  transform: translateY(0) scale(0.96);
 }
 .ctrl-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .ctrl-btn.run-btn {
-  color: #10b981;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 10px 22px -12px rgba(13, 158, 196, 0.65);
   padding: 8px;
   margin: 0 4px;
 }
 .ctrl-btn.run-btn:hover:not(:disabled) {
-  background: rgba(16, 185, 129, 0.12);
-  color: #34d399;
+  background: var(--primary-600);
+  color: #fff;
+  box-shadow: 0 12px 24px -12px rgba(13, 158, 196, 0.75);
 }
 
 /* AI toggle button */
 .ai-toggle-btn {
   position: relative;
   gap: 4px;
-  border: 1px solid var(--border);
   padding: 6px 10px;
-  transition: color 0.2s, background 0.15s, border-color 0.2s;
+  background: #fff;
 }
 .ai-toggle-btn:hover:not(:disabled) {
-  border-color: var(--accent-border);
+  border-color: var(--accent);
   background: var(--accent-bg);
 }
 .ai-toggle-btn.active {
-  color: var(--primary);
-  border-color: var(--accent-border);
+  color: var(--accent);
   background: var(--accent-bg);
-}
-.ai-toggle-btn:hover circle,
-.ai-toggle-btn.active circle {
-  fill: var(--accent-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .ai-toggle-btn.pulsing {
   animation: ai-pulse 1.5s ease-in-out infinite;
@@ -977,8 +1186,9 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .progress-track {
   flex: 1;
   height: 6px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 3px;
+  background: var(--border);
+  border-radius: 0;
+  clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%, 0 3px);
   position: relative;
   cursor: pointer;
   transition: height 0.15s;
@@ -989,35 +1199,38 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, #6366f1, #8b5cf6);
-  border-radius: 3px;
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 6px, rgba(13, 158, 196, 0.55) 6px 12px);
+  border-radius: 0;
   pointer-events: none;
   transition: width 0.08s ease-out;
 }
 .progress-thumb {
   position: absolute;
   top: 50%;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: #fff;
-  border: 2px solid #6366f1;
-  border-radius: 50%;
+  border: 2px solid var(--accent);
+  border-radius: 0;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   transform: translate(-50%, -50%);
   cursor: grab;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 6px rgba(18, 22, 29, 0.18);
   transition: transform 0.1s, box-shadow 0.15s;
   z-index: 2;
 }
 .progress-thumb:hover {
-  transform: translate(-50%, -50%) scale(1.2);
-  box-shadow: 0 2px 10px rgba(99,102,241,0.5);
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 2px 10px rgba(13, 158, 196, 0.35);
 }
 .progress-thumb:active {
   cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.15);
+  transform: translate(-50%, -50%) scale(1.1);
 }
 .progress-label {
-  font-size: 13px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
   white-space: nowrap;
   min-width: 52px;
@@ -1034,10 +1247,13 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   padding: 6px 10px;
   min-width: 62px;
   justify-content: center;
+  background: #fff;
 }
 .speed-label {
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
 }
 .speed-menu {
@@ -1054,20 +1270,23 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   background: none;
   border: none;
   padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
   cursor: pointer;
   text-align: center;
   transition: color 0.15s, background 0.15s;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
 }
 .speed-option:hover {
   color: var(--text-h);
-  background: rgba(255,255,255,0.06);
+  background: var(--accent-bg);
 }
 .speed-option.active {
-  color: var(--primary);
+  color: var(--accent);
   background: var(--accent-bg);
 }
 
