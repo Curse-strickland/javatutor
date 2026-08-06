@@ -1,7 +1,7 @@
 # Rhodes Archive 主界面换皮 — Design Spec
 
 **Date:** 2026-08-06  
-**Status:** Draft for user review  
+**Status:** Approved  
 **References:** `brand-spec.md`, `prototype-02-rhodes.html`, existing BootIntro Rhodes tokens
 
 ## Goal
