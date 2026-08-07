@@ -272,6 +272,10 @@
         </div>
       </div>
     </div>
+
+    <footer class="site-disclaimer" role="contentinfo">
+      本网站为非官方的个人开源教学项目，与鹰角网络（Hypergryph）无关。 网站内出现的「拉普兰德」角色形象及相关视觉元素版权归鹰角网络所有；Live2D 模型作者为 @人形社畜（原画/UI）、@小布朗尼OwO（建模）。 本站承诺不进行任何商业化盈利。
+    </footer>
   </div>
 </template>
 
@@ -630,6 +634,30 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
   font-family: var(--sans);
   z-index: 1;
+}
+.site-disclaimer {
+  position: fixed;
+  right: 12px;
+  left: auto;
+  bottom: 8px;
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  opacity: 0.78;
+  text-align: right;
+  max-width: min(420px, calc(100vw - 24px));
+}
+@media (max-width: 720px) {
+  .site-disclaimer {
+    font-size: 11px;
+    opacity: 0.72;
+  }
 }
 /* 蓝图网格铺底（模板装饰，不占布局） */
 .app-shell::before {
