@@ -331,19 +331,17 @@ function explainTag(tagName) {
 }
 .ai-dot {
   width: 7px; height: 7px;
-  border-radius: 0;
-  background: var(--accent);
-  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
-  animation: ai-dot-pulse 2s steps(2) infinite;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.8;
   flex-shrink: 0;
 }
-@keyframes ai-dot-pulse { 50% { opacity: 0.25; } }
 .ai-step-badge {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-muted);
   background: var(--code-bg);
-  border-radius: 0;
+  border-radius: 5px;
   padding: 1px 6px;
 }
 
@@ -368,11 +366,11 @@ function explainTag(tagName) {
 .ai-close {
   display: flex; align-items: center; justify-content: center;
   background: none; border: none;
-  padding: 3px; border-radius: 0;
+  padding: 3px; border-radius: 5px;
   color: var(--text-muted); cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-.ai-close:hover { color: var(--text-h); background: var(--accent-bg); }
+.ai-close:hover { color: var(--text-h); background: rgba(255,255,255,0.06); }
 
 /* --- Tab bar --- */
 .ai-tabs {
@@ -386,14 +384,14 @@ function explainTag(tagName) {
   background: none;
   border: none;
   padding: 4px 12px;
-  border-radius: 0;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
   transition: color 0.2s, background 0.15s;
 }
-.ai-tab:hover { color: var(--text); background: var(--accent-bg); }
+.ai-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
 .ai-tab.active {
   color: var(--primary);
   background: var(--accent-bg);
@@ -408,7 +406,7 @@ function explainTag(tagName) {
   margin-bottom: 8px;
   background: var(--code-bg);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 8px;
   font-size: 14px;
   line-height: 1.65;
   color: var(--text);
@@ -417,7 +415,7 @@ function explainTag(tagName) {
 .ai-hint { color: var(--text-muted); font-size: 14px; text-align: center; padding: 8px 0; }
 .ai-loading { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); font-size: 14px; padding: 8px 0; }
 .ai-loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: ai-blink 1.2s ease-in-out infinite; }
-.ai-error { margin-top: 8px; padding: 6px 10px; font-size: 12px; color: var(--danger); background: var(--accent-bg); border-radius: 0; border-left: 2px solid var(--danger); word-break: break-all; max-height: 80px; overflow-y: auto; }
+.ai-error { margin-top: 8px; padding: 6px 10px; font-size: 12px; color: #e57373; background: rgba(229,115,115,0.08); border-radius: 6px; border-left: 2px solid #e57373; word-break: break-all; max-height: 80px; overflow-y: auto; }
 
 /* --- Complexity view --- */
 .complexity-view { display: flex; flex-direction: column; gap: 10px; }
@@ -425,8 +423,8 @@ function explainTag(tagName) {
 .complexity-card {
   flex: 1;
   padding: 12px;
-  border-radius: 0;
-  background: var(--code-bg);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
   border: 1px solid var(--border);
 }
 .complexity-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
@@ -446,34 +444,34 @@ function explainTag(tagName) {
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .ai-tag {
   padding: 4px 10px;
-  border-radius: 0;
+  border-radius: 14px;
   font-size: 13px;
   font-weight: 500;
   border: none;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
 }
-.ai-tag:hover { transform: scale(1.05); box-shadow: var(--shadow); }
+.ai-tag:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 .ai-tag:active { transform: scale(0.97); }
 
-/* Tag colors — rhodes light-bg compatible */
-.tag-blue    { background: var(--accent-bg); color: var(--primary); }
-.tag-indigo  { background: rgba(79,70,229,0.10); color: #4f46e5; }
-.tag-teal    { background: rgba(13,148,136,0.10); color: #0d9488; }
-.tag-purple  { background: rgba(124,58,237,0.10); color: #7c3aed; }
-.tag-cyan    { background: rgba(6,148,162,0.10); color: #0694a2; }
-.tag-orange  { background: rgba(194,101,0,0.10); color: #c26500; }
-.tag-sky     { background: rgba(2,132,199,0.10); color: #0284c7; }
-.tag-emerald { background: rgba(5,150,105,0.10); color: #059669; }
-.tag-amber   { background: rgba(180,98,0,0.10); color: #b46200; }
-.tag-rose    { background: rgba(190,18,60,0.10); color: #be123c; }
-.tag-slate   { background: rgba(71,85,105,0.10); color: #475569; }
+/* Tag colors — subtle, low-saturation */
+.tag-blue    { background: rgba(10,132,255,0.15); color: #93c5fd; }
+.tag-indigo  { background: rgba(99,102,241,0.15); color: #c7d2fe; }
+.tag-teal    { background: rgba(45,212,191,0.15); color: #5eead4; }
+.tag-purple  { background: rgba(168,85,247,0.15); color: #d8b4fe; }
+.tag-cyan    { background: rgba(34,211,238,0.15); color: #67e8f9; }
+.tag-orange  { background: rgba(251,146,60,0.15); color: #fdba74; }
+.tag-sky     { background: rgba(56,189,248,0.15); color: #7dd3fc; }
+.tag-emerald { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+.tag-amber   { background: rgba(251,191,36,0.15); color: #fde68a; }
+.tag-rose    { background: rgba(244,63,94,0.15); color: #fda4af; }
+.tag-slate   { background: rgba(148,163,184,0.12); color: #cbd5e1; }
 
 /* --- Footer --- */
 .ai-footer { display: flex; justify-content: flex-end; gap: 8px; }
 .ai-explain-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 0;
+  padding: 6px 14px; border-radius: 10px;
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);
   color: var(--primary);
@@ -481,7 +479,7 @@ function explainTag(tagName) {
   cursor: pointer;
   transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
 }
-.ai-explain-btn:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
+.ai-explain-btn:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(10,132,255,0.15); }
 .ai-explain-btn:active:not(:disabled) { transform: translateY(1px) scale(0.997); }
 .ai-explain-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .ai-spin { animation: spin 0.8s linear infinite; }
@@ -491,8 +489,8 @@ function explainTag(tagName) {
 .ai-text :deep(p) { margin: 0 0 6px; }
 .ai-text :deep(p:last-child) { margin-bottom: 0; }
 .ai-text :deep(strong) { font-weight: 600; color: var(--text-h); }
-.ai-text :deep(code) { font-family: var(--mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 0; color: var(--primary); }
-.ai-text :deep(pre) { background: var(--code-bg); border: 1px solid var(--border); border-radius: 0; padding: 8px 10px; margin: 6px 0; overflow-x: auto; white-space: pre; font-size: 13px; }
+.ai-text :deep(code) { font-family: var(--mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: var(--primary); }
+.ai-text :deep(pre) { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin: 6px 0; overflow-x: auto; white-space: pre; font-size: 13px; }
 .ai-text :deep(pre code) { background: none; padding: 0; color: var(--text); }
 .ai-text :deep(ul), .ai-text :deep(ol) { margin: 4px 0; padding-left: 18px; }
 .ai-text :deep(li) { margin-bottom: 2px; }
@@ -530,7 +528,7 @@ function explainTag(tagName) {
   color: var(--primary);
   background: var(--accent-bg);
   padding: 1px 6px;
-  border-radius: 0;
+  border-radius: 4px;
 }
 .api-status-default {
   font-size: 10px;
@@ -552,7 +550,7 @@ function explainTag(tagName) {
 }
 .api-provider-chip {
   padding: 5px 11px;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
@@ -581,7 +579,7 @@ function explainTag(tagName) {
   font-family: var(--mono);
   font-size: 11px;
   padding: 5px 8px;
-  border-radius: 0;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--code-bg);
   color: var(--text);
@@ -595,7 +593,7 @@ function explainTag(tagName) {
   font-family: var(--mono);
   font-size: 12px;
   padding: 6px 10px;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--code-bg);
   color: var(--text);
@@ -610,7 +608,7 @@ function explainTag(tagName) {
 }
 .api-save-btn {
   padding: 6px 12px;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);
   color: var(--primary);
@@ -621,11 +619,11 @@ function explainTag(tagName) {
   transition: background 0.15s;
 }
 .api-save-btn:hover {
-  background: var(--accent-bg);
+  background: rgba(10,132,255,0.18);
 }
 .api-clear-btn {
   padding: 2px 8px;
-  border-radius: 0;
+  border-radius: 5px;
   border: none;
   background: none;
   color: var(--text-muted);
@@ -633,15 +631,15 @@ function explainTag(tagName) {
   cursor: pointer;
 }
 .api-clear-btn:hover {
-  color: var(--danger);
+  color: #e57373;
 }
 .api-key-error {
   font-size: 11px;
-  color: var(--danger);
+  color: #e57373;
   padding: 4px 8px;
-  background: var(--accent-bg);
-  border-radius: 0;
-  border-left: 2px solid var(--danger);
+  background: rgba(229,115,115,0.08);
+  border-radius: 5px;
+  border-left: 2px solid #e57373;
   word-break: break-all;
 }
 .api-key-saved-hint {
@@ -658,8 +656,8 @@ function explainTag(tagName) {
 .api-zhipu-guide {
   padding: 10px 12px;
   margin-bottom: 12px;
-  border-radius: 0;
-  background: var(--accent-bg);
+  border-radius: 8px;
+  background: rgba(10,132,255,0.06);
   border: 1px solid rgba(10,132,255,0.12);
 }
 .api-zhipu-guide-title {
@@ -681,13 +679,13 @@ function explainTag(tagName) {
   color: var(--primary);
   text-decoration: none;
   padding: 3px 8px;
-  border-radius: 0;
+  border-radius: 6px;
   background: var(--accent-bg);
   border: 1px solid var(--accent-border);
   transition: background 0.15s;
 }
 .api-zhipu-guide-link:hover {
-  background: var(--accent-bg);
+  background: rgba(10,132,255,0.18);
 }
 
 @media (prefers-reduced-motion: reduce) {

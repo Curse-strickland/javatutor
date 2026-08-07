@@ -6,6 +6,7 @@
       'is-done': phase === 'steady' || phase === 'op-start' || phase === 'curtain-open',
       'is-op-start': phase === 'op-start' || phase === 'curtain-open',
       'is-curtain-open': phase === 'curtain-open',
+      'is-clear-underlay': clearUnderlay,
     }"
     role="dialog"
     aria-label="JavaTutor 启动序列"
@@ -14,11 +15,11 @@
       <div class="crt" aria-hidden="true"></div>
 
       <div class="boot-log" aria-hidden="true">
-        <div class="row"><span>&gt; JVM RUNTIME · HotSpot 64-Bit</span><span class="ok">OK</span></div>
-        <div class="row"><span>&gt; TRACE ENGINE · AST 插桩</span><span class="ok">OK</span></div>
-        <div class="row"><span>&gt; AI TUTOR LINK · COZE</span><span class="ok">OK</span></div>
-        <div class="row"><span>&gt; OPERATOR · LAPPLAND 执勤</span><span class="ok">OK</span></div>
-        <div class="row"><span>&gt; 载入教学终端 JAVATUTOR</span><span class="ok">READY</span></div>
+        <div class="row"><span>&gt; VUE 3 + PINIA · APP SHELL</span><span class="ok">OK</span></div>
+        <div class="row"><span>&gt; MONACO EDITOR · CODE WORKSPACE</span><span class="ok">OK</span></div>
+        <div class="row"><span>&gt; LIVE2D CUBISM · LAPPLAND MODEL</span><span class="ok">OK</span></div>
+        <div class="row"><span>&gt; AI TUTOR · ZHIPU GLM-4 FLASH</span><span class="ok">OK</span></div>
+        <div class="row"><span>&gt; TRACE API · /api/run · SANDBOX</span><span class="ok">READY</span></div>
       </div>
 
       <div class="slice s1" aria-hidden="true"></div>
@@ -26,20 +27,18 @@
       <div class="slice s3" aria-hidden="true"></div>
       <div class="charge" aria-hidden="true">
         <div class="charge-frame"></div>
-        <div class="charge-head"><span><b>SYSTEM CHARGE</b> · 系统充能</span><span>JT / 2026</span></div>
+        <div class="charge-head"><span><b>RESOURCES LOADING</b> · 资源加载中 </span><span>JavaTutor / 2026</span></div>
         <div class="charge-pct"><span ref="pctEl">0</span><span class="sym">%</span></div>
         <div class="charge-bar"><div class="fill" ref="fillEl"></div></div>
-        <div class="charge-meta"><span>SANDBOX · TRACE · AGENT</span><span class="on" ref="chargeStateEl">CHARGING</span></div>
+        <div class="charge-meta"><span>JAVATUTOR · 可视化教学平台 </span><span class="on" ref="chargeStateEl">CHARGING</span></div>
       </div>
 
       <div class="flash" aria-hidden="true"></div>
 
-      <span class="rail rail-tl">JAVATUTOR / 2026 · 教学终端 <b>V2.4</b></span>
-      <span class="rail rail-tr">AST 插桩 × 沙箱执行 × AI 导师</span>
-      <span class="rail rail-bl">JDK 17 · TRACE ENGINE · STEP PLAYBACK</span>
-      <span class="rail rail-br"><b>BOOT COMPLETE</b> · 启动完成 · 5.6S</span>
-      <span class="rail rail-side-l">JAVA VISUALIZATION PLATFORM</span>
-      <span class="rail rail-side-r">SEE THE RUNTIME · 看得见的 Java</span>
+      <span class="rail rail-tl">JAVATUTOR / 2026 · 教学终端 <b>V2.0</b></span>
+      <span class="rail rail-br">Three great virtues of a programmer: Laziness, Impatience, and Hubris.</span>
+      <span class="rail rail-side-l"> Let roses be roses。 </span>
+      <span class="rail rail-side-r"> Let pines be pines.</span>
 
       <span class="tick tl" aria-hidden="true"></span>
       <span class="tick tr" aria-hidden="true"></span>
@@ -53,7 +52,7 @@
       </div>
 
       <div class="lockup">
-        <div class="logo-kicker">TERMINAL ONLINE · 终端已上线</div>
+        <div class="logo-kicker">VERSION 2.0 ONLINE · v2.0 已上线</div>
         <h1 class="logo"><span class="word" data-text="JavaTutor">JavaTutor</span><span class="dot">.</span></h1>
         <div class="logo-sub"><b>JAVA 可视化教学平台</b><span class="slash">//</span><span>看得见的 Java · 问得到的老师</span></div>
         <div class="logo-rule" aria-hidden="true"></div>
@@ -68,7 +67,7 @@
             <svg viewBox="0 0 24 24"><path d="M5 19L19 5M19 5H8M19 5v11" /></svg>
           </button>
         </span>
-        <span class="cta-hint"><span class="blip"></span>RUNTIME MONITOR · 运行监控中 // SCAN CYCLE 6.5S</span>
+        <span class="cta-hint"><span class="blip"></span></span>
       </div>
 
       <span class="skip-hint" aria-hidden="true">CLICK / ANY KEY — SKIP 跳过</span>
@@ -82,10 +81,9 @@
         <span class="veil-rail">MISSION · <b>RUNTIME</b></span>
       </div>
       <div class="op-title">
-        <div class="op-kicker">OPERATION START · 行动开始</div>
+        <div class="op-kicker">TERMINAL START · 终端启动 </div>
         <div class="op-word">看得见的<span class="thin">运行时</span></div>
-        <div class="op-sub">MISSION · <b>JAVA VISUALIZATION</b> · 拉普兰德 已就位</div>
-        <div class="op-rule" aria-hidden="true"></div>
+        <div class="op-sub">MISSION · <b>JAVA VISUALIZATION</b> · 博士 欢迎回家~</div>
       </div>
     </div>
   </div>
@@ -108,6 +106,8 @@ const chargeStateEl = ref(null)
 
 /** @type {import('vue').Ref<'booting' | 'steady' | 'op-start' | 'curtain-open'>} */
 const phase = ref('booting')
+/** 幕布仍合拢时先藏 intro，拉开时缝里才是 IDE */
+const clearUnderlay = ref(false)
 
 let bootTimer = 0
 let skipArmTimer = 0
@@ -155,8 +155,14 @@ function onEnter() {
     return
   }
   navTimer = window.setTimeout(() => {
-    phase.value = 'curtain-open'
-    openTimer = window.setTimeout(() => emit('done'), CURTAIN_OPEN_MS)
+    // 合拢态下先清 intro 层，等一帧再拉开，避免露出身后的定格画面
+    clearUnderlay.value = true
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        phase.value = 'curtain-open'
+        openTimer = window.setTimeout(() => emit('done'), CURTAIN_OPEN_MS)
+      })
+    })
   }, NAV_DELAY)
 }
 

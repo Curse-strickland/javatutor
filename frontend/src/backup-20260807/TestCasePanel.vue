@@ -127,8 +127,7 @@ function emitClear() {
   padding: 10px 12px;
   background: var(--accent-bg);
   border: 1px solid var(--accent-border);
-  border-radius: 0;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  border-radius: 10px;
 }
 
 .tc-method-info.tc-method-hint {
@@ -137,18 +136,17 @@ function emitClear() {
 }
 
 .tc-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.04em;
 }
 
 .tc-sig {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--accent);
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 13px;
+  color: var(--primary);
   word-break: break-all;
 }
 
@@ -162,7 +160,7 @@ function emitClear() {
   font-family: 'Maple Mono', ui-monospace, SFMono-Regular, monospace;
   font-size: 11px;
   color: var(--text);
-  background: var(--accent-bg);
+  background: rgba(255,255,255,0.06);
   padding: 1px 5px;
   border-radius: 4px;
 }
@@ -188,44 +186,42 @@ function emitClear() {
 }
 
 .tc-mode-toggle {
-  font-family: var(--mono);
   font-size: 10px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 0;
-  border: 1px solid var(--line-strong, var(--border));
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
   transition: color 0.15s, border-color 0.15s, background 0.15s;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.03em;
 }
 
 .tc-mode-toggle:hover {
-  color: var(--text-h);
-  border-color: var(--accent);
+  color: var(--text);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 
 .tc-textarea {
   width: 100%;
   padding: 8px 10px;
-  border-radius: 0;
-  border: 1px solid var(--line, var(--border));
-  background: #fff;
-  color: var(--fg, var(--text-h));
-  font-family: var(--mono);
-  font-size: 12.5px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 13px;
   line-height: 1.6;
   resize: vertical;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .tc-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.12);
 }
 
 .tc-textarea::placeholder {
@@ -249,19 +245,19 @@ function emitClear() {
 .tc-input {
   flex: 1;
   padding: 7px 10px;
-  border-radius: 0;
-  border: 1px solid var(--line, var(--border));
-  background: #fff;
-  color: var(--fg, var(--text-h));
-  font-family: var(--mono);
-  font-size: 12.5px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 13px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .tc-input:focus {
-  border-color: var(--accent);
-  box-shadow: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.12);
 }
 
 .tc-input::placeholder {
@@ -272,23 +268,18 @@ function emitClear() {
 .tc-add-btn {
   align-self: flex-start;
   background: none;
-  border: 1px dashed var(--line-strong, var(--border));
-  border-radius: 0;
-  padding: 6px 12px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   transition: color 0.2s, border-color 0.2s, background 0.15s;
 }
 
 .tc-add-btn:hover {
-  color: var(--text-h);
-  border-color: var(--accent);
+  color: var(--text);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 
@@ -301,24 +292,19 @@ function emitClear() {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
-  border-radius: 0;
+  padding: 8px 18px;
+  border-radius: 10px;
   border: none;
-  background: var(--accent);
+  background: var(--primary);
   color: #fff;
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-  box-shadow: 0 14px 28px -14px rgba(13, 158, 196, 0.55);
   transition: background 0.2s, transform 0.1s;
 }
 
 .tc-save-btn:hover {
-  background: var(--primary-600);
+  background: #1a8fff;
 }
 
 .tc-save-btn:active {
@@ -330,23 +316,19 @@ function emitClear() {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border-radius: 0;
-  border: 1px solid var(--line-strong, var(--border));
+  border-radius: 10px;
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
   transition: color 0.2s, border-color 0.2s, background 0.15s;
 }
 
 .tc-clear-btn:hover {
   color: var(--text-h);
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 </style>

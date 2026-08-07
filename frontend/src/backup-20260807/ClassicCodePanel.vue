@@ -1264,29 +1264,26 @@ const groups = [
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 0;
-  border: 1px solid var(--line-strong, var(--border));
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   transition: all 0.3s cubic-bezier(.22,.9,.27,1);
   align-self: flex-end;
 }
 .classic-toggle-all:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--primary);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
+  box-shadow: 0 0 12px rgba(10,132,255,0.08);
 }
 .classic-toggle-all.active {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--primary);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 .classic-toggle-chevron {
@@ -1315,7 +1312,7 @@ const groups = [
 
 .classic-group {
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -1329,13 +1326,12 @@ const groups = [
   transition: background 0.15s;
 }
 .classic-group-header:hover {
-  background: var(--code-bg);
+  background: rgba(255,255,255,0.03);
 }
 
 .classic-dot {
   width: 7px; height: 7px;
-  border-radius: 0;
-  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  border-radius: 50%;
   background: var(--primary);
   opacity: 0.8;
   flex-shrink: 0;
@@ -1369,7 +1365,7 @@ const groups = [
   align-items: center;
   justify-content: space-between;
   padding: 7px 8px;
-  border-radius: 0;
+  border-radius: 6px;
   border: none;
   background: none;
   cursor: pointer;
@@ -1378,7 +1374,7 @@ const groups = [
   width: 100%;
 }
 .classic-item:hover {
-  background: var(--accent-bg);
+  background: rgba(255,255,255,0.04);
 }
 
 .classic-item-name {

@@ -7,12 +7,11 @@
       :class="{ active: panelOpen }"
       title="更换壁纸"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
         <circle cx="8.5" cy="8.5" r="1.5"/>
         <polyline points="21 15 16 10 5 21"/>
       </svg>
-      <span class="wallpaper-btn-label">壁纸</span>
     </button>
 
     <!-- 壁纸选择面板 -->
@@ -273,14 +272,14 @@ import { ref, onMounted, computed, inject, watch } from 'vue'
 const panelOpen = ref(false)
 const currentWallpaper = ref(0)
 const opacityTrackRef = ref(null)
+const savedOpacity = ref(0.88) // restore when leaving 默认网格
+
 const videoSrc = inject('videoSrc', ref(''))
 const audioSrc = inject('audioSrc', ref(''))
 const audioVolume = inject('audioVolume', ref(0.3))
 const audioTrackRef = ref(null)
-/* 透明度始终可调（默认网格不再锁死） */
-const isOpacityLocked = computed(() => false)
-const cardOpacity = ref(0.88)
-const savedOpacity = ref(0.88)
+const isOpacityLocked = computed(() => currentWallpaper.value === 0)
+const cardOpacity = ref(0.88)  // 默认卡片透明度，对应 rgba(55,55,63,0.88)
 const customWallpapers = ref([])  // 支持多个自定义壁纸
 const customAudios = ref([])      // 音频库
 const activeAudioIndex = ref(-1)  // 当前选中的音频在 customAudios 中的索引
@@ -408,6 +407,12 @@ onMounted(async () => {
         }
       }
 
+      // 默认网格强制 100% 不透明
+      if (currentWallpaper.value === 0) {
+        savedOpacity.value = settings.cardOpacity ?? 0.88
+        cardOpacity.value = 1.0
+      }
+
       applyWallpaper()
       applyCardOpacity()
       // Restore video/audio state
@@ -454,6 +459,7 @@ function togglePanel() {
 }
 
 function selectWallpaper(index) {
+  const wasLocked = isOpacityLocked.value
   currentWallpaper.value = index
 
   // 如果选择的是预设壁纸，切换到对应的分页
@@ -466,7 +472,17 @@ function selectWallpaper(index) {
     }
   }
 
-  applyCardOpacity()
+  // 默认网格：锁定 100% 不透明，VSCode 风格
+  if (index === 0) {
+    if (!wasLocked) savedOpacity.value = cardOpacity.value
+    cardOpacity.value = 1.0
+    applyCardOpacity()
+  } else if (wasLocked) {
+    // 从默认网格切换到其他壁纸：恢复之前的透明度
+    cardOpacity.value = savedOpacity.value
+    applyCardOpacity()
+  }
+
   applyWallpaper()
   saveSettings()
 }
@@ -686,16 +702,10 @@ function deleteCustomWallpaper(index, event) {
 let saveOpacityTimer = null
 function applyCardOpacity() {
   const root = document.documentElement
-  const o = cardOpacity.value
-  // 左右统一只用同一套 --card-bg；编辑器内层保持透明，避免叠两层把左边“压实”
-  root.style.setProperty('--card-bg', `rgba(244,245,248,${o})`)
-  root.style.setProperty('--glass', `rgba(244,245,248,${o})`)
-  root.style.setProperty('--editor-bg', 'transparent')
-  root.style.setProperty('--code-bg', `rgba(255,255,255,${o})`)
-  root.style.setProperty('--editor-header-bg', `rgba(255,255,255,${Math.max(0.35, o * 0.75)})`)
-  root.style.setProperty('--btn-bg', `rgba(255,255,255,${o})`)
-  // 默认网格标记仍保留（供其他样式用），但不锁透明度
-  document.body.classList.toggle('wallpaper-mesh', currentWallpaper.value === 0)
+  const baseColor = '55,55,63'
+  root.style.setProperty('--card-bg', `rgba(${baseColor},${cardOpacity.value})`)
+  root.style.setProperty('--glass', `rgba(${baseColor},${cardOpacity.value})`)
+  document.body.classList.toggle('wallpaper-mesh', isOpacityLocked.value)
 }
 
 // --- Custom opacity slider with pointer capture (same pattern as progress bar) ---
@@ -861,7 +871,7 @@ function drawCropOverlay() {
   ctx.fillRect(0, cropY.value, cropX.value, cropH.value)
   ctx.fillRect(cropX.value + cropW.value, cropY.value, canvas.width - cropX.value - cropW.value, cropH.value)
   // 裁剪框
-  ctx.strokeStyle = '#0d9ec4'
+  ctx.strokeStyle = '#0a84ff'
   ctx.lineWidth = 2
   ctx.strokeRect(cropX.value, cropY.value, cropW.value, cropH.value)
   // 四角手柄（等比缩放）
@@ -873,7 +883,7 @@ function drawCropOverlay() {
     [cropX.value + cropW.value, cropY.value + cropH.value]
   ].forEach(([cx, cy]) => {
     ctx.fillStyle = '#fff'
-    ctx.strokeStyle = '#0d9ec4'
+    ctx.strokeStyle = '#0a84ff'
     ctx.lineWidth = 2
     ctx.beginPath()
     ctx.rect(cx - hs/2, cy - hs/2, hs, hs)
@@ -884,7 +894,7 @@ function drawCropOverlay() {
   ;[[cropX.value + cropW.value/2, cropY.value], [cropX.value + cropW.value/2, cropY.value + cropH.value],
     [cropX.value, cropY.value + cropH.value/2], [cropX.value + cropW.value, cropY.value + cropH.value/2]
   ].forEach(([cx, cy]) => {
-    ctx.fillStyle = '#0d9ec4'
+    ctx.fillStyle = '#0a84ff'
     ctx.fillRect(cx - 4, cy - 4, 8, 8)
   })
 }
@@ -1042,63 +1052,49 @@ watch(cropImage, (val) => {
 .wallpaper-manager {
   position: relative;
   z-index: 100;
-  /* 顶到 INSPECT 标题行最右侧，不与 tab 并列挤在一起 */
-  margin-left: auto;
 }
 
 .wallpaper-btn {
   background: transparent;
-  border: 1px solid var(--line-strong, var(--border));
-  padding: 6px 12px;
-  border-radius: 0;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  transition: color 0.2s, background 0.15s, border-color 0.2s;
+  transition: all 0.2s;
   position: relative;
   z-index: 100;
 }
 
-.wallpaper-btn-label {
-  line-height: 1;
-}
-
 .wallpaper-btn:hover {
   color: var(--text-h);
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 
 .wallpaper-btn.active {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--primary);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 
-/* 壁纸选择面板 — 锚在右侧按钮下方向左展开 */
+/* 壁纸选择面板 */
 .wallpaper-panel {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
-  left: auto;
+  left: 0;
   width: 320px;
   max-height: 70vh;
   overflow-y: auto;
-  padding: 14px;
+  padding: 16px;
   background: var(--card-bg);
-  border: 1px solid var(--line, var(--border));
-  border-radius: 0;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
   z-index: 1000;
 }
 
@@ -1130,7 +1126,7 @@ watch(cropImage, (val) => {
 
 .close-btn:hover {
   color: var(--text-h);
-  background: var(--border);
+  background: rgba(255,255,255,0.08);
 }
 
 /* 分组标题 */
@@ -1352,7 +1348,7 @@ watch(cropImage, (val) => {
 	color: var(--text-h);
 	font-weight: 600;
 	font-size: 13px;
-	background: var(--accent-bg);
+	background: rgba(255,255,255,0.05);
 	padding: 2px 10px;
 	border-radius: 12px;
 	min-width: 44px;
@@ -1363,7 +1359,7 @@ watch(cropImage, (val) => {
 .opacity-track {
 	width: 100%;
 	height: 6px;
-	background: var(--border);
+	background: rgba(255,255,255,0.08);
 	border-radius: 3px;
 	position: relative;
 	cursor: pointer;
@@ -1525,7 +1521,7 @@ watch(cropImage, (val) => {
 }
 .crop-btn-cancel:hover {
   color: var(--text-h);
-  border-color: var(--accent-border);
+  border-color: rgba(255,255,255,0.2);
 }
 .crop-btn-ok {
   background: linear-gradient(180deg, var(--primary), var(--primary-600));

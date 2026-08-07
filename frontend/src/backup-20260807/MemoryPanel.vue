@@ -714,12 +714,10 @@ function frameArgStyle(arg) {
 }
 .mp-dot {
   width: 7px; height: 7px;
-  border-radius: 0;
-  background: var(--accent);
-  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
-  animation: mp-pulse 2s steps(2) infinite;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.8;
 }
-@keyframes mp-pulse { 50% { opacity: 0.25; } }
 .mp-chevron {
   color: var(--text-muted);
   transition: transform 0.25s ease;
@@ -740,9 +738,6 @@ function frameArgStyle(arg) {
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  padding: 6px 0;
-  border-top: 1px solid var(--line, var(--border));
-  border-bottom: 1px solid var(--line, var(--border));
   cursor: pointer;
   user-select: none;
   transition: color 0.2s;
@@ -751,11 +746,8 @@ function frameArgStyle(arg) {
   color: var(--text-h);
 }
 .mp-section-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
 }
 .mp-section-header:hover .mp-section-label {
@@ -781,18 +773,14 @@ function frameArgStyle(arg) {
 .mp-stack {
   min-width: 0;
   padding-right: 6px;
-  overflow: visible;
 }
 
 .mp-frame {
-  border: 1px solid var(--line, var(--border));
-  border-radius: 0;
-  background: #fff;
-  padding: 8px 12px;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
   margin-bottom: 14px;
-  /* 不可对帧用 clip-path：标题用 top:-18px 骑在上边框上，会被裁掉一半 */
-  overflow: visible;
-  transition: border-color 0.25s, box-shadow 0.25s;
+  transition: border-color 0.25s;
 }
 .mp-frame:last-child { margin-bottom: 0; }
 
@@ -802,12 +790,11 @@ function frameArgStyle(arg) {
   margin-bottom: -12px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--primary);
   padding: 2px 10px;
   background: var(--card-bg);
-  border-radius: 0;
+  border-radius: 6px;
   border: 1px solid var(--border);
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
   line-height: 1.5;
   display: inline-flex;
   flex-wrap: wrap;
@@ -830,7 +817,7 @@ function frameArgStyle(arg) {
 .mp-frame-chevron.rotated {
   transform: rotate(90deg);
 }
-.mp-frame-method { color: var(--accent); }
+.mp-frame-method { color: var(--primary); }
 .mp-frame-paren-l,
 .mp-frame-paren-r { color: var(--text-muted); }
 .mp-frame-arg-val { color: var(--text); }
@@ -862,9 +849,8 @@ function frameArgStyle(arg) {
 /* Variable card — base */
 .mp-var-card {
   background: var(--code-bg);
-  border: 1px solid var(--line, var(--border));
-  border-radius: 0;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
@@ -936,7 +922,7 @@ function frameArgStyle(arg) {
   gap: 6px;
   align-items: center;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -963,7 +949,7 @@ function frameArgStyle(arg) {
 }
 
 .mp-map-row:hover {
-  background: var(--code-bg);
+  background: rgba(255,255,255,0.03);
 }
 
 .mp-map-row.mp-map-overflow {
@@ -985,14 +971,14 @@ function frameArgStyle(arg) {
 
 .mp-map-key-card {
   color: var(--text-muted);
-  background: var(--accent-bg);
-  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
 .mp-map-val-card {
   color: var(--text);
-  background: var(--border);
-  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 .mp-map-arrow {
@@ -1047,11 +1033,10 @@ function frameArgStyle(arg) {
 }
 
 .mp-heap-card {
-  background: #fff;
-  border: 1px solid var(--line, var(--border));
-  border-left: 3px solid var(--obj-border, var(--accent));
-  border-radius: 0;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--obj-border, var(--border));
+  border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 8px;
   cursor: pointer;
@@ -1099,18 +1084,14 @@ function frameArgStyle(arg) {
 }
 
 .mp-heap-tag {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.06em;
   padding: 2px 8px;
-  border-radius: 0;
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  border-radius: 5px;
 }
 
 .mp-heap-type {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -1126,13 +1107,11 @@ function frameArgStyle(arg) {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #fff;
-  border: 1px solid var(--line, var(--border));
-  border-radius: 0;
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 5px;
   padding: 4px 8px;
-  font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .mp-cell-idx {
@@ -1161,7 +1140,7 @@ function frameArgStyle(arg) {
 
 /* Field reference — hoverable */
 .mp-heap-field { cursor: pointer; }
-.mp-heap-field:hover { background: var(--accent-bg); }
+.mp-heap-field:hover { background: rgba(255,255,255,0.07); }
 .mp-field-ref { cursor: pointer; }
 
 .mp-cell-ref-label {
@@ -1170,29 +1149,74 @@ function frameArgStyle(arg) {
   transition: color 0.2s ease;
 }
 
-/* ===== TransitionGroup：仅淡入淡出，避免位移/absolute 离场把高度塌掉导致整页抖动 ===== */
-.mp-card-enter-active,
-.mp-heap-card-enter-active,
+/* ===== TransitionGroup animations ===== */
+
+/* Stack card enter: slide down + fade in + subtle scale */
+.mp-card-enter-active {
+  transition:
+    opacity 0.35s cubic-bezier(.22,.9,.27,1),
+    transform 0.35s cubic-bezier(.22,.9,.27,1);
+}
+.mp-card-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+  position: absolute;
+}
+.mp-card-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+}
+.mp-card-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+}
+.mp-card-move {
+  transition: transform 0.35s cubic-bezier(.22,.9,.27,1);
+}
+
+/* Heap card enter: fade in + slide up */
+.mp-heap-card-enter-active {
+  transition:
+    opacity 0.35s cubic-bezier(.22,.9,.27,1),
+    transform 0.35s cubic-bezier(.22,.9,.27,1);
+}
+.mp-heap-card-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  position: absolute;
+}
+.mp-heap-card-enter-from {
+  opacity: 0;
+  transform: translateY(12px) scale(0.97);
+}
+.mp-heap-card-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+.mp-heap-card-move {
+  transition: transform 0.35s cubic-bezier(.22,.9,.27,1);
+}
+
+/* Frame group enter */
 .mp-frame-enter-active {
-  transition: opacity 0.2s ease;
+  transition:
+    opacity 0.4s cubic-bezier(.22,.9,.27,1),
+    transform 0.4s cubic-bezier(.22,.9,.27,1);
 }
-.mp-card-leave-active,
-.mp-heap-card-leave-active,
 .mp-frame-leave-active {
-  transition: opacity 0.12s ease;
-  /* 禁止 position:absolute：运行后整表替换时会先塌高度再撑开 */
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
-.mp-card-enter-from,
-.mp-heap-card-enter-from,
-.mp-frame-enter-from,
-.mp-card-leave-to,
-.mp-heap-card-leave-to,
+.mp-frame-enter-from {
+  opacity: 0;
+  transform: translateX(-12px);
+}
 .mp-frame-leave-to {
   opacity: 0;
-}
-.mp-card-move,
-.mp-heap-card-move {
-  transition: none;
+  transform: translateX(-8px);
 }
 
 /* ===== Responsive ===== */

@@ -52,41 +52,24 @@
 }
 
 :root {
-  /* Rhodes Archive tokens — from avatutor前端设计/javatutor-main-rhodes.html */
+  --text: #4d5665;
+  --text-h: #12161d;
+  --text-muted: #8b93a1;
   --bg: #e9ebef;
-  --bg-2: #f4f5f8;
-  --bg-3: #dde0e6;
-  --fg: #12161d;
-  --muted: #4d5665;
-  --faint: #8b93a1;
-  --line: #c9ced8;
-  --line-strong: #9aa2b0;
-  --ink-frame: #12161d;
+  --card-bg: rgba(244, 245, 248, 0.92);
+  --glass: rgba(255, 255, 255, 0.88);
+  --border: #c9ced8;
+  --code-bg: #ffffff;
+  --primary: #0d9ec4;
+  --primary-600: #0a7fa0;
   --accent: #0d9ec4;
-  --accent-ink: #ffffff;
-  --accent-bg: rgba(13, 158, 196, 0.08);
+  --accent-bg: rgba(13, 158, 196, 0.12);
   --accent-border: rgba(13, 158, 196, 0.35);
-  --warn: #d97b1e;
-  --danger: #c4433b;
-  --cut: 12px;
-  --shadow: 0 14px 34px -18px rgba(18, 22, 29, 0.35);
-
-  /* App aliases (keep existing var names used across components) */
-  --text: var(--muted);
-  --text-h: var(--fg);
-  --text-muted: var(--faint);
-  --card-bg: rgba(244, 245, 248, 0.88);
-  --glass: rgba(244, 245, 248, 0.88);
-  --editor-bg: transparent;
-  --border: var(--line);
-  --code-bg: rgba(255, 255, 255, 0.88);
-  --primary: var(--accent);
-  --primary-600: #0b89aa;
-  --ink: var(--ink-frame);
-  --surface: var(--bg-2);
-  --editor-header-bg: rgba(255, 255, 255, 0.66);
-  --btn-bg: rgba(255, 255, 255, 0.88);
-  --success: #17a34a;
+  --shadow: 0 18px 40px -28px rgba(18, 22, 29, 0.35);
+  --cut: 10px;
+  --ink: #12161d;
+  --line-strong: #9aa2b0;
+  --surface: #f4f5f8;
 
   --sans: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
   --heading: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
@@ -108,6 +91,7 @@
   border-radius: 0;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
   clip-path: polygon(
     var(--cut) 0, 100% 0,
     100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
@@ -136,7 +120,7 @@
 
 .btn-primary {
   background: var(--accent);
-  color: var(--accent-ink);
+  color: #fff;
   box-shadow: 0 14px 28px -14px rgba(13, 158, 196, 0.55);
   border: none;
 }
@@ -153,10 +137,8 @@
 .splitter { background: transparent; }
 .splitter .splitter-handle { background-color: var(--line-strong); border-radius: 0; }
 
-html, body {
+body {
   margin: 0;
-  height: 100%;
-  overflow: hidden; /* 禁止整页滚动条闪现导致布局抖动 */
 }
 
 h1,
@@ -222,46 +204,206 @@ code {
   }
 }
 
-#app {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  text-align: left;
-  height: 100%;
-  min-height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.hero {
+  position: relative;
+
+  .base,
+  .framework,
+  .vite {
+    inset-inline: 0;
+    margin: 0 auto;
+  }
+
+  .base {
+    width: 170px;
+    position: relative;
+    z-index: 0;
+  }
+
+  .framework,
+  .vite {
+    position: absolute;
+  }
+
+  .framework {
+    z-index: 1;
+    top: 34px;
+    height: 28px;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
+      scale(1.4);
+  }
+
+  .vite {
+    z-index: 0;
+    top: 107px;
+    height: 26px;
+    width: auto;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+      scale(0.8);
+  }
 }
 
-/* Scrollbar — Rhodes archive */
+#app {
+  width: 1126px;
+  max-width: 100%;
+  margin: 0 0 0 12px;
+  text-align: center;
+  border-inline: 1px solid var(--border);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+}
+
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+
+  & > div {
+    flex: 1 1 0;
+    padding: 32px;
+    @media (max-width: 1024px) {
+      padding: 24px 20px;
+    }
+  }
+
+  .icon {
+    margin-bottom: 16px;
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+#docs {
+  border-right: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+#next-steps ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 32px 0 0;
+
+  .logo {
+    height: 18px;
+  }
+
+  a {
+    color: var(--text-h);
+    font-size: 16px;
+    border-radius: 6px;
+    background: var(--social-bg);
+    display: flex;
+    padding: 6px 12px;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: box-shadow 0.3s;
+
+    &:hover {
+      box-shadow: var(--shadow);
+    }
+    .button-icon {
+      height: 18px;
+      width: 18px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    li {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    a {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+  }
+}
+
+#spacer {
+  height: 88px;
+  border-top: 1px solid var(--border);
+  @media (max-width: 1024px) {
+    height: 48px;
+  }
+}
+
+.ticks {
+  position: relative;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4.5px;
+    border: 5px solid transparent;
+  }
+
+  &::before {
+    left: 0;
+    border-left-color: var(--border);
+  }
+  &::after {
+    right: 0;
+    border-right-color: var(--border);
+  }
+}
+
+/* Dark scrollbar — match design system */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 0;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: rgba(255,255,255,0.22);
 }
 
+/* Ensure all input elements use Maple Mono font */
 input, textarea, select {
   font-family: var(--sans) !important;
 }
-/* Monaco 隐藏输入框必须与渲染字体一致，否则光标错位 */
-.monaco-editor textarea.inputarea,
-.monaco-editor .inputarea {
-  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-  letter-spacing: 0 !important;
-}
-.monaco-editor,
-.monaco-editor-background,
-.monaco-editor .view-lines {
-  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-  letter-spacing: 0 !important;
+
+/* Monaco Editor will keep its own font, but override if needed */
+.monaco-editor, .monaco-editor-background {
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace !important;
 }

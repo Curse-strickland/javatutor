@@ -453,6 +453,16 @@
 .veil-panel.r { right: 0; transform: translateX(101%); }
 .boot-intro.is-op-start:not(.is-curtain-open) .veil-panel { transform: translateX(0); }
 
+/* 拉开前清掉 intro 层：透明底 + 隐藏 stage，缝里露出的是底下已挂载的 IDE */
+.boot-intro.is-clear-underlay,
+.boot-intro.is-curtain-open {
+  background: transparent;
+}
+.boot-intro.is-clear-underlay .stage,
+.boot-intro.is-curtain-open .stage {
+  visibility: hidden;
+  pointer-events: none;
+}
 .boot-intro.is-curtain-open .veil {
   visibility: visible;
   pointer-events: auto;

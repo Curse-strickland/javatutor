@@ -1,0 +1,31 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "lappland.moc3",
+		"Textures": [
+			"textures/texture_00.png"
+		],
+		"Physics": "lappland.physics3.json",
+		"DisplayInfo": "lappland.cdi3.json",
+		"Expressions": [
+			{ "Name": "咧嘴笑", "File": "expressions/grin.exp3.json" },
+			{ "Name": "星星眼", "File": "expressions/star_eyes.exp3.json" },
+			{ "Name": "流汗", "File": "expressions/sweat.exp3.json" },
+			{ "Name": "生气嘴", "File": "expressions/angry.exp3.json" },
+			{ "Name": "脸黑", "File": "expressions/dark_face.exp3.json" },
+			{ "Name": "青筋符号", "File": "expressions/vein.exp3.json" }
+		]
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": []
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": []
+		}
+	]
+}
