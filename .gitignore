@@ -39,6 +39,10 @@ backend/target/
 reviews/
 test-sandbox.sh
 
+# 本地覆盖配置（可能含真实密钥，禁止提交）
+backend/src/main/resources/coze-local.properties
+backend/src/main/resources/application-local.properties
+
 # PPT
 *.pptx
 ppt/

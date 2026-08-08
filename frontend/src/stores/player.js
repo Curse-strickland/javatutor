@@ -8,9 +8,9 @@ export const usePlayerStore = defineStore('player', {
     error: null,
     output: '',
     runId: null,
-    // AI explanation state
+    // AI explanation state — 自由问答聊天
     code: '',
-    explainText: '',
+    chatMessages: [],          // [{ role: 'user'|'assistant', text }]
     isExplaining: false,
     autoExplain: false,
     explainExpanded: false,
@@ -31,19 +31,7 @@ export const usePlayerStore = defineStore('player', {
     methodSignature: '',
     // File upload state
     rightTab: 'variables',
-    userApiKey: '',
-    apiProvider: 'zhipu',  // zhipu | deepseek | openai | kimi | custom
-    apiUrl: '',
-    apiModel: '',
     pendingFiles: [],
-    // Provider presets for format validation and auto-fill
-    apiProviders: {
-      zhipu:  { label: '智谱', url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4.7-flash', keyHint: 'xxxxxxxx.xxxxxxxx',   keyRe: /^[a-zA-Z0-9]{32}\.[a-zA-Z0-9]+$/ },
-      deepseek: { label: 'DeepSeek',      url: 'https://api.deepseek.com/v1/chat/completions',              model: 'deepseek-chat',  keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32}$/ },
-      openai:  { label: 'OpenAI',        url: 'https://api.openai.com/v1/chat/completions',                 model: 'gpt-4o',         keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32,}$/ },
-      kimi:    { label: '月之暗面 (Kimi)', url: 'https://api.moonshot.cn/v1/chat/completions',              model: 'moonshot-v1-8k', keyHint: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', keyRe: /^sk-[a-zA-Z0-9]{32,}$/ },
-      custom:  { label: '自定义',          url: '',  model: '',  keyHint: '任意 Key',                      keyRe: /^.{1,128}$/ },
-    },
     uploadHistory: (() => {
       try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
       catch { return [] }
@@ -80,7 +68,7 @@ export const usePlayerStore = defineStore('player', {
       this.output = ''
       this.runId = null
       this.code = code
-      this.explainText = ''
+      this.chatMessages = []
       this.explainError = null
       this.explainHistory = {}
       this.analysisData = null
@@ -141,115 +129,35 @@ export const usePlayerStore = defineStore('player', {
 
     // --- AI Explanation actions ---
 
-    _apiBody(extra = {}) {
-      const body = { code: this.code, ...extra }
-      if (this.userApiKey) {
-        body.apiKey = this.userApiKey
-        const p = this.apiProviders[this.apiProvider]
-        if (p) {
-          body.apiUrl = p.url
-          body.apiModel = p.model
-        }
-        // custom provider uses user-filled url/model
-        if (this.apiProvider === 'custom') {
-          body.apiUrl = this.apiUrl
-          body.apiModel = this.apiModel
-        }
-      }
-      if (this.testMode) body.mode = 'test'
-      return body
-    },
-
-    async requestOverview() {
+    /** 发送自由问答（当前步骤上下文 + 用户问题），SSE 流式追加到 chatMessages */
+    async askQuestion(question) {
       if (this.explainAbortController) {
         this.explainAbortController.abort()
       }
-
-      if (!this.code) return
+      const q = (question || '').trim()
+      if (!this.code || !q) return
 
       this.isExplaining = true
-      this.explainText = ''
       this.explainError = null
       this.explainAbortController = new AbortController()
 
-      try {
-        const response = await fetch('/api/explain/overview', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this._apiBody()),
-          signal: this.explainAbortController.signal
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        let currentEvent = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              currentEvent = line.slice(6).trim()
-            } else if (line.startsWith('data:')) {
-              const data = line.slice(5).trim()
-              if (!data) continue
-              if (currentEvent === 'error') {
-                this.explainError = data
-                currentEvent = ''
-                return
-              }
-              this.explainText += data
-              currentEvent = ''
-            }
-          }
-        }
-      } catch (e) {
-        if (e.name !== 'AbortError') {
-          this.explainError = e.message || '整体解说请求失败'
-        }
-      } finally {
-        this.isExplaining = false
-        this.explainAbortController = null
-      }
-    },
-
-    async requestExplain(topic) {
-      if (this.explainAbortController) {
-        this.explainAbortController.abort()
-      }
-
-      if (!this.code || this.totalSteps === 0) return
-
-      this.isExplaining = true
-      this.explainText = ''
-      this.explainError = null
-      this.explainAbortController = new AbortController()
-
-      const vars = topic
-        ? { ...this.currentVariables, _explainTopic: topic }
-        : this.currentVariables
+      // 先放入用户消息，再追加空 assistant 消息接收流式回复
+      this.chatMessages.push({ role: 'user', text: q })
+      this.chatMessages.push({ role: 'assistant', text: '' })
+      const assistantIdx = this.chatMessages.length - 1
 
       try {
-        const response = await fetch('/api/explain', {
+        const response = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this._apiBody({
+          body: JSON.stringify({
+            code: this.code,
             runId: this.runId,
             step: this.currentStep,
             totalSteps: this.totalSteps,
             currentLine: this.currentLine,
-            variables: vars,
-          })),
+            variables: { ...this.currentVariables, _explainTopic: q },
+          }),
           signal: this.explainAbortController.signal
         })
 
@@ -261,6 +169,18 @@ export const usePlayerStore = defineStore('player', {
         const decoder = new TextDecoder()
         let buffer = ''
         let currentEvent = ''
+        // SSE 多行 data 累积：一个事件可有多个 data: 行，按标准用 \n 连接
+        let eventData = []
+
+        const flushEvent = () => {
+          if (currentEvent === 'chunk' && eventData.length) {
+            this.chatMessages[assistantIdx].text += eventData.join('\n')
+          } else if (currentEvent === 'error') {
+            this.explainError = eventData.join('\n')
+          }
+          currentEvent = ''
+          eventData = []
+        }
 
         while (true) {
           const { done, value } = await reader.read()
@@ -272,37 +192,45 @@ export const usePlayerStore = defineStore('player', {
 
           for (const line of lines) {
             if (line.startsWith('event:')) {
+              flushEvent()
               currentEvent = line.slice(6).trim()
             } else if (line.startsWith('data:')) {
-              const data = line.slice(5).trim()
-              if (!data) continue
-              if (currentEvent === 'error') {
-                this.explainError = data
-                currentEvent = ''
-                return  // 出错立即结束
-              }
-              this.explainText += data
-              currentEvent = ''
+              // 保留前导空格：data:  的正文从第 5 字符起
+              eventData.push(line.slice(5))
+            } else if (!line.trim() && eventData.length) {
+              // 空行代表事件结束（flush）
             }
           }
         }
+        flushEvent()
       } catch (e) {
         if (e.name !== 'AbortError') {
-          this.explainError = e.message || '解说请求失败'
+          this.explainError = e.message || '自由问答请求失败'
         }
       } finally {
         this.isExplaining = false
         this.explainAbortController = null
-        if (!this.explainError && this.explainText) {
-          this.explainHistory[this.currentStep] = this.explainText
-        }
       }
+    },
+
+    // 兼容入口：单步解说 / 标签解说 → 转成自由问答
+    async requestExplain(topic) {
+      if (!this.code || this.totalSteps === 0) return
+      const q = topic
+        ? `请解释「${topic}」这个算法/数据结构。`
+        : '请解释当前这一步在做什么。'
+      await this.askQuestion(q)
+    },
+
+    // 兼容入口：整体解说 → 转成自由问答
+    async requestOverview() {
+      if (!this.code) return
+      await this.askQuestion('请整体解说这段代码的算法思路和数据结构。')
     },
 
     toggleExplainPanel() {
       this.explainExpanded = !this.explainExpanded
       if (!this.explainExpanded) {
-        this.explainText = ''
         this.explainError = null
         if (this.explainAbortController) {
           this.explainAbortController.abort()
@@ -325,10 +253,11 @@ export const usePlayerStore = defineStore('player', {
       this.analysisData = null
       this.analysisError = null
       try {
-        const res = await fetch('/api/analyze', {
+        // 复杂度/算法标签由服务器侧 Coze 智能体自助提供，无需用户 API key
+        const res = await fetch('/api/ai/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this._apiBody())
+          body: JSON.stringify({ code: this.code })
         })
         const data = await res.json()
         if (data.error) {

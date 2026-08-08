@@ -128,8 +128,16 @@ jobs:
 
           # ── 传输完成后在服务器上执行的命令 ────────────────
           SCRIPT_AFTER: |
+            # 写入 Coze token 到环境文件（若 GitHub Secrets 已配置）
+            if [ -n "${{ secrets.COZE_API_TOKEN }}" ]; then
+              sudo mkdir -p /opt/javatutor/config
+              echo "COZE_API_TOKEN=${{ secrets.COZE_API_TOKEN }}" | sudo tee /opt/javatutor/config/coze.env > /dev/null
+            fi
             sudo systemctl restart javatutor
             sudo systemctl reload nginx
+          # 环境文件 /opt/javatutor/config/coze.env 由 systemd 服务 javatutor.service 通过
+          # EnvironmentFile=/opt/javatutor/config/coze.env 读取；token 不写入 jar，运行时注入。
+          # 服务器 systemd 配置示例见 docs/deploy-coze.md
           # restart javatutor = 重启 Spring Boot 后端（新的 jar 生效）
           # reload nginx = 让 nginx 重新读配置 + 刷新静态文件缓存
           # 注意：这两个命令要求服务器上已配置好 systemd 服务和 nginx

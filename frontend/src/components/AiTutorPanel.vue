@@ -31,16 +31,61 @@
       >{{ tab.label }}</button>
     </div>
 
-    <!-- Tab: 解说 -->
-    <div v-if="store.activeAiTab === 'explain'" class="ai-body" ref="bodyRef">
-      <div v-if="!store.code" class="ai-hint">请先运行代码，然后点击「解说」了解当前步骤。</div>
-      <div v-else-if="store.isExplaining && !store.explainText" class="ai-loading">
-        <span class="ai-loading-dot" />生成解说中…
+    <!-- Tab: 解说（自由问答） -->
+    <template v-if="store.activeAiTab === 'explain'">
+      <div class="chat-body" ref="chatBodyRef">
+        <div v-if="!store.chatMessages.length && !store.isExplaining" class="ai-hint">
+          运行代码后，输入问题，AI 将结合当前步骤回答。
+        </div>
+        <div v-for="(m, i) in store.chatMessages" :key="i" class="chat-msg" :class="m.role">
+          <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
+          <div v-else class="chat-bubble assistant">
+            <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
+            <span v-else v-html="renderMarkdown(m.text)"></span>
+          </div>
+        </div>
+        <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
       </div>
-      <div v-else-if="store.explainText" class="ai-text" v-html="renderedHtml"></div>
-      <div v-else class="ai-hint">点击下方「解说」按钮，AI 将解释当前步骤正在做什么。</div>
-      <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
-    </div>
+      <!-- 快捷问题 + 输入框 -->
+      <div class="chat-input-area">
+        <div class="chat-quick">
+          <button
+            class="chat-quick-btn"
+            :disabled="!store.code || store.isExplaining"
+            @click="store.requestOverview()"
+          >整体解说</button>
+          <button
+            class="chat-quick-btn"
+            :disabled="!store.code || store.isExplaining || store.totalSteps === 0"
+            @click="store.requestExplain()"
+          >单步解说</button>
+        </div>
+        <div class="chat-input-row">
+          <input
+            v-model="chatInput"
+            class="chat-input"
+            placeholder="输入问题，如「为什么 arr[0] 变了？」"
+            autocomplete="off"
+            :disabled="!store.code || store.isExplaining"
+            @keyup.enter="sendChat"
+          />
+          <button
+            class="chat-send-btn"
+            :disabled="!store.code || store.isExplaining || !chatInput.trim()"
+            @click="sendChat"
+          >
+            <svg v-if="store.isExplaining" class="ai-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14" />
+            </svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+            {{ store.isExplaining ? '生成中…' : '发送' }}
+          </button>
+        </div>
+      </div>
+    </template>
 
     <!-- Tab: 复杂度分析 -->
     <div v-if="store.activeAiTab === 'complexity'" class="ai-body">
@@ -99,155 +144,23 @@
       <div v-else class="ai-hint">运行代码后自动分析。</div>
     </div>
 
-    <!-- 自定义 API（可折叠） -->
-    <div class="api-key-section">
-      <div class="api-key-header" @click="apiOpen = !apiOpen">
-        <svg class="api-chevron" :class="{ rotated: apiOpen }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-        <span class="api-key-label">自定义 API</span>
-        <span v-if="store.userApiKey" class="api-status-saved">{{ currentProviderLabel }}</span>
-        <span v-else class="api-status-default">智谱</span>
-      </div>
-      <div v-show="apiOpen" class="api-key-body">
-        <!-- 智谱免费 Key 引导（未配置 Key 时显示） -->
-        <div v-if="!store.userApiKey" class="api-zhipu-guide">
-          <div class="api-zhipu-guide-title">智谱 GLM-4-Flash 免费额度</div>
-          <p class="api-zhipu-guide-text">
-            注册智谱 AI 开放平台即可获取免费 API Key，用于 AI 解说功能。
-          </p>
-          <a
-            class="api-zhipu-guide-link"
-            href="https://open.bigmodel.cn"
-            target="_blank"
-            rel="noopener"
-          >前往 open.bigmodel.cn 注册获取 Key</a>
-        </div>
-        <div class="api-provider-chips">
-          <button
-            v-for="(p, k) in store.apiProviders" :key="k"
-            class="api-provider-chip"
-            :class="{ active: selectedProvider === k }"
-            @click="selectedProvider = k; onProviderChange()"
-          >{{ p.label }}</button>
-        </div>
-        <div class="api-key-row">
-          <input
-            type="password"
-            class="api-key-input"
-            v-model="apiKeyInput"
-            :placeholder="currentProviderPlaceholder"
-            autocomplete="off"
-            @keyup.enter="saveApiKey"
-          />
-          <button class="api-save-btn" @click="saveApiKey">保存</button>
-        </div>
-        <div v-if="selectedProvider === 'custom'" class="api-custom-fields">
-          <input class="api-custom-input" v-model="customUrl" placeholder="API URL (https://.../v1/chat/completions)" />
-          <input class="api-custom-input" v-model="customModel" placeholder="Model 名称" />
-        </div>
-        <div v-if="apiKeyError" class="api-key-error">{{ apiKeyError }}</div>
-        <div v-if="store.userApiKey" class="api-key-row">
-          <span class="api-key-saved-hint">已保存自定义 Key（仅本次会话）</span>
-          <button class="api-clear-btn" @click="clearApiKey">清除</button>
-        </div>
-        <p v-else class="api-key-hint">选择平台并填入 Key 即可使用 AI 解说。</p>
-      </div>
-    </div>
-
-    <!-- Footer: manual explain buttons (解说 tab only) -->
-    <div v-if="!store.autoExplain && store.activeAiTab === 'explain'" class="ai-footer">
-      <button
-        class="ai-explain-btn"
-        :disabled="!store.code || store.isExplaining"
-        @click="store.requestOverview()"
-        title="AI 综述整体代码的算法思路和数据结构"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="16" x2="12" y2="12"/>
-          <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-        整体解说
-      </button>
-      <button
-        class="ai-explain-btn"
-        :disabled="!store.code || store.isExplaining || store.totalSteps === 0"
-        @click="store.requestExplain()"
-      >
-        <svg v-if="store.isExplaining" class="ai-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14" />
-        </svg>
-        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5z" />
-        </svg>
-        {{ store.isExplaining ? '生成中…' : '单步解说' }}
-      </button>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
+import { marked } from 'marked'
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
-const bodyRef = ref(null)
-const apiOpen = ref(false)
-const apiKeyInput = ref('')
-const apiKeyError = ref('')
-const selectedProvider = ref('zhipu')
-const customUrl = ref('')
-const customModel = ref('')
+const chatBodyRef = ref(null)
+const chatInput = ref('')
 
-const currentProviderPlaceholder = computed(() => {
-  const p = store.apiProviders[selectedProvider.value]
-  return p ? p.keyHint : 'API Key'
-})
-
-const currentProviderLabel = computed(() => {
-  const p = store.apiProviders[store.apiProvider]
-  return p ? p.label : ''
-})
-
-function onProviderChange() {
-  apiKeyError.value = ''
-  apiKeyInput.value = ''
-}
-
-function saveApiKey() {
-  const val = apiKeyInput.value.trim()
-  if (!val) {
-    store.userApiKey = ''
-    apiKeyError.value = ''
-    return
-  }
-  const provider = selectedProvider.value
-  const p = store.apiProviders[provider]
-  if (!p) { apiKeyError.value = '未知平台'; return }
-
-  if (!p.keyRe.test(val)) {
-    apiKeyError.value = 'Key 格式不匹配 ' + p.label + ' 的要求（' + p.keyHint + '）'
-    return
-  }
-  store.apiProvider = provider
-  store.userApiKey = val
-  if (provider === 'custom') {
-    store.apiUrl = customUrl.value.trim()
-    store.apiModel = customModel.value.trim()
-    if (!store.apiUrl) { apiKeyError.value = '请填写 API URL'; return }
-  }
-  apiKeyError.value = ''
-}
-
-function clearApiKey() {
-  store.userApiKey = ''
-  store.apiProvider = 'zhipu'
-  selectedProvider.value = 'zhipu'
-  apiKeyInput.value = ''
-  customUrl.value = ''
-  customModel.value = ''
-  apiKeyError.value = ''
+function sendChat() {
+  const q = chatInput.value.trim()
+  if (!q || store.isExplaining) return
+  chatInput.value = ''
+  store.askQuestion(q)
 }
 
 const tabs = [
@@ -256,34 +169,38 @@ const tabs = [
   { id: 'algorithm', label: '算法' }
 ]
 
-// Lightweight Markdown renderer — avoids edge cases with third-party parsers
-function renderMarkdown(text) {
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+// Markdown 渲染：用项目已依赖的 marked 解析，自定义 renderer 防 XSS
+marked.use({
+  renderer: {
+    // 丢弃原始 HTML，防脚本注入
+    html() { return '' },
+    // 链接仅允许 http/https，其余协议按纯文本输出
+    link(token) {
+      const href = token.href || ''
+      if (!/^https?:\/\//i.test(href)) return token.text || href
+      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${token.text || href}</a>`
+    },
+  },
+  breaks: true,
+  gfm: true,
+})
 
-  // Inline code (must run before bold to avoid ** inside code)
-  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>')
-
-  // Bold **text**
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-
-  return html
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
-const renderedHtml = computed(() => {
-  if (!store.explainText) return ''
-  return renderMarkdown(store.explainText)
-})
+function renderMarkdown(text) {
+  if (!text) return ''
+  return marked.parse(text)
+}
 
-// Auto-scroll
-watch(() => store.explainText, async () => {
+// Auto-scroll（聊天消息增长时滚到底部）
+watch(() => store.chatMessages, async () => {
   await nextTick()
-  if (bodyRef.value) {
-    bodyRef.value.scrollTop = bodyRef.value.scrollHeight
+  if (chatBodyRef.value) {
+    chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
   }
-})
+}, { deep: true })
 
 // Tag color mapping
 const TAG_COLORS = {
@@ -469,128 +386,132 @@ function explainTag(tagName) {
 .tag-rose    { background: rgba(190,18,60,0.10); color: #be123c; }
 .tag-slate   { background: rgba(71,85,105,0.10); color: #475569; }
 
-/* --- Footer --- */
-.ai-footer { display: flex; justify-content: flex-end; gap: 8px; }
-.ai-explain-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 0;
-  border: 1px solid var(--accent-border);
-  background: var(--accent-bg);
-  color: var(--primary);
-  font-size: 14px; font-weight: 600;
-  cursor: pointer;
-  transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
-}
-.ai-explain-btn:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
-.ai-explain-btn:active:not(:disabled) { transform: translateY(1px) scale(0.997); }
-.ai-explain-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* --- Loading & spin --- */
 .ai-spin { animation: spin 0.8s linear infinite; }
-
-/* Markdown rendered */
-.ai-text { color: var(--text); white-space: pre-wrap; word-break: break-word; }
-.ai-text :deep(p) { margin: 0 0 6px; }
-.ai-text :deep(p:last-child) { margin-bottom: 0; }
-.ai-text :deep(strong) { font-weight: 600; color: var(--text-h); }
-.ai-text :deep(code) { font-family: var(--mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 0; color: var(--primary); }
-.ai-text :deep(pre) { background: var(--code-bg); border: 1px solid var(--border); border-radius: 0; padding: 8px 10px; margin: 6px 0; overflow-x: auto; white-space: pre; font-size: 13px; }
-.ai-text :deep(pre code) { background: none; padding: 0; color: var(--text); }
-.ai-text :deep(ul), .ai-text :deep(ol) { margin: 4px 0; padding-left: 18px; }
-.ai-text :deep(li) { margin-bottom: 2px; }
-.ai-text :deep(em) { color: var(--text-muted); }
 
 @keyframes ai-blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* --- Custom API Key --- */
-.api-key-section {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin-top: 4px;
-}
-.api-key-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  user-select: none;
-}
-.api-chevron {
-  color: var(--text-muted);
-  transition: transform 0.25s ease;
-}
-.api-chevron.rotated {
-  transform: rotate(90deg);
-}
-.api-key-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.api-status-saved {
-  font-size: 10px;
-  color: var(--primary);
-  background: var(--accent-bg);
-  padding: 1px 6px;
+/* --- Chat (自由问答) --- */
+.chat-body {
+  min-height: 48px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
   border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.api-status-default {
-  font-size: 10px;
-  color: var(--text-muted);
+.chat-msg {
+  display: flex;
 }
-.api-key-body {
-  padding-top: 8px;
+.chat-msg.user {
+  justify-content: flex-end;
+}
+.chat-msg.assistant {
+  justify-content: flex-start;
+}
+.chat-bubble {
+  max-width: 88%;
+  padding: 6px 10px;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.chat-bubble.user {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.chat-bubble.assistant {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: normal;
+}
+.chat-bubble.assistant :deep(strong) { font-weight: 600; color: var(--text-h); }
+.chat-bubble.assistant :deep(code) {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--code-bg);
+  padding: 1px 4px;
+  border-radius: 0;
+  color: var(--primary);
+}
+.chat-bubble.assistant :deep(pre) {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 8px;
+  margin: 4px 0;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 12px;
+}
+.chat-bubble.assistant :deep(pre code) { background: none; padding: 0; color: var(--text); }
+.chat-bubble.assistant :deep(h1),
+.chat-bubble.assistant :deep(h2),
+.chat-bubble.assistant :deep(h3),
+.chat-bubble.assistant :deep(h4) {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 8px 0 4px;
+  line-height: 1.4;
+}
+.chat-bubble.assistant :deep(h1:first-child),
+.chat-bubble.assistant :deep(h2:first-child),
+.chat-bubble.assistant :deep(h3:first-child),
+.chat-bubble.assistant :deep(h4:first-child) { margin-top: 0; }
+.chat-bubble.assistant :deep(p) { margin: 0 0 6px; }
+.chat-bubble.assistant :deep(p:last-child) { margin-bottom: 0; }
+.chat-bubble.assistant :deep(ul),
+.chat-bubble.assistant :deep(ol) { margin: 4px 0; padding-left: 18px; }
+.chat-bubble.assistant :deep(li) { margin-bottom: 2px; }
+.chat-bubble.assistant :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+.chat-bubble.assistant :deep(em) { color: var(--text-muted); }
+.chat-typing { color: var(--text-muted); }
+.chat-input-area {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
-.api-key-row {
+.chat-quick {
   display: flex;
   gap: 6px;
-  align-items: center;
 }
-.api-provider-chips {
-  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
-}
-.api-provider-chip {
-  padding: 5px 11px;
+.chat-quick-btn {
+  padding: 4px 10px;
   border-radius: 0;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 11px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--primary);
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-  outline: none;
+  transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
 }
-.api-provider-chip:hover {
-  color: var(--text);
-  border-color: var(--accent-border);
-}
-.api-provider-chip.active {
-  color: var(--primary);
-  border-color: var(--accent-border);
-  background: var(--accent-bg);
-}
-.api-custom-fields {
+.chat-quick-btn:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
+.chat-quick-btn:active:not(:disabled) { transform: translateY(1px) scale(0.997); }
+.chat-quick-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-input-row {
   display: flex;
-  flex-direction: column;
   gap: 6px;
-  margin-bottom: 6px;
+  align-items: center;
 }
-.api-custom-input {
-  font-family: var(--mono);
-  font-size: 11px;
-  padding: 5px 8px;
-  border-radius: 0;
-  border: 1px solid var(--border);
-  background: var(--code-bg);
-  color: var(--text);
-  outline: none;
-  transition: border-color 0.2s;
-}
-.api-custom-input:focus { border-color: var(--accent-border); }
-.api-custom-input::placeholder { color: var(--text-muted); opacity: 0.5; }
-.api-key-input {
+.chat-input {
   flex: 1;
   font-family: var(--mono);
   font-size: 12px;
@@ -602,13 +523,14 @@ function explainTag(tagName) {
   outline: none;
   transition: border-color 0.2s;
 }
-.api-key-input:focus {
+.chat-input:focus {
   border-color: var(--accent-border);
 }
-.api-key-input::placeholder {
+.chat-input::placeholder {
   color: var(--text-muted);
 }
-.api-save-btn {
+.chat-send-btn {
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px;
   border-radius: 0;
   border: 1px solid var(--accent-border);
@@ -618,80 +540,14 @@ function explainTag(tagName) {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s;
+  transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
 }
-.api-save-btn:hover {
-  background: var(--accent-bg);
-}
-.api-clear-btn {
-  padding: 2px 8px;
-  border-radius: 0;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: pointer;
-}
-.api-clear-btn:hover {
-  color: var(--danger);
-}
-.api-key-error {
-  font-size: 11px;
-  color: var(--danger);
-  padding: 4px 8px;
-  background: var(--accent-bg);
-  border-radius: 0;
-  border-left: 2px solid var(--danger);
-  word-break: break-all;
-}
-.api-key-saved-hint {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-.api-key-hint {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-/* 智谱免费 Key 引导 */
-.api-zhipu-guide {
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  border-radius: 0;
-  background: var(--accent-bg);
-  border: 1px solid rgba(10,132,255,0.12);
-}
-.api-zhipu-guide-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary);
-  margin-bottom: 4px;
-}
-.api-zhipu-guide-text {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin: 0 0 6px;
-  line-height: 1.5;
-}
-.api-zhipu-guide-link {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--primary);
-  text-decoration: none;
-  padding: 3px 8px;
-  border-radius: 0;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  transition: background 0.15s;
-}
-.api-zhipu-guide-link:hover {
-  background: var(--accent-bg);
-}
+.chat-send-btn:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
+.chat-send-btn:active:not(:disabled) { transform: translateY(1px) scale(0.997); }
+.chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
   .ai-loading-dot, .ai-spin { animation: none; }
-  .ai-explain-btn, .ai-tag { transition: none; }
+  .ai-tag, .chat-quick-btn, .chat-send-btn { transition: none; }
 }
 </style>

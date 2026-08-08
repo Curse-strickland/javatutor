@@ -1,4 +1,4 @@
-# JavaTutor → Coze 数据传递方案
+ # JavaTutor → Coze 数据传递方案
 
 > 2026-07-21
 
