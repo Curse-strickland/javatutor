@@ -605,20 +605,11 @@ function toggleAiPanel() {
   store.toggleExplainPanel()
 }
 
-// 步骤切换：自动模式请求解说，手动模式优先从历史恢复
+// 步骤切换：自动模式请求解说当前步骤（自由问答聊天）
 watch(() => store.currentStep, (newVal, oldVal) => {
   if (newVal === oldVal) return
   if (store.autoExplain && store.explainExpanded) {
     store.requestExplain()
-  } else if (!store.isExplaining) {
-    const cached = store.explainHistory[newVal]
-    if (cached) {
-      store.explainText = cached
-      store.explainError = null
-    } else {
-      store.explainText = ''
-      store.explainError = null
-    }
   }
 })
 
