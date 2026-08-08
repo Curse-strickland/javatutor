@@ -9,10 +9,31 @@
     <div class="runtime-wire" aria-label="运行时数据流">
       <div class="wire-left">
         <span class="wire-mark" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none">
-            <path d="M5 1h18l4 4v18l-4 4H5l-4-4V5l4-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"/>
-            <circle class="wire-pulse-dot" cx="14" cy="14" r="4.5" fill="currentColor" opacity="1"/>
-            <circle cx="14" cy="14" r="8" stroke="currentColor" stroke-width="1" stroke-dasharray="2.5 3.5" opacity="0.4"/>
+          <svg class="wire-mark-svg" viewBox="0 0 32 32" width="30" height="30" fill="none">
+            <!-- 切角墨框 -->
+            <path
+              class="wire-mark-frame"
+              d="M7 2H30V23L23 30H2V7L7 2Z"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linejoin="miter"
+            />
+            <!-- 内侧虚线轨 -->
+            <path
+              class="wire-mark-inner"
+              d="M10 6H26V20.5L20.5 26H6V10L10 6Z"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-dasharray="2 2"
+            />
+            <!-- 青蓝信号条（心跳） -->
+            <g class="wire-pulse">
+              <path d="M11 21V12h2.2v9H11z" />
+              <path d="M15.2 21V8h2.2v13h-2.2z" />
+              <path d="M19.4 21v-5H21.6v5H19.4z" />
+            </g>
+            <!-- 右下切角斜纹点缀 -->
+            <path class="wire-mark-chip" d="M22 30h8v-8L22 30Z" />
           </svg>
         </span>
         <span class="wire-title">
@@ -39,13 +60,13 @@
       <div :style="{ width: leftWidth + 'px' }" class="editor-card flex-none flex flex-col">
         <div class="editor-card-header">
           <span class="rc-dot" />
-          <span class="panel-kicker"> CODE</span>
+          <span class="panel-kicker">Nº CODE</span>
           <span class="text-sm font-semibold" style="color: var(--text-h)">你的代码</span>
           <span v-if="!store.testMode" class="testmode-hint" title="非测试模式：请输入包含 main 方法的完整 Java 代码">非测试模式请输完整代码</span>
           <span class="highlight-legend">
             <span class="legend-item"><span class="legend-arrow" style="color: rgba(128,128,128,0.50)">▶</span>上一步</span>
             <span class="legend-item"><span class="legend-arrow" style="color: #fbbf24">▶</span>当前</span>
-            <span class="legend-item"><span class="legend-arrow" style="color: rgba(13,158,196,0.55)">▶</span>下一步</span>
+            <span class="legend-item"><span class="legend-arrow" style="color: rgba(59,130,246,0.55)">▶</span>下一步</span>
           </span>
           <button
             class="testmode-btn"
@@ -101,7 +122,7 @@
       <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
         <div class="right-card-header">
           <span class="rc-dot" />
-          <span class="panel-kicker">INSPECT</span>
+          <span class="panel-kicker">Nº INSPECT</span>
           <button
             class="right-tab"
             :class="{ active: store.rightTab === 'variables' }"
@@ -120,18 +141,13 @@
           <!-- 壁纸选择器 -->
           <WallpaperSelector />
         </div>
-        <div class="flex-1 right-card-body">
-          <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
-          <div v-show="store.rightTab === 'variables'" class="right-pane">
+        <div class="flex-1 overflow-auto right-card-body">
+          <template v-if="store.rightTab === 'variables'">
             <MemoryPanel />
             <ConsoleOutput />
-          </div>
-          <div v-show="store.rightTab === 'flow'" class="right-pane">
-            <ControlFlowPanel />
-          </div>
-          <div v-show="store.rightTab === 'files'" class="right-pane">
-            <ClassicCodePanel @loadCode="onClassicLoad" />
-          </div>
+          </template>
+          <ControlFlowPanel v-else-if="store.rightTab === 'flow'" />
+          <ClassicCodePanel v-else @loadCode="onClassicLoad" />
         </div>
       </div>
 
@@ -272,10 +288,6 @@
         </div>
       </div>
     </div>
-
-    <footer class="site-disclaimer" role="contentinfo">
-      本网站为非官方的个人开源教学项目，与鹰角网络（Hypergryph）无关。 网站内出现的「拉普兰德」角色形象及相关视觉元素版权归鹰角网络所有；Live2D 模型作者为 @人形社畜（原画/UI）、@小布朗尼OwO（建模）。 本站承诺不进行任何商业化盈利。
-    </footer>
   </div>
 </template>
 
@@ -298,13 +310,6 @@ import TestCasePanel from './components/TestCasePanel.vue'
 import BootIntro from './components/BootIntro.vue'
 
 const showBootIntro = ref(true)
-/** intro 期间压住看板娘；主界面出来后再升起（不改版面） */
-watch(showBootIntro, (active) => {
-  document.body.classList.toggle('boot-intro-active', active)
-}, { immediate: true })
-onBeforeUnmount(() => {
-  document.body.classList.remove('boot-intro-active')
-})
 const store = usePlayerStore()
 const wireItems = [
   { name: 'TRACE', coord: 'AST' },
@@ -633,43 +638,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   background: transparent;
   position: relative;
   font-family: var(--sans);
-  z-index: 1;
-}
-.site-disclaimer {
-  position: fixed;
-  right: 12px;
-  left: auto;
-  bottom: 8px;
-  z-index: 3;
-  margin: 0;
-  padding: 0;
-  pointer-events: none;
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  opacity: 0.78;
-  text-align: right;
-  max-width: min(420px, calc(100vw - 24px));
-}
-@media (max-width: 720px) {
-  .site-disclaimer {
-    font-size: 11px;
-    opacity: 0.72;
-  }
-}
-/* 蓝图网格铺底（模板装饰，不占布局） */
-.app-shell::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    linear-gradient(rgba(18, 22, 29, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(18, 22, 29, 0.045) 1px, transparent 1px);
-  background-size: 56px 56px;
 }
 
 /* ---- Runtime wire banner (prototype .wire, compact) ---- */
@@ -677,12 +645,12 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(170px, 240px) 1fr;
+  grid-template-columns: minmax(160px, 240px) 1fr;
   align-items: stretch;
-  min-height: 44px;
-  margin: 10px 12px 0;
-  background: var(--card-bg);
-  border: 1px solid var(--line, var(--border));
+  min-height: 40px;
+  margin: 8px 12px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   box-shadow: var(--shadow);
 }
@@ -700,23 +668,38 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   align-items: center;
   gap: 12px;
   padding: 8px 14px;
-  border-right: 1px solid var(--line, var(--border));
+  border-right: 1px solid var(--border);
 }
 .wire-mark {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent);
+  color: var(--ink, #12161d);
 }
-.wire-pulse-dot {
+.wire-mark-svg {
+  display: block;
+  overflow: visible;
+}
+.wire-mark-inner {
+  opacity: 0.35;
+}
+.wire-pulse path,
+.wire-mark-chip {
+  fill: var(--accent);
+}
+.wire-mark-chip {
+  opacity: 0.9;
+}
+.wire-pulse {
+  transform-origin: 16px 16px;
   animation: wire-pulse 1.6s steps(2) infinite;
 }
 @keyframes wire-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.18; }
+  50% { opacity: 0.28; }
 }
 .wire-title {
   display: flex;
@@ -795,13 +778,12 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-  min-width: 0;
   clip-path: polygon(
     var(--cut) 0, 100% 0,
     100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
     0 100%, 0 var(--cut)
   );
-  /* 不加重 blur：与 right-card 一致，透明度只由 --card-bg 决定 */
+  backdrop-filter: blur(10px);
 }
 .editor-card-header {
   display: flex;
@@ -811,7 +793,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
-  background: var(--editor-header-bg);
+  background: rgba(255, 255, 255, 0.55);
 }
 .editor-card-header::after,
 .right-card-header::after {
@@ -971,9 +953,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 .right-card {
   overflow: hidden;
   --cut: 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--line, var(--border));
-  box-shadow: var(--shadow);
   clip-path: polygon(
     var(--cut) 0, 100% 0,
     100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
@@ -984,11 +963,11 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   position: relative;
-  background: var(--editor-header-bg);
+  background: rgba(255, 255, 255, 0.55);
 }
 .rc-dot {
   width: 7px;
@@ -1001,14 +980,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 .right-card-body {
   padding: 12px;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  /* 预留滚动条槽，避免变量/流程内容高度不同时出现/消失导致横向抖动 */
-  scrollbar-gutter: stable;
-}
-.right-pane {
-  min-width: 0;
 }
 
 /* Right card tabs — matches AiTutorPanel tab style */
@@ -1192,7 +1163,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 
 /* Control buttons — Rhodes HUD */
 .ctrl-btn {
-  background: var(--btn-bg);
+  background: #fff;
   border: none;
   padding: 7px;
   border-radius: 0;
@@ -1237,7 +1208,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
   gap: 4px;
   padding: 6px 10px;
-  background: var(--btn-bg);
+  background: #fff;
 }
 .ai-toggle-btn:hover:not(:disabled) {
   border-color: var(--accent);
@@ -1298,7 +1269,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   top: 50%;
   width: 14px;
   height: 14px;
-  background: var(--btn-bg);
+  background: #fff;
   border: 2px solid var(--accent);
   border-radius: 0;
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
@@ -1322,7 +1293,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   letter-spacing: 0.06em;
   color: var(--text-muted);
   white-space: nowrap;
-  min-width: 5.5em; /* 稳定「1 / 999」宽度，避免运行后底栏变宽抖动 */
+  min-width: 52px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -1336,7 +1307,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   padding: 6px 10px;
   min-width: 62px;
   justify-content: center;
-  background: var(--btn-bg);
+  background: #fff;
 }
 .speed-label {
   font-family: var(--mono);

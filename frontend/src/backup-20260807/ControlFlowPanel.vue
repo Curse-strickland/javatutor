@@ -86,7 +86,7 @@ const zoomWrapperStyle = computed(() => {
 
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'default',
+  theme: 'dark',
   themeVariables: {
     primaryColor: '#0a84ff', primaryTextColor: '#f0f4f4', primaryBorderColor: '#1a5fb4',
     lineColor: '#444', secondaryColor: '#37373f', tertiaryColor: '#37373f', fontSize: '14px',
@@ -347,17 +347,10 @@ watch(controlFlowData, (data) => {
   if (data && !store.cfViewStack.length) {
     store.cfViewStack = [data.default || 'main']
   }
-  // 仅在流程页可见时渲染：mermaid.render 会临时插入 DOM，变量页点运行也会整页抖
-  if (data && store.rightTab === 'flow') render()
+  if (data) render()
 }, { immediate: true })
 
-watch(() => store.cfViewStack, () => {
-  if (store.rightTab === 'flow') render()
-}, { deep: true })
-
-watch(() => store.rightTab, (tab) => {
-  if (tab === 'flow' && controlFlowData.value) render()
-})
+watch(() => store.cfViewStack, () => render(), { deep: true })
 </script>
 
 <style scoped>

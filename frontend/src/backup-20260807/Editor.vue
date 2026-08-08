@@ -74,96 +74,40 @@ onMounted(() => {
     try {
       // 等待字体加载完成后再初始化编辑器
       document.fonts.ready.then(() => {
-        // Cursor Light（本地 Cursor 主题 cursor-light-color-theme.json）
-        monaco.editor.defineTheme('cursor-light', {
-          base: 'vs',
-          inherit: true,
-          rules: [
-            { token: 'comment', foreground: '14141499', fontStyle: 'italic' },
-            { token: 'comment.java', foreground: '14141499', fontStyle: 'italic' },
-            { token: 'string', foreground: '7565CC' },
-            { token: 'string.java', foreground: '7565CC' },
-            { token: 'keyword', foreground: 'A30034' },
-            { token: 'keyword.java', foreground: 'A30034' },
-            { token: 'storage', foreground: 'A30034' },
-            { token: 'number', foreground: '92156A' },
-            { token: 'number.java', foreground: '92156A' },
-            { token: 'number.float', foreground: '92156A' },
-            { token: 'number.hex', foreground: '92156A' },
-            { token: 'annotation', foreground: '007041' },
-            { token: 'annotation.java', foreground: '007041' },
-            { token: 'type', foreground: '005293' },
-            { token: 'type.identifier', foreground: '005293' },
-            { token: 'identifier', foreground: '141414' },
-            { token: 'delimiter', foreground: '141414' },
-            { token: '', foreground: '141414' },
-          ],
-          colors: {
-            // 实际底色由 CSS --editor-bg 覆盖，便于跟卡片透明度联动
-            'editor.background': '#00000000',
-            'editor.foreground': '#141414',
-            'editorGutter.background': '#00000000',
-            'editor.lineHighlightBackground': '#EAEAEAB8',
-            'editor.lineHighlightBorder': '#00000000',
-            'editor.selectionBackground': '#14141414',
-            'editor.inactiveSelectionBackground': '#14141414',
-            'editor.selectionHighlightBackground': '#3B7E8424',
-            'editorLineNumber.foreground': '#1414145C',
-            'editorLineNumber.activeForeground': '#141414BD',
-            'editorCursor.foreground': '#141414',
-            'editorWhitespace.foreground': '#1414144D',
-            'editorIndentGuide.background1': '#14141414',
-            'editorIndentGuide.activeBackground1': '#14141433',
-            'editorWidget.background': '#F3F3F3',
-            'editorWidget.border': '#14141414',
-            'editorStickyScroll.background': '#00000000',
-            'editorStickyScrollHover.background': '#F3F3F3CC',
-            'editorStickyScroll.shadow': '#14141414',
-            'editorStickyScroll.border': '#14141414',
-            'focusBorder': '#00000000',
-            'scrollbarSlider.background': '#14141424',
-            'scrollbarSlider.hoverBackground': '#14141433',
-          }
-        })
-        monaco.editor.setTheme('cursor-light')
-
         editor = monaco.editor.create(editorContainer.value, {
           value: fallbackCode.value,
           language: 'java',
-          theme: 'cursor-light',
+          theme: 'vs-dark',
           automaticLayout: false,
           fontSize: 16,
-          fontFamily: "'Maple Mono', ui-monospace, Consolas, monospace",
+          fontFamily: 'Maple Mono, ui-monospace, Consolas, monospace',
           fontLigatures: false,
-          letterSpacing: 0,
+          letterSpacing: 0.5,
           cursorBlinking: 'smooth',
           cursorStyle: 'line',
           lineHeight: 24,
           useTabStops: true,
           renderWhitespace: 'none',
           minimap: { enabled: false },
-          glyphMargin: true,
+          glyphMargin: true,  // 启用字形边距以显示箭头
           lineNumbersMinChars: 3,
-          lineDecorationsWidth: 10,
-          renderLineHighlight: 'all',
-          renderLineHighlightOnlyWhenFocus: false,
-          overviewRulerBorder: false,
-          hideCursorInOverviewRuler: true,
-          stickyScroll: { enabled: true },
+          lineDecorationsWidth: 6,
           wordWrap: 'on',
-          padding: { top: 8, left: 0 }
+          padding: { top: 8, left: 12 }
         })
 
-        const recalibrate = () => {
-          if (!editor) return
-          editor.layout()
-          try { editor.remeasureFonts() } catch (_) { /* ignore */ }
-        }
-        setTimeout(recalibrate, 50)
-        setTimeout(recalibrate, 300)
-        if (document.fonts?.load) {
-          document.fonts.load("16px 'Maple Mono'").then(recalibrate).catch(() => {})
-        }
+        // 强制重新计算布局以确保光标位置正确
+        setTimeout(() => {
+          if (editor) {
+            editor.layout()
+            // 触发一次内容更新以刷新光标位置
+            const model = editor.getModel()
+            if (model) {
+              const value = model.getValue()
+              model.setValue(value)
+            }
+          }
+        }, 100)
 
         // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
         editor.onDidChangeModelContent(() => {
@@ -239,14 +183,7 @@ const highlightLine = (lineNumber, prevLineNumber, nextLineNumber) => {
     if (decorations.length) {
       currentDecorations = editor.deltaDecorations([], decorations)
     }
-    // 仅在视口外时滚动，避免每次运行/步进都强制居中造成抖动
-    if (lineNumber) {
-      try {
-        editor.revealLineInCenterIfOutsideViewport(lineNumber)
-      } catch (_) {
-        editor.revealLine(lineNumber)
-      }
-    }
+    if (lineNumber) editor.revealLineInCenter(lineNumber)
   } catch (_) {
     // Monaco 内部错误（如行号越界）→ 静默忽略
   }
@@ -277,12 +214,17 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
 .editor-container {
   width: 100%;
   height: 100%;
-  direction: ltr;
+  direction: ltr; /* 修正代码编辑区显示问题 */
   text-align: left;
-  transform: none !important;
+  transform: none !important; /* 取消可能的镜像/翻转 */
   background: var(--editor-bg) !important;
 }
 
+body.wallpaper-mesh .editor-container {
+  background: #1e1e1e !important;
+}
+
+/* Monaco Editor 内部元素跟随 --editor-bg */
 .editor-container .monaco-editor,
 .editor-container .monaco-editor-background,
 .editor-container .margin,
@@ -290,49 +232,21 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
   background: var(--editor-bg) !important;
 }
 
-.editor-container .monaco-editor,
-.editor-container .monaco-editor .overflow-guard,
-.editor-container .monaco-editor textarea.inputarea {
-  outline: none !important;
-  box-shadow: none !important;
+/* 默认网格：编辑器 VSCode 原生黑色 */
+body.wallpaper-mesh .editor-container .monaco-editor,
+body.wallpaper-mesh .editor-container .monaco-editor-background,
+body.wallpaper-mesh .editor-container .margin,
+body.wallpaper-mesh .editor-container .monaco-editor .inputarea.ime-input {
+  background: #1e1e1e !important;
 }
-
-/* 当前行浅色高亮 + 行号与代码间竖杠 */
-.editor-container .monaco-editor .view-overlays .current-line {
-  border: none !important;
-  background: rgba(234, 234, 234, 0.72) !important;
-}
-.editor-container .monaco-editor .margin-view-overlays .current-line,
-.editor-container .monaco-editor .margin-view-overlays .current-line-margin,
-.editor-container .monaco-editor .margin-view-overlays .current-line-margin-both {
-  border: none !important;
-  background: transparent !important;
-  border-right: 2px solid #2778C1 !important;
-}
-
-/* sticky 用不透明叠层盖住滚动内容，颜色与卡片一致 */
-.editor-container .monaco-editor .sticky-widget {
-  background-color: var(--card-bg) !important;
-  box-shadow: 0 1px 0 #14141414 !important;
-  border-bottom: 1px solid #14141414 !important;
-}
-.editor-container .monaco-editor .sticky-widget .sticky-line-content,
-.editor-container .monaco-editor .sticky-widget .sticky-line-number {
-  background-color: var(--card-bg) !important;
-  color: #141414 !important;
-}
-.editor-container .monaco-editor .sticky-widget .sticky-line-number {
-  color: #1414145C !important;
-}
-
 .highlight-line {
-  background-color: rgba(251, 191, 36, 0.22);
+  background-color: rgba(255, 255, 0, 0.25);
 }
 .highlight-prev-line {
-  background-color: rgba(128, 128, 128, 0.14);
+  background-color: rgba(128, 128, 128, 0.20);
 }
 .highlight-next-line {
-  background-color: rgba(39, 120, 193, 0.12);
+  background-color: rgba(59, 130, 246, 0.18);
 }
 .exec-arrow::before {
   content: '▶';
@@ -350,7 +264,7 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
 }
 .exec-next-arrow::before {
   content: '▶';
-  color: rgba(39, 120, 193, 0.65);
+  color: rgba(59, 130, 246, 0.55);
   font-size: 12px;
   position: absolute;
   left: 2px;
@@ -362,8 +276,8 @@ defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode }
   padding: 12px;
   font-family: 'Maple Mono', ui-monospace, Consolas, monospace;
   font-size: 13px;
-  background: var(--editor-bg);
-  color: #141414;
+  background: var(--code-bg, #1f2028);
+  color: var(--text-h, #f3f4f6);
   border: none;
   resize: none;
 }

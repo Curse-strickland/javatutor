@@ -1,6 +1,7 @@
 #waifu-toggle {
-	background-color: #fa0;
-	border-radius: 5px;
+	background-color: #12161d;
+	border-radius: 0;
+	clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
 	bottom: 66px;
 	cursor: pointer;
 	display: flex;
@@ -32,7 +33,8 @@
 	position: fixed;
 	transform: translateY(25px);
 	transition: transform .3s ease-in-out, bottom 3s ease-out;
-	z-index: 1;
+	/* 高于主内容/视频，低于底栏 (5000)，避免被盖住又能被底栏点穿 */
+	z-index: 90;
 }
 
 #waifu.waifu-active {
@@ -51,22 +53,33 @@
 
 #waifu-tips {
 	animation: waifu-shake 50s ease-in-out 5s infinite;
-	background-color: rgba(236, 217, 188, .5);
-	border: 1px solid rgba(224, 186, 140, .62);
-	border-radius: 12px;
-	box-shadow: 0 3px 15px 2px rgba(191, 158, 118, .2);
+	background-color: rgba(244, 245, 248, 0.95);
+	border: 1px solid #c9ced8;
+	border-radius: 0;
+	clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+	box-shadow: 0 18px 40px -28px rgba(18, 22, 29, 0.35);
+	color: #12161d;
+	font-family: 'Archivo', 'Noto Sans SC', system-ui, sans-serif;
 	font-size: 14px;
 	line-height: 24px;
-	margin: -30px 20px;
-	min-height: 70px;
-	opacity: 0;
-	overflow: hidden;
-	padding: 5px 10px;
+	/* 锚在看板娘顶部向上展开，避免长文被 canvas 盖住 */
 	position: absolute;
-	text-overflow: ellipsis;
+	left: 12px;
+	right: 12px;
+	top: auto;
+	bottom: 100%;
+	margin: 0 0 10px;
+	width: auto;
+	max-width: 280px;
+	max-height: min(200px, 36vh);
+	min-height: 56px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	padding: 8px 12px;
+	opacity: 0;
+	z-index: 20;
+	word-break: break-word;
 	transition: opacity 1s;
-	width: 250px;
-	word-break: break-all;
 }
 
 #waifu-tips.waifu-tips-active {
@@ -75,7 +88,7 @@
 }
 
 #waifu-tips span {
-	color: #0099cc;
+	color: #0d9ec4;
 }
 
 #live2d {
@@ -83,6 +96,7 @@
 	height: 400px;
 	position: relative;
 	width: 400px;
+	z-index: 1;
 }
 
 #live2d:active {
@@ -114,7 +128,7 @@
 }
 
 #waifu-tool svg:hover {
-	fill: #0684bd; /* #34495e */
+	fill: #0d9ec4;
 }
 
 @keyframes waifu-shake {
@@ -369,3 +383,17 @@
 		box-shadow: 0 0 16px rgba(10, 132, 255, 0.3);
 	}
 }
+
+/* Boot intro 期间压在屏外；结束后才升起（功能/版面不变） */
+body.boot-intro-active #waifu,
+body.boot-intro-active #waifu.waifu-active {
+	bottom: -500px !important;
+	transition: none !important;
+	pointer-events: none !important;
+}
+body.boot-intro-active #waifu-toggle,
+body.boot-intro-active #waifu-badge {
+	visibility: hidden !important;
+	pointer-events: none !important;
+}
+

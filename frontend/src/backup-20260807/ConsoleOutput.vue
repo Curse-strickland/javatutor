@@ -45,18 +45,13 @@ const displayOutput = computed(() => store.testMode ? store.output : store.curre
   align-items: center;
   cursor: pointer;
   user-select: none;
-  font-family: var(--mono);
 }
 .console-dot {
   width: 7px;
   height: 7px;
-  border-radius: 0;
-  background: var(--accent);
-  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
-  animation: console-pulse 2s steps(2) infinite;
-}
-@keyframes console-pulse {
-  50% { opacity: 0.25; }
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.8;
 }
 .console-chevron {
   color: var(--text-muted);
@@ -67,27 +62,20 @@ const displayOutput = computed(() => store.testMode ? store.output : store.curre
 }
 .console-empty {
   margin: 10px 0 0;
-  padding: 10px 14px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.06em;
+  padding: 10px 12px;
+  font-size: 12px;
   color: var(--text-muted);
   text-align: center;
-  background: var(--code-bg);
-  border: 1px solid var(--line, var(--border));
-  border-left: 2px solid var(--accent);
 }
 .console-body {
   margin: 10px 0 0;
-  padding: 10px 14px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  line-height: 1.8;
-  color: var(--fg, var(--text-h));
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
   background: var(--code-bg);
-  border-radius: 0;
-  border: 1px solid var(--line, var(--border));
-  border-left: 2px solid var(--accent);
+  border-radius: 8px;
+  border-left: 2px solid var(--accent-border);
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 220px;

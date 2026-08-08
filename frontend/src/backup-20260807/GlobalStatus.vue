@@ -74,7 +74,7 @@ onBeforeUnmount(() => {
 .loader {
   width: 18px;
   height: 18px;
-  border: 3px solid var(--line-strong);
+  border: 3px solid rgba(255,255,255,0.12);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -89,12 +89,12 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
   z-index: 1100;
   max-width: 92%;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  color: var(--danger);
+  background: rgba(255,59,48,0.06);
+  border: 1px solid rgba(255,59,48,0.16);
+  color: #ff3b30;
   padding: 10px 14px;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(18,22,29,0.12);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   backdrop-filter: blur(6px);
 }
 

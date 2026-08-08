@@ -249,23 +249,17 @@ function relativeTime(timestamp) {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 18px 20px;
-  border: 1px dashed var(--line-strong, var(--border));
-  border-radius: 0;
-  background: #fff;
+  padding: 32px 20px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
   cursor: default;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--muted, var(--text));
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
   transition: border-color 0.25s cubic-bezier(.22,.9,.27,1),
               background 0.25s cubic-bezier(.22,.9,.27,1);
   user-select: none;
 }
 .drop-zone:hover,
 .drop-zone.drop-active {
-  border-color: var(--accent);
+  border-color: var(--primary);
   background: var(--accent-bg);
 }
 
@@ -299,23 +293,19 @@ function relativeTime(timestamp) {
   margin-top: 4px;
 }
 .drop-btn {
-  padding: 6px 12px;
-  border-radius: 0;
-  border: 1px solid var(--line-strong, var(--border));
-  background: transparent;
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
   color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .drop-btn:hover {
   color: var(--text-h);
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   background: var(--accent-bg);
 }
 
@@ -325,30 +315,24 @@ function relativeTime(timestamp) {
   flex-direction: column;
 }
 .pending-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent);
+  font-size: 11px;
+  color: var(--primary);
   margin-bottom: 8px;
 }
 .pending-item {
-  border: 1px solid rgba(13,158,196,0.25);
-  border-radius: 0;
-  background: rgba(13,158,196,0.04);
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  border: 1px solid rgba(45,212,191,0.25);
+  border-radius: 8px;
+  background: rgba(45,212,191,0.04);
 }
 .pending-item:hover {
-  background: rgba(13,158,196,0.08);
+  background: rgba(45,212,191,0.08);
 }
 .pending-badge {
-  font-family: var(--mono);
   font-size: 10px;
-  color: var(--accent);
-  background: rgba(13,158,196,0.12);
+  color: #5eead4;
+  background: rgba(45,212,191,0.12);
   padding: 1px 6px;
-  border-radius: 0;
+  border-radius: 4px;
   width: fit-content;
 }
 
@@ -358,11 +342,7 @@ function relativeTime(timestamp) {
   flex-direction: column;
 }
 .history-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: 11px;
   color: var(--text-muted);
   margin-bottom: 8px;
 }
@@ -376,14 +356,12 @@ function relativeTime(timestamp) {
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-radius: 0;
-  border: 1px solid transparent;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
 .history-item:hover {
-  background: var(--accent-bg);
+  background: rgba(255,255,255,0.04);
 }
 .history-item-left {
   display: flex;
@@ -422,8 +400,8 @@ function relativeTime(timestamp) {
   opacity: 1;
 }
 .history-delete:hover {
-  color: var(--danger);
-  background: var(--accent-bg);
+  color: #e57373;
+  background: rgba(229,115,115,0.1);
 }
 
 .history-empty {
