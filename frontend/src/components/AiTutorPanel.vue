@@ -151,8 +151,8 @@
       </div>
       <div v-else-if="store.svgError" class="ai-error">{{ store.svgError }}</div>
       <div v-else-if="store.svgText" class="animate-container">
-        <!-- SVG 已通过白名单消毒，安全注入 -->
-        <div class="animate-svg" v-html="sanitizeSvg(store.svgText)" />
+        <!-- SVG 已通过白名单消毒，安全注入；ref 用于绑定逐步播放器 -->
+        <div ref="animateSvgRef" class="animate-svg" v-html="sanitizeSvg(store.svgText)" />
       </div>
       <div v-else class="ai-hint">
         点击下方「生成动画」按钮，AI 将基于本次运行数据生成可视化。
@@ -182,6 +182,42 @@ import { usePlayerStore } from '../stores/player'
 const store = usePlayerStore()
 const chatBodyRef = ref(null)
 const chatInput = ref('')
+
+// --- SVG 动画逐步播放控制 ---
+// coze 生成的 SMIL 动画每步间隔 0.6s（begin = step_i * 0.6s）。
+// 渲染后暂停自动播放，改为跟随 store.currentStep：
+//   setCurrentTime(currentStep * STEP_DURATION - 0.1) → 停在「该步交换完成后」的状态
+const ANIM_STEP_DURATION = 0.6
+const animateSvgRef = ref(null)
+
+function syncSvgTime() {
+  const host = animateSvgRef.value
+  const svgEl = host?.querySelector?.('svg')
+  if (!svgEl || typeof svgEl.setCurrentTime !== 'function') return
+  // currentStep 第 0 步=初始状态；第 k 步=第 k 次交换完成后
+  const time = Math.max(0, store.currentStep * ANIM_STEP_DURATION - 0.1)
+  svgEl.setCurrentTime(time)
+}
+
+function pauseSvg() {
+  const host = animateSvgRef.value
+  const svgEl = host?.querySelector?.('svg')
+  if (svgEl && typeof svgEl.pauseAnimations === 'function') {
+    svgEl.pauseAnimations()
+  }
+}
+
+// 新 SVG 注入后：暂停 + 定位到当前步
+watch(() => store.svgText, async () => {
+  await nextTick()
+  pauseSvg()
+  syncSvgTime()
+})
+
+// currentStep 变化 → 同步动画时间轴
+watch(() => store.currentStep, () => {
+  syncSvgTime()
+})
 
 function sendChat() {
   const q = chatInput.value.trim()
