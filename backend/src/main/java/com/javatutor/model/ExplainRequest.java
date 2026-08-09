@@ -1,5 +1,6 @@
 package com.javatutor.model;
 
+import java.util.List;
 import java.util.Map;
 
 public class ExplainRequest {
@@ -9,6 +10,8 @@ public class ExplainRequest {
     private int totalSteps;
     private int currentLine;
     private Map<String, Object> variables;
+    private List<Map<String, Object>> steps;
+    private List<String> algorithmTags;
     private String apiKey;
     private String mode;
     private boolean overview;
@@ -43,6 +46,12 @@ public class ExplainRequest {
 
     public Map<String, Object> getVariables() { return variables; }
     public void setVariables(Map<String, Object> variables) { this.variables = variables; }
+
+    public List<Map<String, Object>> getSteps() { return steps; }
+    public void setSteps(List<Map<String, Object>> steps) { this.steps = steps; }
+
+    public List<String> getAlgorithmTags() { return algorithmTags; }
+    public void setAlgorithmTags(List<String> algorithmTags) { this.algorithmTags = algorithmTags; }
 
     public String getApiKey() { return apiKey; }
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }

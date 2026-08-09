@@ -144,6 +144,33 @@
       <div v-else class="ai-hint">运行代码后自动分析。</div>
     </div>
 
+    <!-- Tab: 动画 -->
+    <div v-if="store.activeAiTab === 'animate'" class="ai-body animate-body">
+      <div v-if="store.isAnimating" class="ai-loading">
+        <span class="ai-loading-dot" />动画生成中…
+      </div>
+      <div v-else-if="store.svgError" class="ai-error">{{ store.svgError }}</div>
+      <div v-else-if="store.svgText" class="animate-container">
+        <!-- SVG 已通过白名单消毒，安全注入 -->
+        <div class="animate-svg" v-html="sanitizeSvg(store.svgText)" />
+      </div>
+      <div v-else class="ai-hint">
+        点击下方「生成动画」按钮，AI 将基于本次运行数据生成可视化。
+      </div>
+      <div class="animate-footer">
+        <button
+          class="animate-gen-btn"
+          :disabled="!store.code || store.totalSteps === 0 || store.isAnimating"
+          @click="store.requestAnimation()"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          {{ store.isAnimating ? '生成中…' : '生成动画' }}
+        </button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -166,7 +193,8 @@ function sendChat() {
 const tabs = [
   { id: 'explain', label: '解说' },
   { id: 'complexity', label: '复杂度' },
-  { id: 'algorithm', label: '算法' }
+  { id: 'algorithm', label: '算法' },
+  { id: 'animate', label: '动画' }
 ]
 
 // Markdown 渲染：用项目已依赖的 marked 解析，自定义 renderer 防 XSS
@@ -192,6 +220,48 @@ function escapeAttr(s) {
 function renderMarkdown(text) {
   if (!text) return ''
   return marked.parse(text)
+}
+
+// --- SVG 白名单消毒 ---
+// coze animate 链返回纯 SVG（rect/circle/line/path/text/animate/title），
+// 白名单元素+属性剔除脚本注入风险，然后交给 v-html 渲染。
+const SVG_ALLOWED_TAGS = new Set([
+  'svg', 'rect', 'circle', 'line', 'path', 'text', 'animate', 'animateTransform', 'title', 'g', 'polygon'
+])
+const SVG_ALLOWED_ATTRS = new Set([
+  'viewbox', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r',
+  'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity',
+  'd', 'points', 'transform', 'font-size', 'font-weight', 'text-anchor',
+  'dominant-baseline', 'id', 'begin', 'dur', 'values', 'repeatcount', 'from', 'to',
+  'attributename', 'fill-mode', 'calcmode', 'keytimes', 'additive', 'accumulate', 'max',
+  'min', 'restart', 'fill-freeze', 'xmlns'
+])
+
+function sanitizeSvg(raw) {
+  if (!raw || typeof raw !== 'string') return ''
+  const wrap = document.createElement('div')
+  wrap.innerHTML = raw
+  walk(wrap)
+  return wrap.innerHTML
+}
+
+function walk(node) {
+  // 遍历元素：删除白名单外的标签、删除白名单外的属性
+  const children = Array.from(node.children || [])
+  for (const el of children) {
+    if (!SVG_ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
+      el.remove()
+      continue
+    }
+    const attrs = Array.from(el.attributes || [])
+    for (const attr of attrs) {
+      const name = attr.name.toLowerCase().replace(/^:|\s+/g, '')
+      if (!SVG_ALLOWED_ATTRS.has(name) || /^on/i.test(name)) {
+        el.removeAttribute(attr.name)
+      }
+    }
+    walk(el)
+  }
 }
 
 // Auto-scroll（聊天消息增长时滚到底部）
@@ -550,4 +620,51 @@ function explainTag(tagName) {
   .ai-loading-dot, .ai-spin { animation: none; }
   .ai-tag, .chat-quick-btn, .chat-send-btn { transition: none; }
 }
+
+/* --- SVG 动画 tab --- */
+.animate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: none;
+  height: auto;
+}
+.animate-container {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+.animate-svg {
+  width: 100%;
+  max-width: 600px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+.animate-svg :deep(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.animate-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.animate-gen-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  border-radius: 0;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
+}
+.animate-gen-btn:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
+.animate-gen-btn:active:not(:disabled) { transform: translateY(1px) scale(0.997); }
+.animate-gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

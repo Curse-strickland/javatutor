@@ -52,6 +52,7 @@
                                String compileError,
                                String sessionId,
                                String intent,
+                               List<String> algorithmTags,
                                Consumer<String> onChunk) throws Exception {
 
          if (!isEnabled()) {
@@ -69,6 +70,9 @@
 
          if (intent != null && !intent.isBlank()) {
              agentPayload.put("intent", intent);
+         }
+         if (algorithmTags != null && !algorithmTags.isEmpty()) {
+             agentPayload.put("algorithm_tags", algorithmTags);
          }
 
          String agentJson = objectMapper.writeValueAsString(agentPayload);
@@ -142,7 +146,22 @@
                                    String intent) throws Exception {
          StringBuilder sb = new StringBuilder();
          streamExplain(sourceCode, null, currentStepIndex, currentLine,
-             userQuestion, null, sessionId, intent, sb::append);
+             userQuestion, null, sessionId, intent, null, sb::append);
+         return sb.toString();
+     }
+
+     /** 阻塞获取完整回答，附带步骤数据（animate 分支依赖 steps 生成 SVG）。 */
+     public String blockingExplainWithSteps(String sourceCode,
+                                            List<Map<String, Object>> steps,
+                                            int currentStepIndex,
+                                            int currentLine,
+                                            String userQuestion,
+                                            String sessionId,
+                                            String intent,
+                                            List<String> algorithmTags) throws Exception {
+         StringBuilder sb = new StringBuilder();
+         streamExplain(sourceCode, steps, currentStepIndex, currentLine,
+             userQuestion, null, sessionId, intent, algorithmTags, sb::append);
          return sb.toString();
      }
  }

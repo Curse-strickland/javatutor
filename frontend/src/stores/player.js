@@ -21,6 +21,10 @@ export const usePlayerStore = defineStore('player', {
     analysisData: null,
     analysisError: null,
     isAnalyzing: false,
+    // SVG 动画状态（coze animate 链）
+    svgText: null,
+    svgError: null,
+    isAnimating: false,
     controlFlowData: null,
     cfViewStack: [],
     activeAiTab: 'explain',
@@ -73,6 +77,8 @@ export const usePlayerStore = defineStore('player', {
       this.explainHistory = {}
       this.analysisData = null
       this.analysisError = null
+      this.svgText = null
+      this.svgError = null
       this.activeAiTab = 'explain'
       if (this.explainAbortController) {
         this.explainAbortController.abort()
@@ -269,6 +275,50 @@ export const usePlayerStore = defineStore('player', {
         this.analysisError = e.message || '分析请求失败'
       } finally {
         this.isAnalyzing = false
+      }
+    },
+
+    /** 生成 SVG 动画 — 显式 intent=animate，服务器侧 Coze 动画链生成 */
+    async requestAnimation() {
+      if (!this.code || this.totalSteps === 0) return
+      this.isAnimating = true
+      this.svgError = null
+      try {
+        // steps 传原始运行快照（coze animate_node 依赖 variables.arr 等）
+        const rawSteps = (this.steps || []).map(s => ({
+          step: s.step,
+          line: s.line,
+          variables: s.variables || {}
+        }))
+        // 从已有分析结果提取算法/数据结构标签名，供 coze 动画分类使用
+        const algorithmTags = [
+          ...(this.analysisData?.algorithms || []).map(a => a.name),
+          ...(this.analysisData?.dataStructures || []).map(d => d.name)
+        ]
+        const res = await fetch('/api/ai/animate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: this.code,
+            step: this.currentStep,
+            totalSteps: this.totalSteps,
+            currentLine: this.currentLine,
+            steps: rawSteps,
+            algorithmTags
+          })
+        })
+        const data = await res.json()
+        if (data.error) {
+          this.svgError = data.error
+          this.svgText = null
+        } else {
+          this.svgText = data.svg || null
+        }
+      } catch (e) {
+        this.svgError = e.message || '动画生成请求失败'
+        this.svgText = null
+      } finally {
+        this.isAnimating = false
       }
     },
 

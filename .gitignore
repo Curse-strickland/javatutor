@@ -47,3 +47,7 @@ backend/src/main/resources/application-local.properties
 *.pptx
 ppt/
 projects/
+AGENTS.md
+.codex/config.toml
+.codex/environments/environment.toml
+docs/coze/项目文档-AI智能体组.md

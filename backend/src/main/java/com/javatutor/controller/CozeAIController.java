@@ -7,6 +7,7 @@
  import org.springframework.web.bind.annotation.*;
  import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+ import java.util.List;
  import java.util.Map;
  import java.util.concurrent.CompletableFuture;
 
@@ -75,6 +76,7 @@
                      request.getCode() != null
                          ? Integer.toHexString(request.getCode().hashCode()) : null,
                      null, // no intent → route_intent handles it
+                     null, // no algorithmTags for chat
                      chunk -> {
                          try { emitter.send(SseEmitter.event().name("chunk").data(chunk)); }
                          catch (Exception e) { throw new RuntimeException(e); }
@@ -134,6 +136,44 @@
          } catch (Exception e) {
              return Map.of("error",
                  e.getMessage() != null ? e.getMessage() : "Coze analysis failed");
+         }
+     }
+
+     /**
+      * SVG 动画 — 确定性入口，intent=animate（显式声明，触发 coze 动画生成链）
+      * 需要 steps 数据，coze animate_node 依赖 variables.arr 等生成动画
+      */
+     @PostMapping("/animate")
+     public Map<String, Object> animate(@RequestBody ExplainRequest request) {
+         String code = request.getCode();
+         if (code == null || code.isBlank()) {
+             return Map.of("error", "Code cannot be empty");
+         }
+         if (!cozeService.isEnabled()) {
+             return Map.of("error", "Coze is disabled");
+         }
+         try {
+             String sessionId = Integer.toHexString(code.hashCode());
+             List<Map<String, Object>> steps = request.getSteps() != null
+                 ? request.getSteps() : List.of();
+             String answer = cozeService.blockingExplainWithSteps(
+                 code, steps, request.getStep(),
+                 request.getCurrentLine(), "", sessionId, "animate",
+                 request.getAlgorithmTags());
+
+             String svg = answer != null ? answer.trim() : "";
+             if (svg.isEmpty()) {
+                 return Map.of("error", "Coze 未返回动画内容");
+             }
+             if (!svg.startsWith("<svg")) {
+                 // coze 偶发把 SVG 包进代码围栏，去掉围栏
+                 svg = svg.replaceAll("(?s)^```[a-zA-Z0-9]*\\s*", "")
+                     .replaceAll("(?s)\\s*```$", "").trim();
+             }
+             return Map.of("svg", svg);
+         } catch (Exception e) {
+             return Map.of("error",
+                 e.getMessage() != null ? e.getMessage() : "Coze animation failed");
          }
      }
 

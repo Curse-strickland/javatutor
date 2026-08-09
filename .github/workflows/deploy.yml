@@ -105,7 +105,7 @@ jobs:
           # ↑ 登录用户名（建议用非 root 用户，如 javatutor）
 
           REMOTE_PORT: ${{ secrets.SSH_PORT }}
-          # ↑ SSH 端口（你改过的非 22 端口，如 2222）
+          # ↑ SSH 端口（22 端口）
 
           # ── rsync 参数 ─────────────────────────────────────
           ARGS: "-avz --delete"
