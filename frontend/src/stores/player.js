@@ -242,20 +242,15 @@ export const usePlayerStore = defineStore('player', {
       await this.askQuestion('请整体解说这段代码的算法思路和数据结构。')
     },
 
-    /** @deprecated 问答已迁到右侧 tab；保留方法以免旧调用报错 */
     toggleExplainPanel() {
-      if (this.rightTab === 'tutor') {
-        this.rightTab = 'variables'
-        this.explainExpanded = false
-      } else {
-        this.rightTab = 'tutor'
-        this.explainExpanded = true
+      this.explainExpanded = !this.explainExpanded
+      if (!this.explainExpanded) {
+        this.explainError = null
+        if (this.explainAbortController) {
+          this.explainAbortController.abort()
+          this.explainAbortController = null
+        }
       }
-    },
-
-    switchRightTab(tab) {
-      this.rightTab = tab
-      this.explainExpanded = tab === 'tutor'
     },
 
     toggleAutoExplain() {
@@ -350,6 +345,10 @@ export const usePlayerStore = defineStore('player', {
     },
 
     // --- File upload actions ---
+
+    switchRightTab(tab) {
+      this.rightTab = tab
+    },
 
     async requestControlFlow() {
       if (!this.code) return
