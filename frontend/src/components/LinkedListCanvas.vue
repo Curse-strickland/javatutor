@@ -121,6 +121,9 @@ const props = defineProps({
 
 const innerRef = ref(null)
 
+const isDoubly = computed(() => props.nodes.some(n => 'prev' in n))
+const effectiveOpts = computed(() => isDoubly.value ? { ...LAYOUT_OPTS, nodeW: 148 } : LAYOUT_OPTS)
+
 const dragOffset = reactive({})
 
 const dragState = reactive({
@@ -168,7 +171,7 @@ function onNodePointerUp(e) {
 const highlightedNodeIdsSet = computed(() => new Set(props.highlightedNodeIds || []))
 const compareNodeIdsSet = computed(() => new Set(props.compareNodeIds || []))
 
-const layout = computed(() => layoutLinkedList(props.nodes, LAYOUT_OPTS))
+const layout = computed(() => layoutLinkedList(props.nodes, effectiveOpts.value))
 
 // ── Transition state ──
 const arrowEntering = reactive({})
@@ -178,7 +181,7 @@ const pointerEntries = computed(() => {
   const entries = []
   const labels = props.pointerLabels || {}
   const { positions } = layout.value
-  const { nodeW } = LAYOUT_OPTS
+  const { nodeW } = effectiveOpts.value
   const labelOffsetY = 28
 
   for (const [nodeId, varNames] of Object.entries(labels)) {
@@ -238,7 +241,7 @@ function positionsFromDOM() {
 }
 
 function decorateArrowPaths(positions) {
-  const paths = buildLinkedListArrowPaths(props.nodes, positions, LAYOUT_OPTS)
+  const paths = buildLinkedListArrowPaths(props.nodes, positions, effectiveOpts.value)
   return paths.map((p) => {
     const entering = !!arrowEntering[p.key]
     const leaving = !!arrowLeaving[p.key]
@@ -261,7 +264,7 @@ const arrowLines = ref([])
 const prevArrowLines = ref([])
 
 function decoratePrevArrowPaths(positions) {
-  const paths = buildPrevArrowPaths(props.nodes, positions, LAYOUT_OPTS)
+  const paths = buildPrevArrowPaths(props.nodes, positions, effectiveOpts.value)
   return paths.map((p) => {
     const len = p.length
     return {
