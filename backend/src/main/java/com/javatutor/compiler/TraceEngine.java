@@ -103,8 +103,8 @@ public class TraceEngine {
                     }
                 }
                 varsCopy.put(e.getKey(), copy);
-                // 同步更新堆对象中的 slots 快照
-                updateHeapSlots(e.getKey(), copy);
+                // 同步更新堆对象中的 slots 快照（带真实数组类型，避免 char[] 被标成 int[]）
+                updateHeapSlots(e.getKey(), copy, v.getClass());
             } else if (isComplexObject(v)) {
                 // 复杂对象：注册到堆，栈里只存引用 ID
                 String id = ensureHeapObject(e.getKey(), v);
@@ -127,7 +127,7 @@ public class TraceEngine {
                     copy.add(elem);
                 }
                 varsCopy.put(e.getKey(), copy);
-                updateHeapSlots(e.getKey(), copy);
+                updateHeapSlots(e.getKey(), copy, v.getClass());
             } else {
                 varsCopy.put(e.getKey(), v);
             }
@@ -275,12 +275,12 @@ public class TraceEngine {
                     } else if (fv.getClass().isArray()) {
                         String arrName = name + "." + f.getName();
                         if (!heapObjects.containsKey(arrName)) {
-                            allocArray(arrName, Array.getLength(fv));
+                            allocArray(arrName, Array.getLength(fv), arrayComponentTypeName(fv.getClass()));
                         }
                         List<Object> arrCopy = new ArrayList<>();
                         int len = Array.getLength(fv);
                         for (int i = 0; i < len; i++) arrCopy.add(Array.get(fv, i));
-                        updateHeapSlots(arrName, arrCopy);
+                        updateHeapSlots(arrName, arrCopy, fv.getClass());
                         String arrId = (String) heapObjects.get(arrName).get("id");
                         LinkedHashMap<String, Object> refEntry = new LinkedHashMap<>();
                         refEntry.put("ref", arrId);
@@ -318,14 +318,22 @@ public class TraceEngine {
         visited.remove(obj);
     }
 
-    // 分配数组到堆，返回伪地址 ID
+    // 分配数组到堆，返回伪地址 ID（默认 int，兼容旧插桩）
     public static String allocArray(String name, int length) {
+        return allocArray(name, length, "int");
+    }
+
+    /**
+     * @param componentType element type name, e.g. "int", "char", "boolean"
+     *                      or a full array type like "char[]" / "int[][]"
+     */
+    public static String allocArray(String name, int length, String componentType) {
         if (disabled) return "0x0000";
         String id = "0x" + Integer.toHexString(
             (Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF
         ).toUpperCase();
         LinkedHashMap<String, Object> obj = new LinkedHashMap<>();
-        obj.put("type", "int[" + length + "]");
+        obj.put("type", formatArrayTypeLabel(componentType, length));
         obj.put("length", length);
         obj.put("id", id);
         obj.put("name", name);
@@ -334,13 +342,72 @@ public class TraceEngine {
         return id;
     }
 
+    /** Build display label: char[5], int[3], int[][] */
+    static String formatArrayTypeLabel(String componentType, int length) {
+        String raw = (componentType == null || componentType.isEmpty()) ? "int" : componentType.trim();
+        if (raw.endsWith("[]")) {
+            int first = raw.indexOf('[');
+            int last = raw.lastIndexOf('[');
+            if (first >= 0 && first == last) {
+                return raw.substring(0, first) + "[" + length + "]";
+            }
+            return raw;
+        }
+        return raw + "[" + length + "]";
+    }
+
+    /** Heap type label from runtime Class: char[5], int[][], ArrayList, … */
+    static String heapTypeLabel(Class<?> clazz, int length) {
+        if (clazz == null) return "Object[" + length + "]";
+        if (!clazz.isArray()) return clazz.getSimpleName();
+        Class<?> c = clazz;
+        int dims = 0;
+        while (c.isArray()) {
+            dims++;
+            c = c.getComponentType();
+        }
+        String base = c.getSimpleName();
+        if (dims == 1) return base + "[" + length + "]";
+        StringBuilder sb = new StringBuilder(base);
+        for (int i = 0; i < dims; i++) sb.append("[]");
+        return sb.toString();
+    }
+
+    /** Component name for allocArray 3rd arg: "char", "int", or "char[][]" for multi-dim */
+    static String arrayComponentTypeName(Class<?> arrayClass) {
+        if (arrayClass == null || !arrayClass.isArray()) return "Object";
+        Class<?> c = arrayClass;
+        int dims = 0;
+        while (c.isArray()) {
+            dims++;
+            c = c.getComponentType();
+        }
+        if (dims == 1) return c.getSimpleName();
+        StringBuilder sb = new StringBuilder(c.getSimpleName());
+        for (int i = 0; i < dims; i++) sb.append("[]");
+        return sb.toString();
+    }
+
     // 更新堆对象的 slots 快照
     private static void updateHeapSlots(String name, List<Object> arrayCopy) {
+        updateHeapSlots(name, arrayCopy, null);
+    }
+
+    private static void updateHeapSlots(String name, List<Object> arrayCopy, Class<?> runtimeClass) {
         if (!heapObjects.containsKey(name)) {
-            // 数组未通过 allocArray 注册（例如 {5,3,8} 字面量），在此自动注册
-            allocArray(name, arrayCopy.size());
+            if (runtimeClass != null && runtimeClass.isArray()) {
+                allocArray(name, arrayCopy.size(), arrayComponentTypeName(runtimeClass));
+            } else if (runtimeClass != null) {
+                allocArray(name, arrayCopy.size(), "Object");
+                heapObjects.get(name).put("type", runtimeClass.getSimpleName());
+            } else {
+                allocArray(name, arrayCopy.size());
+            }
         }
         Map<String, Object> obj = heapObjects.get(name);
+        if (runtimeClass != null) {
+            obj.put("type", heapTypeLabel(runtimeClass, arrayCopy.size()));
+        }
         List<Map<String, Object>> slots = new ArrayList<>();
         for (int i = 0; i < arrayCopy.size(); i++) {
             LinkedHashMap<String, Object> slot = new LinkedHashMap<>();
@@ -349,6 +416,7 @@ public class TraceEngine {
             slots.add(slot);
         }
         obj.put("slots", slots);
+        obj.put("length", arrayCopy.size());
     }
 
     // 深拷贝堆对象表（移除内部 _objRef 避免 Jackson 序列化异常）

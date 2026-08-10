@@ -36,10 +36,20 @@ class InstrumenterTest {
         "    public static String pushFrame(String name, Object... pairs) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); return name; }\n" +
         "    public static String popFrame() { return callStack.isEmpty() ? \"???\" : callStack.remove(callStack.size()-1); }\n" +
         "    public static String allocArray(String name, int length) {\n" +
+        "        return allocArray(name, length, \"int\");\n" +
+        "    }\n" +
+        "    public static String allocArray(String name, int length, String componentType) {\n" +
         "        if (disabled) return \"0x0000\";\n" +
         "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
         "        LinkedHashMap<String,Object> obj = new LinkedHashMap<>();\n" +
-        "        obj.put(\"type\", \"int[\" + length + \"]\");\n" +
+        "        String raw = (componentType == null || componentType.isEmpty()) ? \"int\" : componentType;\n" +
+        "        String type = raw.endsWith(\"[]\") ? raw : raw + \"[\" + length + \"]\";\n" +
+        "        if (!raw.endsWith(\"[]\")) type = raw + \"[\" + length + \"]\";\n" +
+        "        else {\n" +
+        "            int first = raw.indexOf('['); int last = raw.lastIndexOf('[');\n" +
+        "            type = (first == last) ? raw.substring(0, first) + \"[\" + length + \"]\" : raw;\n" +
+        "        }\n" +
+        "        obj.put(\"type\", type);\n" +
         "        obj.put(\"length\", length);\n" +
         "        obj.put(\"id\", id);\n" +
         "        obj.put(\"name\", name);\n" +

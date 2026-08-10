@@ -14,8 +14,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as monaco from 'monaco-editor'
+
+const props = defineProps({
+  readOnly: { type: Boolean, default: false },
+})
 
 const root = ref(null)
 const editorContainer = ref(null)
@@ -132,6 +136,7 @@ onMounted(() => {
           language: 'java',
           theme: 'cursor-light',
           automaticLayout: false,
+          readOnly: props.readOnly,
           fontSize: 16,
           fontFamily: "'Maple Mono', ui-monospace, Consolas, monospace",
           fontLigatures: false,
@@ -166,9 +171,11 @@ onMounted(() => {
         }
 
         // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
-        editor.onDidChangeModelContent(() => {
-          clearHighlights()
-        })
+        if (!props.readOnly) {
+          editor.onDidChangeModelContent(() => {
+            clearHighlights()
+          })
+        }
 
         // 监听容器尺寸变化，重新 layout
         if (window.ResizeObserver) {
@@ -265,6 +272,10 @@ const setCode = (code) => {
   else { fallbackCode.value = code }
   clearHighlights()
 }
+
+watch(() => props.readOnly, (val) => {
+  if (editor) editor.updateOptions({ readOnly: val })
+})
 
 defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode })
 </script>

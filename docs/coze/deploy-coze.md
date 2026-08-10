@@ -22,7 +22,8 @@ CozeService
 | 文件 | 内容 |
 |------|------|
 | `backend/src/main/resources/coze.properties` | url/project-id 明文；`coze.api.token=${COZE_API_TOKEN:}` 占位符，**无明文 token** |
-| `backend/src/main/java/com/javatutor/service/CozeService.java` | `@PropertySource` 加载主配置 + `coze-local.properties`（本地覆盖用，已忽略） |
+| `backend/src/main/resources/application.properties` | `spring.config.import=optional:classpath:coze.properties,optional:classpath:coze-local.properties` |
+| `backend/src/main/java/com/javatutor/service/CozeService.java` | `@Value` 读取上述配置；本地用 gitignore 的 `coze-local.properties` 覆盖 token |
 | `.gitignore` | 忽略 `coze-local.properties`、`application-local.properties`（防本地真实密钥误提交） |
 | `.github/workflows/deploy.yml` | SCRIPT_AFTER 写入 token 到 `/opt/javatutor/config/coze.env` |
 

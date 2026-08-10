@@ -1,10 +1,10 @@
 <template>
-  <div class="ai-tutor-panel">
+  <div class="ai-tutor-panel" :class="{ embedded }">
     <!-- Header -->
     <div class="ai-header">
       <div class="flex items-center gap-2">
         <span class="ai-dot" />
-        <span class="text-sm font-semibold" style="color: var(--text-h)">AI 解说</span>
+        <span class="text-sm font-semibold" style="color: var(--text-h)">智能体问答</span>
         <span class="ai-step-badge">{{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
       </div>
       <div class="flex items-center gap-3">
@@ -12,7 +12,12 @@
           <input type="checkbox" :checked="store.autoExplain" @change="store.toggleAutoExplain()" />
           <span class="auto-label">自动</span>
         </label>
-        <button class="ai-close" @click="store.toggleExplainPanel()" title="收起面板">
+        <button
+          v-if="!embedded"
+          class="ai-close"
+          @click="store.toggleExplainPanel()"
+          title="收起面板"
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -32,7 +37,7 @@
     </div>
 
     <!-- Tab: 解说（自由问答） -->
-    <template v-if="store.activeAiTab === 'explain'">
+    <div v-if="store.activeAiTab === 'explain'" class="chat-pane">
       <div class="chat-body" ref="chatBodyRef">
         <div v-if="!store.chatMessages.length && !store.isExplaining" class="ai-hint">
           运行代码后，输入问题，AI 将结合当前步骤回答。
@@ -85,7 +90,7 @@
           </button>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- Tab: 复杂度分析 -->
     <div v-if="store.activeAiTab === 'complexity'" class="ai-body">
@@ -148,13 +153,32 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { marked } from 'marked'
 import { usePlayerStore } from '../stores/player'
+
+defineProps({
+  /** 嵌在右侧 INSPECT 分页时铺满高度，并隐藏关闭按钮 */
+  embedded: { type: Boolean, default: false },
+})
 
 const store = usePlayerStore()
 const chatBodyRef = ref(null)
 const chatInput = ref('')
+let chatResizeObserver = null
+
+onMounted(() => {
+  if (store.activeAiTab === 'animate') store.activeAiTab = 'explain'
+  // Streamed markdown may grow without a new array entry — keep pinned to bottom
+  if (typeof ResizeObserver !== 'undefined') {
+    chatResizeObserver = new ResizeObserver(() => scrollChatToBottom())
+  }
+})
+
+onBeforeUnmount(() => {
+  chatResizeObserver?.disconnect()
+  chatResizeObserver = null
+})
 
 function sendChat() {
   const q = chatInput.value.trim()
@@ -163,10 +187,23 @@ function sendChat() {
   store.askQuestion(q)
 }
 
+function scrollChatToBottom() {
+  const el = chatBodyRef.value
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+}
+
+async function pinChatToBottom() {
+  await nextTick()
+  scrollChatToBottom()
+  // second frame: markdown layout / images may still settle
+  requestAnimationFrame(() => scrollChatToBottom())
+}
+
 const tabs = [
   { id: 'explain', label: '解说' },
   { id: 'complexity', label: '复杂度' },
-  { id: 'algorithm', label: '算法' }
+  { id: 'algorithm', label: '算法' },
 ]
 
 // Markdown 渲染：用项目已依赖的 marked 解析，自定义 renderer 防 XSS
@@ -194,13 +231,26 @@ function renderMarkdown(text) {
   return marked.parse(text)
 }
 
-// Auto-scroll（聊天消息增长时滚到底部）
-watch(() => store.chatMessages, async () => {
-  await nextTick()
-  if (chatBodyRef.value) {
-    chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
-  }
-}, { deep: true })
+// Auto-scroll：跟随流式解说贴底；观察消息内容高度变化
+watch(
+  () => store.chatMessages.map((m) => `${m.role}:${m.text?.length ?? 0}`).join('|'),
+  async () => {
+    await pinChatToBottom()
+    const el = chatBodyRef.value
+    if (el && chatResizeObserver) {
+      chatResizeObserver.disconnect()
+      for (const child of el.children) chatResizeObserver.observe(child)
+    }
+  },
+)
+
+watch(() => store.isExplaining, (busy) => {
+  if (busy) pinChatToBottom()
+})
+
+watch(() => store.activeAiTab, (tab) => {
+  if (tab === 'explain') pinChatToBottom()
+})
 
 // Tag color mapping
 const TAG_COLORS = {
@@ -237,6 +287,37 @@ function explainTag(tagName) {
 .ai-tutor-panel {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+.ai-tutor-panel.embedded {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.chat-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.ai-tutor-panel.embedded .chat-pane,
+.ai-tutor-panel.embedded .ai-body {
+  flex: 1;
+  min-height: 0;
+}
+.ai-tutor-panel.embedded .chat-body,
+.ai-tutor-panel.embedded .ai-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-bottom: 0;
+}
+
+/* Header / tabs stay put */
+.ai-header,
+.ai-tabs {
+  flex-shrink: 0;
 }
 
 /* Header */
@@ -396,6 +477,7 @@ function explainTag(tagName) {
 .chat-body {
   min-height: 48px;
   max-height: 180px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 8px 10px;
   margin-bottom: 8px;
@@ -405,6 +487,7 @@ function explainTag(tagName) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  scroll-behavior: auto;
 }
 .chat-msg {
   display: flex;
@@ -485,8 +568,12 @@ function explainTag(tagName) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 6px;
+  padding-top: 8px;
+  /* 抬高发送区，避开右下角版权声明，不影响其它 Tab / 主页面 */
+  padding-bottom: 72px;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--card-bg, var(--bg));
 }
 .chat-quick {
   display: flex;
@@ -550,4 +637,5 @@ function explainTag(tagName) {
   .ai-loading-dot, .ai-spin { animation: none; }
   .ai-tag, .chat-quick-btn, .chat-send-btn { transition: none; }
 }
+
 </style>

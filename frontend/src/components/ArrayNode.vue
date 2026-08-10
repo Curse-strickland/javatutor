@@ -1,39 +1,76 @@
 <template>
-  <div class="an-node" :style="{ minWidth: (data.width || 200) + 'px' }">
-    <div class="an-head">
-      <span class="an-type">{{ data.objType }}</span>
-      <span class="an-name">{{ data.objName }}</span>
-    </div>
-    <div class="an-cells">
-      <div v-for="slot in data.slots" :key="'s'+slot.index" class="an-cell">
-        <span class="an-idx">[{{ slot.index }}]</span>
-        <span class="an-val">{{ slot.value }}</span>
-      </div>
-    </div>
+  <div
+    class="array-node"
+    :class="{ highlighted: isHighlighted, first: isFirst, last: isLast }"
+    :style="highlightStyle"
+  >
+    <div class="array-node-val">{{ value == null ? '∅' : value }}</div>
+    <div class="array-node-idx">{{ index }}</div>
   </div>
 </template>
 
 <script setup>
-defineProps({ data: { type: Object, required: true } })
+import { computed } from 'vue'
+import { colorForRole, primaryRoleFromLabels } from '../utils/pointerRoleColors.js'
+
+const props = defineProps({
+  value: { type: [Number, String, Object, Boolean], default: null },
+  index: { type: Number, required: true },
+  isHighlighted: { type: Boolean, default: false },
+  isFirst: { type: Boolean, default: false },
+  isLast: { type: Boolean, default: false },
+  pointerLabels: { type: Array, default: () => [] },
+  /** Explicit role override: mid | next | prev | insert */
+  role: { type: String, default: null },
+})
+
+const resolvedRole = computed(() => {
+  if (props.role) return props.role
+  return primaryRoleFromLabels(props.pointerLabels)
+})
+
+const highlightStyle = computed(() => {
+  if (!props.isHighlighted) return {}
+  const color = colorForRole(resolvedRole.value) || colorForRole('mid')
+  return {
+    background: `${color}26`,
+    borderColor: color,
+    zIndex: 1,
+    position: 'relative',
+  }
+})
 </script>
 
 <style scoped>
-.an-node {
-  background: #2a2a32; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px; padding: 10px 14px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px; color: #c8c8d0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3); box-sizing: border-box;
+.array-node {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 48px;
+  min-width: 48px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  margin-left: -1px;
+  background: var(--card-bg);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-h);
+  transition: background 0.15s, border-color 0.15s;
 }
-.an-head { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; gap: 6px; align-items: center; }
-.an-type { font-size: 13px; color: #60a5fa; font-weight: 600; }
-.an-name { font-size: 12px; color: #787880; }
-.an-cells { display: flex; flex-wrap: wrap; gap: 4px; }
-.an-cell {
-  display: flex; align-items: center; gap: 3px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 5px; padding: 4px 8px;
+.array-node.first {
+  margin-left: 0;
 }
-.an-idx { color: #787880; font-size: 11px; }
-.an-val { color: #e0e0e8; font-weight: 500; }
+.array-node-val {
+  padding: 8px 10px;
+  min-width: 44px;
+  text-align: center;
+  flex: 1;
+}
+.array-node-idx {
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
 </style>

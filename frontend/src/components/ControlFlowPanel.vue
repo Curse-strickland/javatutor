@@ -62,6 +62,11 @@ import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../stores/player'
 import mermaid from 'mermaid'
 
+const props = defineProps({
+  /** 仅当前可见 Tab 内的实例应渲染，避免双实例并发 mermaid.render 叠图 */
+  active: { type: Boolean, default: true },
+})
+
 const store = usePlayerStore()
 const { controlFlowData } = storeToRefs(store)
 const mermaidRef = ref(null)
@@ -196,14 +201,24 @@ function applyHighlight(container, methodName) {
 }
 
 async function render() {
+  if (!props.active) return
   const methodName = currentMethod.value
   const text = toMermaid(methodName)
   if (!text) { svgContent.value = ''; return }
+  const seq = ++renderId
   try {
-    const id = 'cf-' + methodName.replace(/[^a-zA-Z0-9]/g, '') + '-' + (renderId++)
+    const id = 'cf-' + methodName.replace(/[^a-zA-Z0-9]/g, '') + '-' + seq
     const { svg } = await mermaid.render(id, text)
+    // 丢弃过期/非激活实例的结果，防止叠图
+    if (seq !== renderId || !props.active) return
     svgContent.value = svg
+    // 清理 mermaid 可能残留在 body 的临时节点
+    document.getElementById('d' + id)?.remove()
+    document.querySelectorAll('[id^="dcf-"]').forEach((el) => {
+      if (el.id.startsWith('dcf-') && !el.closest?.('.cf-mermaid')) el.remove()
+    })
     await nextTick()
+    if (!props.active || seq !== renderId) return
     // Bind click events for drill-down
     if (mermaidRef.value) {
       const callNodes = (methods.value[methodName]?.nodes || []).filter(n => n.target)
@@ -223,10 +238,12 @@ async function render() {
     }
     // Apply line-based highlight after render
     await nextTick()
-    if (mermaidRef.value) {
+    if (mermaidRef.value && props.active && seq === renderId) {
       applyHighlight(mermaidRef.value, methodName)
     }
-  } catch (e) { svgContent.value = '' }
+  } catch (e) {
+    if (seq === renderId) svgContent.value = ''
+  }
 }
 
 function drillDown(methodName) {
@@ -334,6 +351,7 @@ onUnmounted(() => {
 // Track current line from steps
 watch(() => store.currentStep, () => {
   currentLine.value = store.currentLine
+  if (!props.active) return
   if (mermaidRef.value && controlFlowData.value) {
     applyHighlight(mermaidRef.value, currentMethod.value)
   }
@@ -347,16 +365,17 @@ watch(controlFlowData, (data) => {
   if (data && !store.cfViewStack.length) {
     store.cfViewStack = [data.default || 'main']
   }
-  // 仅在流程页可见时渲染：mermaid.render 会临时插入 DOM，变量页点运行也会整页抖
-  if (data && store.rightTab === 'flow') render()
+  // 仅当前激活实例渲染，避免流程/算法双挂载并发叠图
+  if (data && props.active) render()
 }, { immediate: true })
 
 watch(() => store.cfViewStack, () => {
-  if (store.rightTab === 'flow') render()
+  if (props.active) render()
 }, { deep: true })
 
-watch(() => store.rightTab, (tab) => {
-  if (tab === 'flow' && controlFlowData.value) render()
+watch(() => props.active, (active) => {
+  if (active && controlFlowData.value) render()
+  else if (!active) svgContent.value = ''
 })
 </script>
 

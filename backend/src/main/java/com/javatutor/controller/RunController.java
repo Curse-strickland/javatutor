@@ -115,10 +115,13 @@ public class RunController {
         "        return null;\n" +
         "    }\n" +
         "    public static String allocArray(String name, int length) {\n" +
+        "        return allocArray(name, length, \"int\");\n" +
+        "    }\n" +
+        "    public static String allocArray(String name, int length, String componentType) {\n" +
         "        if (disabled) return \"0x0000\";\n" +
         "        String id = \"0x\" + Integer.toHexString((Math.abs(name.hashCode()) + heapObjects.size() + 1) & 0xFFFF).toUpperCase();\n" +
         "        LinkedHashMap<String,Object> obj = new LinkedHashMap<>();\n" +
-        "        obj.put(\"type\", \"int[\" + length + \"]\");\n" +
+        "        obj.put(\"type\", formatArrayTypeLabel(componentType, length));\n" +
         "        obj.put(\"length\", length);\n" +
         "        obj.put(\"id\", id);\n" +
         "        obj.put(\"name\", name);\n" +
@@ -126,6 +129,36 @@ public class RunController {
         "        obj.put(\"category\", \"array\");\n" +
         "        heapObjects.put(name, obj);\n" +
         "        return id;\n" +
+        "    }\n" +
+        "    private static String formatArrayTypeLabel(String componentType, int length) {\n" +
+        "        String raw = (componentType == null || componentType.isEmpty()) ? \"int\" : componentType.trim();\n" +
+        "        if (raw.endsWith(\"[]\")) {\n" +
+        "            int first = raw.indexOf('[');\n" +
+        "            int last = raw.lastIndexOf('[');\n" +
+        "            if (first >= 0 && first == last) return raw.substring(0, first) + \"[\" + length + \"]\";\n" +
+        "            return raw;\n" +
+        "        }\n" +
+        "        return raw + \"[\" + length + \"]\";\n" +
+        "    }\n" +
+        "    private static String heapTypeLabel(Class<?> clazz, int length) {\n" +
+        "        if (clazz == null) return \"Object[\" + length + \"]\";\n" +
+        "        if (!clazz.isArray()) return clazz.getSimpleName();\n" +
+        "        Class<?> c = clazz; int dims = 0;\n" +
+        "        while (c.isArray()) { dims++; c = c.getComponentType(); }\n" +
+        "        String base = c.getSimpleName();\n" +
+        "        if (dims == 1) return base + \"[\" + length + \"]\";\n" +
+        "        StringBuilder sb = new StringBuilder(base);\n" +
+        "        for (int i = 0; i < dims; i++) sb.append(\"[]\");\n" +
+        "        return sb.toString();\n" +
+        "    }\n" +
+        "    private static String arrayComponentTypeName(Class<?> arrayClass) {\n" +
+        "        if (arrayClass == null || !arrayClass.isArray()) return \"Object\";\n" +
+        "        Class<?> c = arrayClass; int dims = 0;\n" +
+        "        while (c.isArray()) { dims++; c = c.getComponentType(); }\n" +
+        "        if (dims == 1) return c.getSimpleName();\n" +
+        "        StringBuilder sb = new StringBuilder(c.getSimpleName());\n" +
+        "        for (int i = 0; i < dims; i++) sb.append(\"[]\");\n" +
+        "        return sb.toString();\n" +
         "    }\n" +
         "    public static String allocObject(String name, Object obj) {\n" +
         "        if (disabled) return \"0x0000\";\n" +
@@ -163,8 +196,21 @@ public class RunController {
         "        allocObject(name, obj);\n" +
         "    }\n" +
         "    private static void updateHeapSlots(String name, List<Object> arrayCopy) {\n" +
-        "        if (!heapObjects.containsKey(name)) { allocArray(name, arrayCopy.size()); }\n" +
+        "        updateHeapSlots(name, arrayCopy, null);\n" +
+        "    }\n" +
+        "    private static void updateHeapSlots(String name, List<Object> arrayCopy, Class<?> runtimeClass) {\n" +
+        "        if (!heapObjects.containsKey(name)) {\n" +
+        "            if (runtimeClass != null && runtimeClass.isArray()) {\n" +
+        "                allocArray(name, arrayCopy.size(), arrayComponentTypeName(runtimeClass));\n" +
+        "            } else if (runtimeClass != null) {\n" +
+        "                allocArray(name, arrayCopy.size(), \"Object\");\n" +
+        "                heapObjects.get(name).put(\"type\", runtimeClass.getSimpleName());\n" +
+        "            } else {\n" +
+        "                allocArray(name, arrayCopy.size());\n" +
+        "            }\n" +
+        "        }\n" +
         "        Map<String,Object> obj = heapObjects.get(name);\n" +
+        "        if (runtimeClass != null) obj.put(\"type\", heapTypeLabel(runtimeClass, arrayCopy.size()));\n" +
         "        List<Map<String,Object>> slots = new ArrayList<>();\n" +
         "        for (int i = 0; i < arrayCopy.size(); i++) {\n" +
         "            LinkedHashMap<String,Object> slot = new LinkedHashMap<>();\n" +
@@ -173,6 +219,7 @@ public class RunController {
         "            slots.add(slot);\n" +
         "        }\n" +
         "        obj.put(\"slots\", slots);\n" +
+        "        obj.put(\"length\", arrayCopy.size());\n" +
         "    }\n" +
         "    private static void updateHeapFields(String name, Object obj) {\n" +
         "        updateHeapFields(name, obj, new java.util.HashSet<>());\n" +
@@ -194,10 +241,10 @@ public class RunController {
         "                    if (fv == null) { fields.put(f.getName(), null); }\n" +
         "                    else if (fv.getClass().isArray()) {\n" +
         "                        String arrName = name + \".\" + f.getName();\n" +
-        "                        if (!heapObjects.containsKey(arrName)) allocArray(arrName, Array.getLength(fv));\n" +
+        "                        if (!heapObjects.containsKey(arrName)) allocArray(arrName, Array.getLength(fv), arrayComponentTypeName(fv.getClass()));\n" +
         "                        List<Object> arrCopy = new ArrayList<>();\n" +
         "                        for (int i = 0; i < Array.getLength(fv); i++) arrCopy.add(Array.get(fv, i));\n" +
-        "                        updateHeapSlots(arrName, arrCopy);\n" +
+        "                        updateHeapSlots(arrName, arrCopy, fv.getClass());\n" +
         "                        LinkedHashMap<String,Object> ref = new LinkedHashMap<>();\n" +
         "                        ref.put(\"ref\", heapObjects.get(arrName).get(\"id\"));\n" +
         "                        fields.put(f.getName(), ref);\n" +
@@ -265,7 +312,7 @@ public class RunController {
         "                        } else { copy.add(elem); }\n" +
         "                    }\n" +
         "                    varsCopy.put(e.getKey(), copy);\n" +
-        "                    updateHeapSlots(e.getKey(), copy);\n" +
+        "                    updateHeapSlots(e.getKey(), copy, v.getClass());\n" +
         "                }\n" +
         "            } else if (isComplexObject(v)) {\n" +
         "                String id = ensureHeapObject(e.getKey(), v);\n" +
@@ -288,7 +335,7 @@ public class RunController {
         "                for (Object elem : coll) { if (count >= displaySize) break; copy.add(elem); count++; }\n" +
         "                if (size > 200) copy.add(\"...(共\" + size + \"个元素)\");\n" +
         "                varsCopy.put(e.getKey(), copy);\n" +
-        "                updateHeapSlots(e.getKey(), copy);\n" +
+        "                updateHeapSlots(e.getKey(), copy, v.getClass());\n" +
         "            } else if (v instanceof java.util.Map<?,?>) {\n" +
         "                java.util.Map<?,?> map = (java.util.Map<?,?>) v;\n" +
         "                int size = map.size();\n" +
