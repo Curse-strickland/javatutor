@@ -118,16 +118,6 @@
             :class="{ active: store.rightTab === 'files' }"
             @click="store.switchRightTab('files')"
           >经典</button>
-          <button
-            class="right-tab"
-            :class="{ active: store.rightTab === 'tutor' }"
-            @click="store.switchRightTab('tutor')"
-          >问答</button>
-          <button
-            class="right-tab"
-            :class="{ active: store.rightTab === 'animate' }"
-            @click="store.switchRightTab('animate')"
-          >动画</button>
           <!-- 壁纸选择器 -->
           <WallpaperSelector />
         </div>
@@ -143,12 +133,6 @@
           <div v-show="store.rightTab === 'files'" class="right-pane">
             <ClassicCodePanel @loadCode="onClassicLoad" />
           </div>
-          <div v-show="store.rightTab === 'tutor'" class="right-pane right-pane-fill">
-            <AiTutorPanel embedded />
-          </div>
-          <div v-show="store.rightTab === 'animate'" class="right-pane right-pane-fill">
-            <SvgAnimatePanel />
-          </div>
         </div>
       </div>
 
@@ -158,9 +142,17 @@
     <div
       ref="controlBarRef"
       class="control-bar"
+      :class="{ 'has-panel': store.explainExpanded }"
       :style="{ left: barPos.x + 'px', top: barPos.y + 'px' }"
       @pointerdown.stop
     >
+      <!-- AI Tutor 面板 — 从控制栏上方滑出 -->
+      <transition name="panel-slide">
+        <div v-if="store.explainExpanded" class="ai-panel-wrapper">
+          <AiTutorPanel />
+        </div>
+      </transition>
+
       <!-- 控件行：拖动句柄 + 播放按钮 + 进度条 + 右侧按钮组 -->
       <div class="control-bar-top">
         <!-- 拖动手柄 -->
@@ -253,10 +245,10 @@
           <!-- AI 解说切换按钮 -->
           <button
             class="ctrl-btn ai-toggle-btn"
-            :class="{ active: store.rightTab === 'tutor', pulsing: store.isExplaining }"
-            @click="openTutorTab"
-            title="智能体问答"
-            aria-label="智能体问答"
+            :class="{ active: store.explainExpanded, pulsing: store.isExplaining }"
+            @click="toggleAiPanel"
+            title="AI 解说"
+            aria-label="AI 解说"
           >
             <!-- 对话气泡 + AI 星芒：概括「智能解说」 -->
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -299,7 +291,6 @@ import AiTutorPanel from './components/AiTutorPanel.vue'
 import FileUploadPanel from './components/FileUploadPanel.vue'
 import ClassicCodePanel from './components/ClassicCodePanel.vue'
 import ControlFlowPanel from './components/ControlFlowPanel.vue'
-import SvgAnimatePanel from './components/SvgAnimatePanel.vue'
 import WallpaperSelector from './components/WallpaperSelector.vue'
 import VideoBackground from './components/VideoBackground.vue'
 import AudioBackground from './components/AudioBackground.vue'
@@ -610,15 +601,16 @@ watch(() => store.currentStep, async (step) => {
   }
 })
 
-// --- AI 问答：底栏按钮切到右侧「问答」分页 ---
-function openTutorTab() {
-  store.switchRightTab('tutor')
+// --- AI 解说 ---
+
+function toggleAiPanel() {
+  store.toggleExplainPanel()
 }
 
-// 步骤切换：自动模式且正在看问答页时请求解说
+// 步骤切换：自动模式请求解说当前步骤（自由问答聊天）
 watch(() => store.currentStep, (newVal, oldVal) => {
   if (newVal === oldVal) return
-  if (store.autoExplain && store.rightTab === 'tutor') {
+  if (store.autoExplain && store.explainExpanded) {
     store.requestExplain()
   }
 })
@@ -1010,12 +1002,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 .right-pane {
   min-width: 0;
-}
-.right-pane-fill {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
 
 /* Right card tabs — matches AiTutorPanel tab style */
