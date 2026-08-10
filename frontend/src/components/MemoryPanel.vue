@@ -183,6 +183,7 @@ import { computed, ref, reactive, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
+
 const isOpen = ref(true)
 
 // Section & frame collapse state
