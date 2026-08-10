@@ -40,6 +40,14 @@ export const usePlayerStore = defineStore('player', {
       try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
       catch { return [] }
     })(),
+    // Mode state — 'single' | 'multi'
+    mode: 'single',
+    singleState: null,      // null = not saved yet; object = snapshot
+    multiState: {
+      files: [],             // [{name, code, lang}]
+      currentFileIndex: 0,
+      umlCache: {},          // {kind: {svg, ts, source}}
+    },
   }),
   getters: {
     currentVariables: (state) => {
@@ -234,15 +242,20 @@ export const usePlayerStore = defineStore('player', {
       await this.askQuestion('请整体解说这段代码的算法思路和数据结构。')
     },
 
+    /** @deprecated 问答已迁到右侧 tab；保留方法以免旧调用报错 */
     toggleExplainPanel() {
-      this.explainExpanded = !this.explainExpanded
-      if (!this.explainExpanded) {
-        this.explainError = null
-        if (this.explainAbortController) {
-          this.explainAbortController.abort()
-          this.explainAbortController = null
-        }
+      if (this.rightTab === 'tutor') {
+        this.rightTab = 'variables'
+        this.explainExpanded = false
+      } else {
+        this.rightTab = 'tutor'
+        this.explainExpanded = true
       }
+    },
+
+    switchRightTab(tab) {
+      this.rightTab = tab
+      this.explainExpanded = tab === 'tutor'
     },
 
     toggleAutoExplain() {
@@ -338,10 +351,6 @@ export const usePlayerStore = defineStore('player', {
 
     // --- File upload actions ---
 
-    switchRightTab(tab) {
-      this.rightTab = tab
-    },
-
     async requestControlFlow() {
       if (!this.code) return
       try {
@@ -367,6 +376,59 @@ export const usePlayerStore = defineStore('player', {
     removeUploadRecord(name) {
       this.uploadHistory = this.uploadHistory.filter(r => r.name !== name)
       localStorage.setItem('javatutor-uploads', JSON.stringify(this.uploadHistory))
-    }
+    },
+
+    // --- Mode switching ---
+
+    persistMode() {
+      try { localStorage.setItem('jt-mode', this.mode) } catch {}
+    },
+
+    restoreMode() {
+      try {
+        const m = localStorage.getItem('jt-mode')
+        if (m === 'multi' || m === 'single') this.mode = m
+      } catch {}
+    },
+
+    captureSingleSnapshot() {
+      return {
+        steps: this.steps,
+        currentStep: this.currentStep,
+        code: this.code,
+        chatMessages: this.chatMessages,
+        svgText: this.svgText,
+        controlFlowData: this.controlFlowData,
+        uploadHistory: this.uploadHistory,
+      }
+    },
+
+    restoreSingleSnapshot(snap) {
+      if (!snap) return
+      this.steps = snap.steps || []
+      this.currentStep = snap.currentStep || 0
+      this.code = snap.code || ''
+      this.chatMessages = snap.chatMessages || []
+      this.svgText = snap.svgText || null
+      this.controlFlowData = snap.controlFlowData || null
+      this.uploadHistory = snap.uploadHistory || []
+    },
+
+    switchMode(mode) {
+      if (mode !== 'single' && mode !== 'multi') return
+      if (mode === this.mode) return
+      // Capture current mode snapshot
+      if (this.mode === 'single') {
+        this.singleState = this.captureSingleSnapshot()
+      }
+      // Switch
+      this.mode = mode
+      // Restore target mode snapshot (if any)
+      if (mode === 'single' && this.singleState) {
+        this.restoreSingleSnapshot(this.singleState)
+      }
+      // multiState uses existing defaults; first switch to multi does not force empty snapshot
+      this.persistMode()
+    },
   }
 })
