@@ -85,9 +85,6 @@
         <div v-show="store.rightTab === 'flow'" class="right-pane">
           <ControlFlowPanel />
         </div>
-        <div v-show="store.rightTab === 'files'" class="right-pane">
-          <ClassicCodePanel @loadCode="onClassicLoad" />
-        </div>
         <div v-show="store.rightTab === 'datastructure'" class="right-pane">
           <DataStructureTab />
         </div>
@@ -244,7 +241,6 @@ import MemoryPanel from './MemoryPanel.vue'
 import ConsoleOutput from './ConsoleOutput.vue'
 import AiTutorPanel from './AiTutorPanel.vue'
 import FileUploadPanel from './FileUploadPanel.vue'
-import ClassicCodePanel from './ClassicCodePanel.vue'
 import ControlFlowPanel from './ControlFlowPanel.vue'
 import WallpaperSelector from './WallpaperSelector.vue'
 import TestCasePanel from './TestCasePanel.vue'
@@ -409,11 +405,6 @@ const onFileLoad = ({ name, code }) => {
   store.addUploadRecord(name, code)
 }
 
-const onClassicLoad = ({ name, code }) => {
-  editorRef.value?.setCode(code)
-  store.addUploadRecord(name, code)
-}
-
 const startDrag = (e) => {
   if (isAutoPlaying.value) stopAutoPlay()
   document.body.style.userSelect = 'none'
@@ -474,6 +465,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopAutoPlay()
   window.removeEventListener('resize', onWindowResize)
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
