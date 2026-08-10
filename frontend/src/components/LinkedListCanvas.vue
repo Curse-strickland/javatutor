@@ -1,29 +1,48 @@
 <template>
-  <div class="ll-canvas" ref="canvasRef">
+  <div class="ll-canvas">
     <div v-if="nodes.length === 0" class="ll-empty">链表为空</div>
-    <div v-else class="ll-inner" ref="innerRef">
+    <div
+      v-else
+      class="ll-inner"
+      :class="{ 'll-dragging': dragState.nodeId }"
+      ref="innerRef"
+      :style="{ width: layout.width + 'px', height: layout.height + 'px' }"
+    >
       <svg
         class="ll-svg-overlay"
-        ref="svgRef"
-        :style="{ width: contentW + 'px', height: contentH + 'px' }"
+        :style="{ width: layout.width + 'px', height: layout.height + 'px' }"
       >
-        <line
-          v-for="a in arrows"
+        <path
+          v-for="a in arrowLines"
           :key="a.key"
-          :x1="a.x1" :y1="a.y1" :x2="a.x2" :y2="a.y2"
+          :d="a.d"
+          fill="none"
           stroke="var(--primary)"
           stroke-width="2"
+          stroke-linecap="round"
+          :style="a.style"
+        />
+        <path
+          v-for="a in prevArrowLines"
+          :key="a.key"
+          :d="a.d"
+          fill="none"
+          stroke="var(--primary)"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-dasharray="4 3"
+          opacity="0.5"
           :style="a.style"
         />
       </svg>
 
       <!-- Variable pointer labels above nodes -->
-      <TransitionGroup name="pointer" tag="div">
+      <TransitionGroup name="pointer" tag="div" class="ll-pointers">
         <div
           v-for="entry in pointerEntries"
           :key="entry.varName"
           class="ll-pointer-label"
-          :style="{ left: entry.x + 'px' }"
+          :style="pointerLabelStyle(entry)"
         >
           <div class="ll-pointer-inner">
             <span class="ll-pointer-text">{{ entry.varName }}</span>
@@ -34,61 +53,122 @@
         </div>
       </TransitionGroup>
 
-      <div
-        class="ll-nodes-row"
-        ref="nodesRowRef"
-        :style="{ paddingTop: (hasPointerLabels ? pointerPadTop : 0) + 'px' }"
-      >
-        <TransitionGroup name="node" tag="div" class="ll-nodes-inner">
-          <div
-            v-for="node in nodes"
-            :key="node.id"
-            class="ll-node"
-            :data-node-id="node.id"
-            :class="{
-              highlighted: highlightedNodeIdsSet.has(node.id),
-              compare: compareNodeIdsSet.has(node.id),
-              cycle: node._cycle,
-            }"
-          >
-            <div class="ll-cell ll-cell-val">
-              <span class="ll-val-text">{{ formatValue(node.val) }}</span>
-            </div>
-            <div class="ll-cell-sep"></div>
-            <div class="ll-cell ll-cell-next">
-              <div class="ll-dot" :data-dot-id="node.id"></div>
-              <span v-if="!node.next" class="ll-null-mark">⏚</span>
-              <span v-if="node._cycle && node.next" class="ll-cycle-mark">⟳</span>
-            </div>
+      <TransitionGroup name="node" tag="div" class="ll-nodes-layer">
+        <div
+          v-for="node in nodes"
+          :key="node.id"
+          class="ll-node"
+          :data-node-id="node.id"
+          :class="{
+            highlighted: highlightedNodeIdsSet.has(node.id),
+            compare: compareNodeIdsSet.has(node.id),
+            cycle: node._cycle,
+            detached: node._detached,
+            dragging: dragState.nodeId === node.id,
+            'll-doubly': 'prev' in node,
+          }"
+          :style="nodeTransformStyle(node.id)"
+          @pointerdown="onNodePointerDown($event, node.id)"
+          @pointermove="onNodePointerMove"
+          @pointerup="onNodePointerUp"
+          @pointercancel="onNodePointerUp"
+        >
+          <div v-if="'prev' in node" class="ll-cell ll-cell-prev">
+            <div class="ll-dot ll-dot-prev" :data-dot-id="node.id + '-prev'"></div>
+            <span v-if="!node.prev && node.prev !== undefined" class="ll-null-mark">⏚</span>
           </div>
-        </TransitionGroup>
-      </div>
+          <div v-if="'prev' in node" class="ll-cell-sep ll-cell-sep-left"></div>
+          <div class="ll-cell ll-cell-val">
+            <span class="ll-val-text">{{ formatValue(node.val) }}</span>
+          </div>
+          <div class="ll-cell-sep"></div>
+          <div class="ll-cell ll-cell-next">
+            <div class="ll-dot" :data-dot-id="node.id"></div>
+            <span v-if="!node.next" class="ll-null-mark">⏚</span>
+            <span v-if="node._cycle && node.next" class="ll-cycle-mark">⟳</span>
+          </div>
+        </div>
+      </TransitionGroup>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { layoutLinkedList, buildLinkedListArrowPaths, buildPrevArrowPaths } from '../utils/linkedListLayout.js'
+
+const LAYOUT_OPTS = {
+  nodeW: 102,
+  nodeH: 52,
+  gapX: 48,
+  gapY: 72,
+  padding: 24,
+  baseY: 64,
+  colsPerRow: 3,
+  cycleLift: 0,
+  arcPad: 36,
+}
+
+const TRANSITION_MS = 360
 
 const props = defineProps({
   nodes: { type: Array, required: true },
   highlightedNodeIds: { type: Array, default: () => [] },
   compareNodeIds: { type: Array, default: () => [] },
   pointerLabels: { type: Object, default: () => ({}) },
+  layoutEpoch: { type: Number, default: 0 },
 })
 
-const canvasRef = ref(null)
 const innerRef = ref(null)
-const nodesRowRef = ref(null)
-const svgRef = ref(null)
-const contentW = ref(0)
-const contentH = ref(0)
-const nodeMetrics = ref({})
-const pointerPadTop = ref(28)
+
+const dragOffset = reactive({})
+
+const dragState = reactive({
+  nodeId: null,
+  startX: 0,
+  startY: 0,
+  origDx: 0,
+  origDy: 0,
+})
+
+function clearDragOffset() {
+  for (const key of Object.keys(dragOffset)) {
+    delete dragOffset[key]
+  }
+}
+
+function onNodePointerDown(e, nodeId) {
+  if (e.button !== 0) return
+  e.currentTarget.setPointerCapture(e.pointerId)
+  dragState.nodeId = nodeId
+  dragState.startX = e.clientX
+  dragState.startY = e.clientY
+  const off = dragOffset[nodeId] || { dx: 0, dy: 0 }
+  dragState.origDx = off.dx
+  dragState.origDy = off.dy
+}
+
+function onNodePointerMove(e) {
+  if (!dragState.nodeId) return
+  const dx = dragState.origDx + (e.clientX - dragState.startX)
+  const dy = dragState.origDy + (e.clientY - dragState.startY)
+  dragOffset[dragState.nodeId] = { dx, dy }
+  syncArrowsFromDisplay()
+}
+
+function onNodePointerUp(e) {
+  if (!dragState.nodeId) return
+  if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+  dragState.nodeId = null
+  syncArrowsFromDisplay()
+}
 
 const highlightedNodeIdsSet = computed(() => new Set(props.highlightedNodeIds || []))
 const compareNodeIdsSet = computed(() => new Set(props.compareNodeIds || []))
-const hasPointerLabels = computed(() => props.pointerLabels && Object.keys(props.pointerLabels).length > 0)
+
+const layout = computed(() => layoutLinkedList(props.nodes, LAYOUT_OPTS))
 
 // ── Transition state ──
 const arrowEntering = reactive({})
@@ -97,67 +177,137 @@ const arrowLeaving = reactive({})
 const pointerEntries = computed(() => {
   const entries = []
   const labels = props.pointerLabels || {}
-  const metrics = nodeMetrics.value
+  const { positions } = layout.value
+  const { nodeW } = LAYOUT_OPTS
+  const labelOffsetY = 28
+
   for (const [nodeId, varNames] of Object.entries(labels)) {
     if (!varNames || varNames.length === 0) continue
-    const m = metrics[nodeId]
-    if (!m) continue
-    const baseX = m.left + m.w / 2
+    const pos = positions[nodeId]
+    if (!pos) continue
+    const baseX = pos.x + nodeW / 2
+    const baseY = pos.y - labelOffsetY
     const count = varNames.length
     varNames.forEach((name, i) => {
       const offset = count > 1 ? (i - (count - 1) / 2) * 32 : 0
-      entries.push({ varName: name, x: Math.round(baseX + offset) })
+      entries.push({ varName: name, x: baseX + offset, y: baseY })
     })
   }
   return entries
 })
 
-// ── Arrows: straight line from dot center to left edge of next node ──
-const arrows = computed(() => {
-  const result = []
-  const nds = props.nodes
-  const metrics = nodeMetrics.value
-  if (!nds || nds.length < 2) return result
+function nodeTransformStyle(nodeId) {
+  const pos = layout.value.positions[nodeId]
+  if (!pos) return {}
+  const offset = dragOffset[nodeId] || { dx: 0, dy: 0 }
+  return {
+    transform: `translate(${pos.x + offset.dx}px, ${pos.y + offset.dy}px)`,
+  }
+}
 
-  const nodeMap = {}
-  nds.forEach(n => { if (n.id) nodeMap[n.id] = n })
+function pointerLabelStyle(entry) {
+  return {
+    transform: `translate(${Math.round(entry.x)}px, ${Math.round(entry.y)}px)`,
+  }
+}
 
-  for (const cur of nds) {
-    if (!cur.next) continue
-    const nxt = nodeMap[cur.next]
-    if (!nxt) continue
+function displayPositions() {
+  const { positions } = layout.value
+  const out = {}
+  for (const [id, pos] of Object.entries(positions)) {
+    const offset = dragOffset[id] || { dx: 0, dy: 0 }
+    out[id] = { x: pos.x + offset.dx, y: pos.y + offset.dy }
+  }
+  return out
+}
 
-    const cm = metrics[cur.id]
-    const nm = metrics[nxt.id]
-    if (!cm || !nm) continue
+function positionsFromDOM() {
+  if (!innerRef.value) return displayPositions()
+  const innerRect = innerRef.value.getBoundingClientRect()
+  const out = {}
+  innerRef.value.querySelectorAll('.ll-node').forEach((el) => {
+    const nodeId = el.dataset.nodeId
+    if (!nodeId) return
+    const rect = el.getBoundingClientRect()
+    out[nodeId] = {
+      x: rect.left - innerRect.left,
+      y: rect.top - innerRect.top,
+    }
+  })
+  return Object.keys(out).length ? out : displayPositions()
+}
 
-    const key = `${cur.id}->${cur.next}`
-    const entering = !!arrowEntering[key]
-    const leaving = !!arrowLeaving[key]
-
-    const x1 = Math.round(cm.dotCx)
-    const y1 = Math.round(cm.dotCy)
-    const x2 = Math.round(nm.left)
-    const y2 = Math.round(nm.top + nm.h / 2)
-
-    // Simple length approx for draw-in animation
-    const len = Math.ceil(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
+function decorateArrowPaths(positions) {
+  const paths = buildLinkedListArrowPaths(props.nodes, positions, LAYOUT_OPTS)
+  return paths.map((p) => {
+    const entering = !!arrowEntering[p.key]
+    const leaving = !!arrowLeaving[p.key]
+    const len = p.length
     const dur = entering ? 400 : 200
-
-    result.push({
-      key,
-      x1, y1, x2, y2,
+    return {
+      key: p.key,
+      d: p.d,
       style: {
         strokeDasharray: len,
         strokeDashoffset: entering ? len : 0,
         transition: `stroke-dashoffset ${dur}ms cubic-bezier(.22,.9,.27,1), opacity 250ms ease`,
         opacity: leaving ? 0 : 0.85,
       },
-    })
+    }
+  })
+}
+
+const arrowLines = ref([])
+const prevArrowLines = ref([])
+
+function decoratePrevArrowPaths(positions) {
+  const paths = buildPrevArrowPaths(props.nodes, positions, LAYOUT_OPTS)
+  return paths.map((p) => {
+    const len = p.length
+    return {
+      key: p.key,
+      d: p.d,
+      style: {
+        strokeDasharray: `${len}`,
+        strokeDashoffset: 0,
+        transition: `stroke-dashoffset 200ms cubic-bezier(.22,.9,.27,1), opacity 250ms ease`,
+        opacity: 0.5,
+      },
+    }
+  })
+}
+
+function syncArrowsFromLayout() {
+  arrowLines.value = decorateArrowPaths(layout.value.positions)
+  prevArrowLines.value = decoratePrevArrowPaths(layout.value.positions)
+}
+
+function syncArrowsFromDisplay() {
+  const pos = displayPositions()
+  arrowLines.value = decorateArrowPaths(pos)
+  prevArrowLines.value = decoratePrevArrowPaths(pos)
+}
+
+let arrowRafId = null
+
+function followArrowsDuringTransition() {
+  if (arrowRafId) cancelAnimationFrame(arrowRafId)
+  const start = performance.now()
+
+  function tick(now) {
+    const pos = positionsFromDOM()
+    arrowLines.value = decorateArrowPaths(pos)
+    prevArrowLines.value = decoratePrevArrowPaths(pos)
+    if (now - start < TRANSITION_MS + 40) {
+      arrowRafId = requestAnimationFrame(tick)
+    } else {
+      arrowRafId = null
+      syncArrowsFromDisplay()
+    }
   }
 
-  return result
-})
+  arrowRafId = requestAnimationFrame(tick)
+}
 
 // ── Transition triggers ──
 watch(() => props.nodes, (newNodes, oldNodes) => {
@@ -191,52 +341,28 @@ watch(() => props.nodes, (newNodes, oldNodes) => {
       if (arrowEntering[key]) delete arrowEntering[key]
     }
   }
+
+  nextTick(() => {
+    followArrowsDuringTransition()
+  })
 }, { deep: true })
 
-// ── Measurement ──
-function measureAll() {
-  if (!innerRef.value || !canvasRef.value) return
-  const innerRect = innerRef.value.getBoundingClientRect()
-  contentW.value = innerRef.value.scrollWidth
-  contentH.value = innerRef.value.scrollHeight
+watch(layout, () => {
+  if (!arrowRafId) syncArrowsFromLayout()
+}, { deep: true })
 
-  const nodeEls = innerRef.value.querySelectorAll('.ll-node')
-  const metrics = {}
-  nodeEls.forEach((el) => {
-    const nodeId = el.dataset.nodeId
-    if (!nodeId) return
-    const rect = el.getBoundingClientRect()
-    metrics[nodeId] = {
-      left: rect.left - innerRect.left,
-      top: rect.top - innerRect.top,
-      w: rect.width,
-      h: rect.height,
-    }
-    const dotEl = el.querySelector('.ll-dot')
-    if (dotEl) {
-      const dotRect = dotEl.getBoundingClientRect()
-      metrics[nodeId].dotCx = dotRect.left + dotRect.width / 2 - innerRect.left
-      metrics[nodeId].dotCy = dotRect.top + dotRect.height / 2 - innerRect.top
-    } else {
-      metrics[nodeId].dotCx = metrics[nodeId].left + metrics[nodeId].w - 22
-      metrics[nodeId].dotCy = metrics[nodeId].top + metrics[nodeId].h / 2
-    }
-  })
-  nodeMetrics.value = metrics
-}
-
-let resizeObs = null
-onMounted(() => {
-  nextTick(measureAll)
-  if (canvasRef.value) {
-    resizeObs = new ResizeObserver(() => nextTick(measureAll))
-    resizeObs.observe(canvasRef.value)
-  }
+watch(() => props.layoutEpoch, () => {
+  clearDragOffset()
+  dragState.nodeId = null
 })
-onBeforeUnmount(() => { if (resizeObs) resizeObs.disconnect() })
 
-watch(() => props.nodes, () => nextTick(measureAll), { deep: true })
-watch(() => props.pointerLabels, () => nextTick(measureAll), { deep: true })
+onMounted(() => {
+  nextTick(syncArrowsFromLayout)
+})
+
+onBeforeUnmount(() => {
+  if (arrowRafId) cancelAnimationFrame(arrowRafId)
+})
 
 function formatValue(v) {
   if (v === null || v === undefined) return '∅'
@@ -251,16 +377,13 @@ function formatValue(v) {
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  min-height: 88px;
+  min-height: 140px;
   overflow-x: auto;
   overflow-y: visible;
   position: relative;
 }
 .ll-inner {
   position: relative;
-  display: inline-block;
-  min-width: 100%;
-  padding: 8px 14px 14px;
 }
 .ll-empty {
   font-size: 12px;
@@ -277,13 +400,21 @@ function formatValue(v) {
   overflow: visible;
 }
 
+.ll-pointers,
+.ll-nodes-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 /* ── Pointer labels ── */
 .ll-pointer-label {
   position: absolute;
-  top: 4px;
+  left: 0;
+  top: 0;
   z-index: 3;
   pointer-events: none;
-  transition: left 420ms cubic-bezier(.22,.9,.27,1);
+  transition: transform 360ms cubic-bezier(.22,.9,.27,1);
 }
 .ll-pointer-inner {
   transform: translateX(-50%);
@@ -303,16 +434,13 @@ function formatValue(v) {
 }
 .ll-pointer-triangle { flex-shrink: 0; margin-top: -1px; }
 
-/* ── Nodes row ── */
-.ll-nodes-row { overflow: visible; }
-.ll-nodes-inner {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 44px;
-  align-items: center;
+.ll-inner.ll-dragging {
+  cursor: grabbing;
 }
-
 .ll-node {
+  position: absolute;
+  left: 0;
+  top: 0;
   display: flex;
   flex-shrink: 0;
   background: var(--card-bg);
@@ -320,11 +448,22 @@ function formatValue(v) {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   transition:
+    transform 360ms cubic-bezier(.22,.9,.27,1),
     background 520ms cubic-bezier(.22,.9,.27,1),
-    transform 320ms cubic-bezier(.22,.9,.27,1),
     box-shadow 320ms ease,
     border-color 320ms ease;
   overflow: hidden;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+.ll-node.dragging {
+  cursor: grabbing;
+  z-index: 10;
+  transition:
+    background 520ms cubic-bezier(.22,.9,.27,1),
+    box-shadow 320ms ease,
+    border-color 320ms ease;
 }
 .ll-node.highlighted {
   border-color: var(--accent-border);
@@ -336,6 +475,10 @@ function formatValue(v) {
 }
 .ll-node.cycle {
   border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+.ll-node.detached {
+  border-style: dashed;
+  opacity: 0.95;
 }
 
 .ll-cell-val {
@@ -368,6 +511,21 @@ function formatValue(v) {
   border: 2px solid color-mix(in srgb, var(--primary) 70%, white);
   flex-shrink: 0;
 }
+.ll-cell-prev {
+  width: 44px; height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--primary) 4%, var(--card-bg));
+  position: relative;
+}
+.ll-dot-prev {
+  background: color-mix(in srgb, var(--primary) 60%, var(--text-muted));
+}
+.ll-doubly {
+  /* Allow slightly wider layout for doubly-linked nodes */
+}
 .ll-null-mark {
   font-size: 13px;
   color: var(--text-muted);
@@ -382,24 +540,37 @@ function formatValue(v) {
   bottom: 0;
 }
 
-/* ── Node enter/leave ── */
-.node-enter-active { transition: all 420ms cubic-bezier(.22,.9,.27,1); }
-.node-leave-active  { transition: all 300ms ease; position: absolute; }
-.node-enter-from { opacity: 0; transform: scale(0.7) translateY(8px); }
-.node-leave-to   { opacity: 0; transform: scale(0.7) translateY(-8px); }
+/* ── Node enter/leave (opacity only — transform reserved for layout slide) ── */
+.node-enter-active { transition: opacity 420ms cubic-bezier(.22,.9,.27,1); }
+.node-leave-active  { transition: opacity 300ms ease; position: absolute; }
+.node-enter-from { opacity: 0; }
+.node-leave-to   { opacity: 0; }
 
 /* ── Pointer enter/leave ── */
 .pointer-enter-active { transition: opacity 350ms cubic-bezier(.22,.9,.27,1), transform 350ms cubic-bezier(.22,.9,.27,1); }
 .pointer-leave-active { transition: opacity 200ms ease, transform 200ms ease; position: absolute; }
 .pointer-enter-from { opacity: 0; transform: translateY(4px); }
 .pointer-leave-to   { opacity: 0; transform: translateY(-4px); }
-.pointer-move { transition: left 420ms cubic-bezier(.22,.9,.27,1); }
+.pointer-move { transition: transform 360ms cubic-bezier(.22,.9,.27,1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ll-node,
+  .ll-pointer-label {
+    transition: none !important;
+  }
+  .node-enter-active,
+  .node-leave-active,
+  .pointer-enter-active,
+  .pointer-leave-active,
+  .pointer-move {
+    transition: none !important;
+  }
+}
 
 @media (max-width: 640px) {
   .ll-cell-val { width: 48px; height: 44px; }
   .ll-cell-next { width: 36px; height: 44px; }
   .ll-val-text { font-size: 15px; }
   .ll-node { border-radius: 8px; }
-  .ll-nodes-inner { gap: 32px; }
 }
 </style>
