@@ -347,7 +347,8 @@ export const usePlayerStore = defineStore('player', {
     // --- File upload actions ---
 
     switchRightTab(tab) {
-      this.rightTab = tab
+      const allowed = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor', 'animate']
+      if (allowed.includes(tab)) this.rightTab = tab
     },
 
     async requestControlFlow() {
