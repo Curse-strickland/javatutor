@@ -278,7 +278,7 @@ public class Instrumenter {
                             // 原有逻辑
                             List<String[]> arrayAllocs = detectArrayAllocations(stmt);
                             for (String[] alloc : arrayAllocs) {
-                                newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1]));
+                                newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1], alloc.length > 2 ? alloc[2] : "int"));
                             }
                             newStatements.add(stmt);
                             List<String[]> objAllocs = detectObjectAllocations(stmt);
@@ -590,39 +590,60 @@ public class Instrumenter {
         }
     }
 
-    // 检测语句中的数组创建表达式，返回 [变量名, 长度表达式] 列表
-    // 例如 int[] arr = {5,3,8} → [["arr", "3"]]
-    //       int[] arr = new int[n] → [["arr", "n"]]
+    // 检测语句中的数组创建表达式，返回 [变量名, 长度表达式, 元素类型] 列表
+    // 例如 int[] arr = {5,3,8} → [["arr", "3", "int"]]
+    //       char[] s = new char[n] → [["s", "n", "char"]]
     private List<String[]> detectArrayAllocations(Statement stmt) {
         List<String[]> result = new ArrayList<>();
         if (!stmt.isExpressionStmt()) return result;
         Expression expr = stmt.asExpressionStmt().getExpression();
         if (!expr.isVariableDeclarationExpr()) return result;
-        for (VariableDeclarator vd : expr.asVariableDeclarationExpr().getVariables()) {
+        VariableDeclarationExpr vde = expr.asVariableDeclarationExpr();
+        String declaredType = vde.getElementType().asString(); // e.g. int[], char[], int[][]
+        for (VariableDeclarator vd : vde.getVariables()) {
             if (!vd.getInitializer().isPresent()) continue;
             Expression init = vd.getInitializer().get();
+            String name = vd.getNameAsString();
+            String componentType = arrayComponentFromDeclaredType(declaredType);
             if (init.isArrayCreationExpr()) {
-                // new int[n]
                 ArrayCreationExpr ace = init.asArrayCreationExpr();
-                String name = vd.getNameAsString();
                 String lenExpr = ace.getLevels().get(0).getDimension()
                     .map(dim -> dim.toString())
                     .orElse("0");
-                result.add(new String[]{name, lenExpr});
+                String elem = ace.getElementType().asString();
+                if (elem != null && !elem.isEmpty()) componentType = elem;
+                result.add(new String[]{name, lenExpr, componentType});
             } else if (init.isArrayInitializerExpr()) {
-                // {5, 3, 8}
                 ArrayInitializerExpr aie = init.asArrayInitializerExpr();
-                String name = vd.getNameAsString();
                 int len = aie.getValues().size();
-                result.add(new String[]{name, String.valueOf(len)});
+                result.add(new String[]{name, String.valueOf(len), componentType});
             }
         }
         return result;
     }
 
-    // 生成 TraceEngine.allocArray("arr", n) 或 TraceEngine.allocArray("arr", 3) 语句
-    private Statement buildAllocArrayStatement(String name, String lenExpr) {
-        String call = "TraceEngine.allocArray(\"" + name + "\", " + lenExpr + ");";
+    /** int[] → int; char[][] → char[][]; String[] → String */
+    private String arrayComponentFromDeclaredType(String declaredType) {
+        if (declaredType == null || declaredType.isEmpty()) return "int";
+        String t = declaredType.trim();
+        if (!t.contains("[")) return t;
+        // Strip one trailing [] for 1D: char[] → char; keep multi: char[][] → char[]
+        int dims = 0;
+        String base = t;
+        while (base.endsWith("[]")) {
+            dims++;
+            base = base.substring(0, base.length() - 2).trim();
+        }
+        if (dims <= 1) return base;
+        StringBuilder sb = new StringBuilder(base);
+        for (int i = 0; i < dims; i++) sb.append("[]");
+        return sb.toString();
+    }
+
+    // 生成 TraceEngine.allocArray("arr", n, "char") 语句
+    private Statement buildAllocArrayStatement(String name, String lenExpr, String componentType) {
+        String safeType = (componentType == null || componentType.isEmpty()) ? "int" : componentType;
+        String call = "TraceEngine.allocArray(\"" + name + "\", " + lenExpr + ", \"" + safeType + "\");";
         return StaticJavaParser.parseStatement(call);
     }
 

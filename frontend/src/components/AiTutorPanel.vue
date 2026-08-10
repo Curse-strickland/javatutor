@@ -1,10 +1,10 @@
 <template>
-  <div class="ai-tutor-panel">
+  <div class="ai-tutor-panel" :class="{ embedded }">
     <!-- Header -->
     <div class="ai-header">
       <div class="flex items-center gap-2">
         <span class="ai-dot" />
-        <span class="text-sm font-semibold" style="color: var(--text-h)">AI 解说</span>
+        <span class="text-sm font-semibold" style="color: var(--text-h)">智能体问答</span>
         <span class="ai-step-badge">{{ store.currentStep + 1 }} / {{ store.totalSteps }}</span>
       </div>
       <div class="flex items-center gap-3">
@@ -12,7 +12,12 @@
           <input type="checkbox" :checked="store.autoExplain" @change="store.toggleAutoExplain()" />
           <span class="auto-label">自动</span>
         </label>
-        <button class="ai-close" @click="store.toggleExplainPanel()" title="收起面板">
+        <button
+          v-if="!embedded"
+          class="ai-close"
+          @click="store.toggleExplainPanel()"
+          title="收起面板"
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -32,7 +37,7 @@
     </div>
 
     <!-- Tab: 解说（自由问答） -->
-    <template v-if="store.activeAiTab === 'explain'">
+    <div v-if="store.activeAiTab === 'explain'" class="chat-pane">
       <div class="chat-body" ref="chatBodyRef">
         <div v-if="!store.chatMessages.length && !store.isExplaining" class="ai-hint">
           运行代码后，输入问题，AI 将结合当前步骤回答。
@@ -85,7 +90,7 @@
           </button>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- Tab: 复杂度分析 -->
     <div v-if="store.activeAiTab === 'complexity'" class="ai-body">
@@ -144,79 +149,35 @@
       <div v-else class="ai-hint">运行代码后自动分析。</div>
     </div>
 
-    <!-- Tab: 动画 -->
-    <div v-if="store.activeAiTab === 'animate'" class="ai-body animate-body">
-      <div v-if="store.isAnimating" class="ai-loading">
-        <span class="ai-loading-dot" />动画生成中…
-      </div>
-      <div v-else-if="store.svgError" class="ai-error">{{ store.svgError }}</div>
-      <div v-else-if="store.svgText" class="animate-container">
-        <!-- SVG 已通过白名单消毒，安全注入；ref 用于绑定逐步播放器 -->
-        <div ref="animateSvgRef" class="animate-svg" v-html="sanitizeSvg(store.svgText)" />
-      </div>
-      <div v-else class="ai-hint">
-        点击下方「生成动画」按钮，AI 将基于本次运行数据生成可视化。
-      </div>
-      <div class="animate-footer">
-        <button
-          class="animate-gen-btn"
-          :disabled="!store.code || store.totalSteps === 0 || store.isAnimating"
-          @click="store.requestAnimation()"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-          {{ store.isAnimating ? '生成中…' : '生成动画' }}
-        </button>
-      </div>
-    </div>
-
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { marked } from 'marked'
 import { usePlayerStore } from '../stores/player'
+
+defineProps({
+  /** 嵌在右侧 INSPECT 分页时铺满高度，并隐藏关闭按钮 */
+  embedded: { type: Boolean, default: false },
+})
 
 const store = usePlayerStore()
 const chatBodyRef = ref(null)
 const chatInput = ref('')
+let chatResizeObserver = null
 
-// --- SVG 动画逐步播放控制 ---
-// coze 生成的 SMIL 动画每步间隔 0.6s（begin = step_i * 0.6s）。
-// 渲染后暂停自动播放，改为跟随 store.currentStep：
-//   setCurrentTime(currentStep * STEP_DURATION - 0.1) → 停在「该步交换完成后」的状态
-const ANIM_STEP_DURATION = 0.6
-const animateSvgRef = ref(null)
-
-function syncSvgTime() {
-  const host = animateSvgRef.value
-  const svgEl = host?.querySelector?.('svg')
-  if (!svgEl || typeof svgEl.setCurrentTime !== 'function') return
-  // currentStep 第 0 步=初始状态；第 k 步=第 k 次交换完成后
-  const time = Math.max(0, store.currentStep * ANIM_STEP_DURATION - 0.1)
-  svgEl.setCurrentTime(time)
-}
-
-function pauseSvg() {
-  const host = animateSvgRef.value
-  const svgEl = host?.querySelector?.('svg')
-  if (svgEl && typeof svgEl.pauseAnimations === 'function') {
-    svgEl.pauseAnimations()
+onMounted(() => {
+  if (store.activeAiTab === 'animate') store.activeAiTab = 'explain'
+  // Streamed markdown may grow without a new array entry — keep pinned to bottom
+  if (typeof ResizeObserver !== 'undefined') {
+    chatResizeObserver = new ResizeObserver(() => scrollChatToBottom())
   }
-}
-
-// 新 SVG 注入后：暂停 + 定位到当前步
-watch(() => store.svgText, async () => {
-  await nextTick()
-  pauseSvg()
-  syncSvgTime()
 })
 
-// currentStep 变化 → 同步动画时间轴
-watch(() => store.currentStep, () => {
-  syncSvgTime()
+onBeforeUnmount(() => {
+  chatResizeObserver?.disconnect()
+  chatResizeObserver = null
 })
 
 function sendChat() {
@@ -226,11 +187,23 @@ function sendChat() {
   store.askQuestion(q)
 }
 
+function scrollChatToBottom() {
+  const el = chatBodyRef.value
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+}
+
+async function pinChatToBottom() {
+  await nextTick()
+  scrollChatToBottom()
+  // second frame: markdown layout / images may still settle
+  requestAnimationFrame(() => scrollChatToBottom())
+}
+
 const tabs = [
   { id: 'explain', label: '解说' },
   { id: 'complexity', label: '复杂度' },
   { id: 'algorithm', label: '算法' },
-  { id: 'animate', label: '动画' }
 ]
 
 // Markdown 渲染：用项目已依赖的 marked 解析，自定义 renderer 防 XSS
@@ -258,55 +231,26 @@ function renderMarkdown(text) {
   return marked.parse(text)
 }
 
-// --- SVG 白名单消毒 ---
-// coze animate 链返回纯 SVG（rect/circle/line/path/text/animate/title），
-// 白名单元素+属性剔除脚本注入风险，然后交给 v-html 渲染。
-const SVG_ALLOWED_TAGS = new Set([
-  'svg', 'rect', 'circle', 'line', 'path', 'text', 'animate', 'animateTransform', 'title', 'g', 'polygon'
-])
-const SVG_ALLOWED_ATTRS = new Set([
-  'viewbox', 'width', 'height', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r',
-  'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity',
-  'd', 'points', 'transform', 'font-size', 'font-weight', 'text-anchor',
-  'dominant-baseline', 'id', 'begin', 'dur', 'values', 'repeatcount', 'from', 'to',
-  'attributename', 'fill-mode', 'calcmode', 'keytimes', 'additive', 'accumulate', 'max',
-  'min', 'restart', 'fill-freeze', 'xmlns'
-])
-
-function sanitizeSvg(raw) {
-  if (!raw || typeof raw !== 'string') return ''
-  const wrap = document.createElement('div')
-  wrap.innerHTML = raw
-  walk(wrap)
-  return wrap.innerHTML
-}
-
-function walk(node) {
-  // 遍历元素：删除白名单外的标签、删除白名单外的属性
-  const children = Array.from(node.children || [])
-  for (const el of children) {
-    if (!SVG_ALLOWED_TAGS.has(el.tagName.toLowerCase())) {
-      el.remove()
-      continue
+// Auto-scroll：跟随流式解说贴底；观察消息内容高度变化
+watch(
+  () => store.chatMessages.map((m) => `${m.role}:${m.text?.length ?? 0}`).join('|'),
+  async () => {
+    await pinChatToBottom()
+    const el = chatBodyRef.value
+    if (el && chatResizeObserver) {
+      chatResizeObserver.disconnect()
+      for (const child of el.children) chatResizeObserver.observe(child)
     }
-    const attrs = Array.from(el.attributes || [])
-    for (const attr of attrs) {
-      const name = attr.name.toLowerCase().replace(/^:|\s+/g, '')
-      if (!SVG_ALLOWED_ATTRS.has(name) || /^on/i.test(name)) {
-        el.removeAttribute(attr.name)
-      }
-    }
-    walk(el)
-  }
-}
+  },
+)
 
-// Auto-scroll（聊天消息增长时滚到底部）
-watch(() => store.chatMessages, async () => {
-  await nextTick()
-  if (chatBodyRef.value) {
-    chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
-  }
-}, { deep: true })
+watch(() => store.isExplaining, (busy) => {
+  if (busy) pinChatToBottom()
+})
+
+watch(() => store.activeAiTab, (tab) => {
+  if (tab === 'explain') pinChatToBottom()
+})
 
 // Tag color mapping
 const TAG_COLORS = {
@@ -343,6 +287,37 @@ function explainTag(tagName) {
 .ai-tutor-panel {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+.ai-tutor-panel.embedded {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.chat-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.ai-tutor-panel.embedded .chat-pane,
+.ai-tutor-panel.embedded .ai-body {
+  flex: 1;
+  min-height: 0;
+}
+.ai-tutor-panel.embedded .chat-body,
+.ai-tutor-panel.embedded .ai-body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-bottom: 0;
+}
+
+/* Header / tabs stay put */
+.ai-header,
+.ai-tabs {
+  flex-shrink: 0;
 }
 
 /* Header */
@@ -502,6 +477,7 @@ function explainTag(tagName) {
 .chat-body {
   min-height: 48px;
   max-height: 180px;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 8px 10px;
   margin-bottom: 8px;
@@ -511,6 +487,7 @@ function explainTag(tagName) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  scroll-behavior: auto;
 }
 .chat-msg {
   display: flex;
@@ -591,8 +568,12 @@ function explainTag(tagName) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 6px;
+  padding-top: 8px;
+  /* 抬高发送区，避开右下角版权声明，不影响其它 Tab / 主页面 */
+  padding-bottom: 72px;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--card-bg, var(--bg));
 }
 .chat-quick {
   display: flex;
@@ -657,50 +638,4 @@ function explainTag(tagName) {
   .ai-tag, .chat-quick-btn, .chat-send-btn { transition: none; }
 }
 
-/* --- SVG 动画 tab --- */
-.animate-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: none;
-  height: auto;
-}
-.animate-container {
-  display: flex;
-  justify-content: center;
-  padding: 4px 0;
-}
-.animate-svg {
-  width: 100%;
-  max-width: 600px;
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-radius: 0;
-}
-.animate-svg :deep(svg) {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.animate-footer {
-  display: flex;
-  justify-content: center;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
-}
-.animate-gen-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px;
-  border-radius: 0;
-  border: 1px solid var(--accent-border);
-  background: var(--accent-bg);
-  color: var(--primary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
-}
-.animate-gen-btn:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
-.animate-gen-btn:active:not(:disabled) { transform: translateY(1px) scale(0.997); }
-.animate-gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

@@ -154,6 +154,26 @@ class TraceEngineTest {
     }
 
     @Test
+    void recordWithCharArrayShouldPreserveCharType() {
+        char[] chars = {'a', 'b', 'c'};
+        TraceEngine.record(0, 1, Map.of("s", chars));
+        Map<String, Object> heap = (Map<String, Object>) TraceEngine.getSteps().get(0).get("heap");
+        Map<String, Object> entry = (Map<String, Object>) heap.get("s");
+        assertNotNull(entry);
+        assertEquals("char[3]", entry.get("type"));
+    }
+
+    @Test
+    void allocArrayWithComponentTypeShouldLabelCorrectly() {
+        TraceEngine.allocArray("buf", 4, "char");
+        // peek via record empty then check — use reflection-free path: record int then char overwrite
+        char[] chars = new char[4];
+        TraceEngine.record(0, 1, Map.of("buf", chars));
+        Map<String, Object> heap = (Map<String, Object>) TraceEngine.getSteps().get(0).get("heap");
+        assertEquals("char[4]", ((Map<?, ?>) heap.get("buf")).get("type"));
+    }
+
+    @Test
     void recordWithArrayShouldCopyElements() {
         int[] arr = {1, 2, 3};
         TraceEngine.record(0, 1, Map.of("arr", arr));

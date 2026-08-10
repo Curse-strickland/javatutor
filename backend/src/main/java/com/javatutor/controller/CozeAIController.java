@@ -7,6 +7,7 @@
  import org.springframework.web.bind.annotation.*;
  import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+ import java.util.HashMap;
  import java.util.List;
  import java.util.Map;
  import java.util.concurrent.CompletableFuture;
@@ -137,6 +138,119 @@
              return Map.of("error",
                  e.getMessage() != null ? e.getMessage() : "Coze analysis failed");
          }
+     }
+
+     /**
+      * UML 图 — intent=uml，多文件 Java 源码生成 SVG
+      * Coze 未启用或 kind 缺失时返回 success:false，前端回退静态图
+      */
+     @PostMapping("/uml")
+     public Map<String, Object> uml(@RequestBody Map<String, Object> request) {
+         String kind = request.get("kind") != null
+             ? String.valueOf(request.get("kind")).trim() : "";
+
+         if (kind.isBlank()) {
+             return umlFailure("UML kind is required");
+         }
+
+         if (!cozeService.isEnabled()) {
+             return umlFailure("Coze is disabled");
+         }
+
+         @SuppressWarnings("unchecked")
+         List<Map<String, Object>> files = request.get("files") instanceof List
+             ? (List<Map<String, Object>>) request.get("files")
+             : List.of();
+
+         String combinedCode = buildUmlCombinedCode(files);
+         if (combinedCode.isBlank()) {
+             return umlFailure("No source files provided");
+         }
+
+         try {
+             String prompt = buildUmlPrompt(kind, files);
+             String sessionId = Integer.toHexString(combinedCode.hashCode());
+             String answer = cozeService.blockingExplain(
+                 combinedCode, 0, 0, prompt, sessionId, "uml");
+
+             String svg = extractSvg(answer);
+             if (svg == null || svg.isBlank()) {
+                 return umlFailure("Coze 未返回 SVG");
+             }
+
+             Map<String, Object> ok = new HashMap<>();
+             ok.put("success", true);
+             ok.put("svg", svg);
+             ok.put("source", "ai");
+             ok.put("ts", System.currentTimeMillis());
+             return ok;
+         } catch (Exception e) {
+             return umlFailure(
+                 e.getMessage() != null ? e.getMessage() : "UML generation failed");
+         }
+     }
+
+     private Map<String, Object> umlFailure(String error) {
+         Map<String, Object> out = new HashMap<>();
+         out.put("success", false);
+         out.put("error", error);
+         out.put("source", "none");
+         return out;
+     }
+
+     private String buildUmlCombinedCode(List<Map<String, Object>> files) {
+         StringBuilder sb = new StringBuilder();
+         for (Map<String, Object> file : files) {
+             if (file == null) continue;
+             String name = file.get("name") != null
+                 ? String.valueOf(file.get("name")) : "unknown.java";
+             String code = file.get("code") != null
+                 ? String.valueOf(file.get("code")) : "";
+             sb.append("// File: ").append(name).append('\n').append(code).append("\n\n");
+         }
+         String combined = sb.toString().trim();
+         final int maxLen = 8000;
+         if (combined.length() > maxLen) {
+             return combined.substring(0, maxLen) + "\n// ... truncated";
+         }
+         return combined;
+     }
+
+     private String buildUmlPrompt(String kind, List<Map<String, Object>> files) {
+         String kindLabel = switch (kind) {
+             case "flow" -> "流程图 (flowchart)";
+             case "dataflow" -> "数据流图 (data flow diagram)";
+             case "structure" -> "结构图 (structure diagram)";
+             case "class" -> "类图 (class diagram)";
+             case "usecase" -> "用例图 (use case diagram)";
+             default -> kind;
+         };
+         StringBuilder names = new StringBuilder();
+         for (Map<String, Object> file : files) {
+             if (file == null || file.get("name") == null) continue;
+             if (names.length() > 0) names.append(", ");
+             names.append(file.get("name"));
+         }
+         return String.format(
+             "Generate ONLY a valid SVG %s for the following Java source file(s): %s. "
+                 + "Return raw SVG starting with <svg>, no markdown fences, no explanation.",
+             kindLabel, names.toString());
+     }
+
+     /** 从 Coze 回答中提取 SVG（支持代码围栏或夹杂文本）。 */
+     private String extractSvg(String answer) {
+         if (answer == null || answer.isBlank()) return null;
+         String svg = answer.trim();
+         if (!svg.startsWith("<svg")) {
+             svg = svg.replaceAll("(?s)^```[a-zA-Z0-9]*\\s*", "")
+                 .replaceAll("(?s)\\s*```$", "").trim();
+         }
+         int start = svg.indexOf("<svg");
+         int end = svg.lastIndexOf("</svg>");
+         if (start >= 0 && end > start) {
+             return svg.substring(start, end + 6);
+         }
+         return svg.startsWith("<svg") ? svg : null;
      }
 
      /**

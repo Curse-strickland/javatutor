@@ -1,0 +1,68 @@
+{
+  "categories": [
+    {
+      "id": "sorting",
+      "title": "排序",
+      "file": "sorting.md",
+      "anchors": [
+        { "id": "冒泡排序", "title": "冒泡" },
+        { "id": "选择排序", "title": "选择" },
+        { "id": "插入排序", "title": "插入" },
+        { "id": "希尔排序", "title": "希尔" },
+        { "id": "归并排序", "title": "归并" },
+        { "id": "快速排序", "title": "快排" },
+        { "id": "堆排序", "title": "堆排" }
+      ]
+    },
+    {
+      "id": "search",
+      "title": "搜索",
+      "file": "search.md",
+      "anchors": [
+        { "id": "二分查找", "title": "二分查找" },
+        { "id": "边界与变体", "title": "边界变体" }
+      ]
+    },
+    {
+      "id": "graph",
+      "title": "图论",
+      "file": "graph.md",
+      "anchors": [
+        { "id": "广度优先搜索-bfs", "title": "BFS" },
+        { "id": "深度优先搜索-dfs", "title": "DFS" },
+        { "id": "dijkstra-最短路", "title": "Dijkstra" }
+      ]
+    },
+    {
+      "id": "tree",
+      "title": "树",
+      "file": "tree.md",
+      "anchors": [
+        { "id": "前序遍历", "title": "前序" },
+        { "id": "中序遍历", "title": "中序" },
+        { "id": "后序遍历", "title": "后序" },
+        { "id": "层序遍历", "title": "层序" }
+      ]
+    },
+    {
+      "id": "dp",
+      "title": "动态规划",
+      "file": "dp.md",
+      "anchors": [
+        { "id": "核心思想", "title": "核心思想" },
+        { "id": "常见套路", "title": "常见套路" },
+        { "id": "实现要点", "title": "实现要点" }
+      ]
+    },
+    {
+      "id": "linked-list",
+      "title": "链表",
+      "file": "linked-list.md",
+      "anchors": [
+        { "id": "基本操作", "title": "基本操作" },
+        { "id": "常见技巧", "title": "常见技巧" },
+        { "id": "复杂度对照", "title": "复杂度" }
+      ]
+    }
+  ]
+}

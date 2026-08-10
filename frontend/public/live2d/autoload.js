@@ -89,22 +89,62 @@ console.log(`\n%cLive2D%cWidget%c\n`, 'padding: 8px; background: #cd3e45; font-w
                 'ｰ'    !_,.:
 */
 
-// ===== Waifu Badge Injection — glass-morphism fold toggle =====
+// ===== Waifu Badge Injection — fold / expand toggle =====
 (function injectBadge() {
   var hideTimer = null;
+  var STORAGE_KEY = 'waifu-folded';
+  var BADGE_OFFSET = 33;
+
+  function syncBadgePosition(waifu, badge) {
+    if (!waifu || !badge || waifu.classList.contains('waifu-folded')) return;
+    var rightPx = parseFloat(waifu.style.right);
+    if (Number.isNaN(rightPx)) {
+      var rect = waifu.getBoundingClientRect();
+      rightPx = Math.max(0, window.innerWidth - rect.right);
+    }
+    badge.style.right = (rightPx + BADGE_OFFSET) + 'px';
+    badge.style.bottom = '';
+  }
+
+  function applyFoldState(waifu, badge, folded) {
+    waifu.classList.toggle('waifu-folded', folded);
+    badge.classList.toggle('waifu-badge-folded', folded);
+    badge.title = folded ? '展开看板娘' : '折叠看板娘';
+    if (folded) {
+      // Clear drag inline styles so CSS can pin badge to corner
+      badge.style.right = '';
+      badge.style.bottom = '';
+      badge.classList.add('waifu-badge-visible');
+    } else {
+      badge.classList.remove('waifu-badge-visible');
+      syncBadgePosition(waifu, badge);
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, folded ? '1' : '0');
+    } catch (e) { /* ignore */ }
+  }
 
   const tryInject = function() {
     const waifu = document.getElementById('waifu');
     if (!waifu) { setTimeout(tryInject, 100); return; }
     if (document.getElementById('waifu-badge')) return;
 
-    const badge = document.createElement('div');
+    const badge = document.createElement('button');
     badge.id = 'waifu-badge';
-    badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    badge.type = 'button';
+    badge.setAttribute('aria-label', '折叠看板娘');
+    badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
     badge.title = '折叠看板娘';
 
-    // Append to body so it's not trapped by waifu's transform containing block
     document.body.appendChild(badge);
+    syncBadgePosition(waifu, badge);
+
+    // Restore persisted fold
+    var savedFolded = false;
+    try {
+      savedFolded = localStorage.getItem(STORAGE_KEY) === '1';
+    } catch (e) { /* ignore */ }
+    if (savedFolded) applyFoldState(waifu, badge, true);
 
     function showBadge() {
       clearTimeout(hideTimer);
@@ -113,35 +153,29 @@ console.log(`\n%cLive2D%cWidget%c\n`, 'padding: 8px; background: #cd3e45; font-w
 
     function hideBadge() {
       if (waifu.classList.contains('waifu-folded')) return;
-      // Small delay so the user can move from waifu → badge without it disappearing
       hideTimer = setTimeout(function() {
         badge.classList.remove('waifu-badge-visible');
       }, 180);
     }
 
-    // Waifu hover → show badge
     waifu.addEventListener('mouseenter', function() {
       if (!waifu.classList.contains('waifu-folded')) showBadge();
     });
     waifu.addEventListener('mouseleave', hideBadge);
-
-    // Badge itself: cancel hide timer on enter, hide on leave
     badge.addEventListener('mouseenter', showBadge);
     badge.addEventListener('mouseleave', hideBadge);
 
-    // Click toggle
     badge.addEventListener('click', function(e) {
       e.stopPropagation();
+      e.preventDefault();
       clearTimeout(hideTimer);
-      var folded = waifu.classList.toggle('waifu-folded');
-      badge.title = folded ? '展开看板娘' : '折叠看板娘';
-      if (folded) {
-        badge.classList.add('waifu-badge-visible');
-      } else {
-        badge.classList.remove('waifu-badge-visible');
-      }
+      applyFoldState(waifu, badge, !waifu.classList.contains('waifu-folded'));
     });
+
+    // Expose for Live2DWidget drag sync
+    window.__waifuSyncBadge = function() {
+      syncBadgePosition(waifu, badge);
+    };
   };
-  // waifu DOM is created synchronously by initWidget; inject after microtask
   setTimeout(tryInject, 50);
 })();

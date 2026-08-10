@@ -76,20 +76,26 @@
         <!-- 壁纸选择器 -->
         <WallpaperSelector />
       </div>
-      <div class="flex-1 right-card-body">
+      <div class="flex-1 right-card-body" :class="{ 'body-fill': store.rightTab === 'tutor' }">
         <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
         <div v-show="store.rightTab === 'variables'" class="right-pane">
           <MemoryPanel />
           <ConsoleOutput />
         </div>
         <div v-show="store.rightTab === 'flow'" class="right-pane">
-          <ControlFlowPanel />
+          <ControlFlowPanel v-if="store.rightTab === 'flow'" :active="true" />
         </div>
         <div v-show="store.rightTab === 'datastructure'" class="right-pane">
           <DataStructureTab />
         </div>
         <div v-show="store.rightTab === 'algorithm'" class="right-pane">
-          <AlgoTab />
+          <AlgoTab @loadCode="onClassicLoad" />
+        </div>
+        <div v-show="store.rightTab === 'tutor'" class="right-pane right-pane-fill">
+          <AiTutorPanel embedded />
+        </div>
+        <div v-show="store.rightTab === 'animate'" class="right-pane">
+          <SvgAnimatePanel />
         </div>
       </div>
     </div>
@@ -246,6 +252,7 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import TestCasePanel from './TestCasePanel.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
+import SvgAnimatePanel from './SvgAnimatePanel.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -401,6 +408,11 @@ const onClearTestCases = () => {
 }
 
 const onFileLoad = ({ name, code }) => {
+  editorRef.value?.setCode(code)
+  store.addUploadRecord(name, code)
+}
+
+const onClassicLoad = ({ name, code }) => {
   editorRef.value?.setCode(code)
   store.addUploadRecord(name, code)
 }
@@ -770,8 +782,24 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   /* 预留滚动条槽，避免变量/流程内容高度不同时出现/消失导致横向抖动 */
   scrollbar-gutter: stable;
 }
+.right-card-body.body-fill {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 .right-pane {
   min-width: 0;
+}
+.right-pane-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.right-pane-fill > * {
+  flex: 1;
+  min-height: 0;
 }
 
 /* Right card tabs — matches AiTutorPanel tab style */

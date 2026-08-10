@@ -44,11 +44,19 @@
           class="ll-pointer-label"
           :style="pointerLabelStyle(entry)"
         >
-          <div class="ll-pointer-inner">
-            <span class="ll-pointer-text">{{ entry.varName }}</span>
-            <svg class="ll-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
-              <polygon points="0,0 5,6 10,0" fill="var(--primary)" opacity="0.7" />
-            </svg>
+          <div class="ll-pointer-inner" :class="{ 'll-pointer-below': entry.placement === 'below' }">
+            <template v-if="entry.placement === 'below'">
+              <svg class="ll-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
+                <polygon points="5,0 10,6 0,6" :fill="entry.color" opacity="0.9" />
+              </svg>
+              <span class="ll-pointer-text" :style="entry.chipStyle">{{ entry.varName }}</span>
+            </template>
+            <template v-else>
+              <span class="ll-pointer-text" :style="entry.chipStyle">{{ entry.varName }}</span>
+              <svg class="ll-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
+                <polygon points="0,0 5,6 10,0" :fill="entry.color" opacity="0.9" />
+              </svg>
+            </template>
           </div>
         </div>
       </TransitionGroup>
@@ -67,7 +75,7 @@
             dragging: dragState.nodeId === node.id,
             'll-doubly': 'prev' in node,
           }"
-          :style="nodeTransformStyle(node.id)"
+          :style="nodeVisualStyle(node.id)"
           @pointerdown="onNodePointerDown($event, node.id)"
           @pointermove="onNodePointerMove"
           @pointerup="onNodePointerUp"
@@ -96,6 +104,13 @@
 <script setup>
 import { computed, ref, reactive, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { layoutLinkedList, buildLinkedListArrowPaths, buildPrevArrowPaths } from '../utils/linkedListLayout.js'
+import {
+  colorForPointerName,
+  colorForRole,
+  inferPointerRole,
+  primaryRoleFromLabels,
+  roleStyle,
+} from '../utils/pointerRoleColors.js'
 
 const LAYOUT_OPTS = {
   nodeW: 102,
@@ -183,17 +198,29 @@ const pointerEntries = computed(() => {
   const { positions } = layout.value
   const { nodeW } = effectiveOpts.value
   const labelOffsetY = 28
+  const fallback = colorForRole('mid')
 
   for (const [nodeId, varNames] of Object.entries(labels)) {
     if (!varNames || varNames.length === 0) continue
     const pos = positions[nodeId]
     if (!pos) continue
     const baseX = pos.x + nodeW / 2
-    const baseY = pos.y - labelOffsetY
-    const count = varNames.length
+    const { nodeH } = effectiveOpts.value
     varNames.forEach((name, i) => {
-      const offset = count > 1 ? (i - (count - 1) / 2) * 32 : 0
-      entries.push({ varName: name, x: baseX + offset, y: baseY })
+      const placement = i % 2 === 0 ? 'above' : 'below'
+      const y = placement === 'above'
+        ? pos.y - labelOffsetY
+        : pos.y + nodeH + 6
+      const role = inferPointerRole(name)
+      const color = colorForPointerName(name) || fallback
+      entries.push({
+        varName: name,
+        x: baseX,
+        y,
+        placement,
+        color,
+        chipStyle: roleStyle(role),
+      })
     })
   }
   return entries
@@ -205,6 +232,23 @@ function nodeTransformStyle(nodeId) {
   const offset = dragOffset[nodeId] || { dx: 0, dy: 0 }
   return {
     transform: `translate(${pos.x + offset.dx}px, ${pos.y + offset.dy}px)`,
+  }
+}
+
+function nodeVisualStyle(nodeId) {
+  const base = nodeTransformStyle(nodeId)
+  const labels = (props.pointerLabels || {})[nodeId] || []
+  const role = primaryRoleFromLabels(labels)
+  const color = colorForRole(role)
+  if (!color) return base
+  // Always tint by pointer role; highlighted nodes get a stronger ring
+  const strong = highlightedNodeIdsSet.value.has(nodeId)
+  return {
+    ...base,
+    borderColor: color,
+    boxShadow: strong
+      ? `0 0 0 2px ${color}55, 0 4px 14px ${color}33`
+      : `0 0 0 1px ${color}40, 0 2px 8px rgba(0,0,0,0.12)`,
   }
 }
 
@@ -428,12 +472,10 @@ function formatValue(v) {
 .ll-pointer-text {
   font-size: 11px;
   font-weight: 600;
-  color: var(--primary);
-  background: var(--accent-bg);
   padding: 2px 8px;
   border-radius: 4px;
   white-space: nowrap;
-  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border: 1px solid transparent;
 }
 .ll-pointer-triangle { flex-shrink: 0; margin-top: -1px; }
 
@@ -469,12 +511,13 @@ function formatValue(v) {
     border-color 320ms ease;
 }
 .ll-node.highlighted {
-  border-color: var(--accent-border);
-  box-shadow: 0 4px 14px rgba(37,99,235,0.15);
+  /* role color applied inline via nodeVisualStyle when pointers present */
+  border-color: #eab308;
+  box-shadow: 0 4px 14px rgba(234, 179, 8, 0.2);
 }
 .ll-node.compare {
-  border-color: rgba(255,199,44,0.25);
-  box-shadow: 0 3px 10px rgba(255,199,44,0.08);
+  border-color: #3b82f6;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.15);
 }
 .ll-node.cycle {
   border-color: color-mix(in srgb, var(--primary) 40%, var(--border));

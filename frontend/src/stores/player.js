@@ -44,10 +44,11 @@ export const usePlayerStore = defineStore('player', {
     mode: 'single',
     singleState: null,      // null = not saved yet; object = snapshot
     multiState: {
-      files: [],             // [{name, code, lang}]
-      currentFileIndex: 0,
+      files: [],             // [{name, code}]
+      activeFileIndex: 0,
       umlCache: {},          // {kind: {svg, ts, source}}
     },
+    multiRightTab: 'flow',
   }),
   getters: {
     currentVariables: (state) => {
@@ -429,6 +430,61 @@ export const usePlayerStore = defineStore('player', {
       }
       // multiState uses existing defaults; first switch to multi does not force empty snapshot
       this.persistMode()
+    },
+
+    // --- Multi-file mode ---
+
+    switchMultiRightTab(tab) {
+      const allowed = ['flow', 'dataflow', 'structure', 'class', 'usecase']
+      if (allowed.includes(tab)) this.multiRightTab = tab
+    },
+
+    setMultiFiles(files) {
+      this.multiState.files = (files || []).map(f => ({
+        name: f.name,
+        code: f.code || '',
+      }))
+      this.multiState.activeFileIndex = 0
+    },
+
+    addMultiFile(file) {
+      if (!file?.name) return
+      const idx = this.multiState.files.findIndex(f => f.name === file.name)
+      const entry = { name: file.name, code: file.code || '' }
+      if (idx >= 0) {
+        this.multiState.files[idx] = entry
+      } else {
+        this.multiState.files.push(entry)
+      }
+    },
+
+    removeMultiFile(name) {
+      const idx = this.multiState.files.findIndex(f => f.name === name)
+      if (idx < 0) return
+      this.multiState.files.splice(idx, 1)
+      if (this.multiState.activeFileIndex >= this.multiState.files.length) {
+        this.multiState.activeFileIndex = Math.max(0, this.multiState.files.length - 1)
+      }
+    },
+
+    setActiveMultiFile(index) {
+      if (index < 0 || index >= this.multiState.files.length) return
+      this.multiState.activeFileIndex = index
+    },
+
+    setUmlCache(kind, entry) {
+      this.multiState.umlCache = {
+        ...this.multiState.umlCache,
+        [kind]: entry,
+      }
+    },
+
+    resetMultiRun() {
+      this.steps = []
+      this.currentStep = 0
+      this.error = null
+      this.output = ''
+      this.runId = null
     },
   }
 })

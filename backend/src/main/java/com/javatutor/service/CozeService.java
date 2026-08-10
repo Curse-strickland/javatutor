@@ -3,7 +3,6 @@
  import com.fasterxml.jackson.databind.JsonNode;
  import com.fasterxml.jackson.databind.ObjectMapper;
  import org.springframework.beans.factory.annotation.Value;
- import org.springframework.context.annotation.PropertySource;
  import org.springframework.stereotype.Service;
 
  import java.io.BufferedReader;
@@ -19,9 +18,7 @@
  import java.util.function.Consumer;
 
  @Service
- // 主配置 + 本地覆盖（coze-local.properties 存在时优先级更高，可放真实 token 用于本地调试）
- @PropertySource("classpath:coze.properties")
- @PropertySource(value = "classpath:coze-local.properties", ignoreResourceNotFound = true)
+ // 配置由 application.properties 的 spring.config.import 加载（coze.properties + coze-local.properties）
  public class CozeService {
 
      @Value("${coze.api.url}")

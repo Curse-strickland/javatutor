@@ -1,0 +1,9 @@
+# 本地开发用 Coze 配置（复制为本目录下的 coze-local.properties 后填写）
+# coze-local.properties 已被 .gitignore，不会进仓库
+#
+#   copy coze-local.properties.example coze-local.properties
+#
+# 正式部署仍走 GitHub Secrets → /opt/javatutor/config/coze.env（见 docs/coze/deploy-coze.md）
+
+coze.api.token=在此填入你的_COZE_API_TOKEN
+# coze.enabled=true

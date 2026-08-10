@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 280" font-family="ui-monospace, monospace">
+  <rect width="420" height="280" fill="#f8fafb" stroke="#0d9ec4" stroke-width="1"/>
+  <text x="210" y="28" text-anchor="middle" fill="#12161d" font-size="14" font-weight="700">pnAþ · Y`M</text>
+  <ellipse cx="70" cy="140" rx="48" ry="28" fill="#fff" stroke="#0d9ec4"/>
+  <text x="70" y="144" text-anchor="middle" fill="#12161d" font-size="11">èžS</text>
+  <rect x="150" y="112" width="100" height="56" fill="#fff" stroke="#2778c1"/>
+  <text x="200" y="136" text-anchor="middle" fill="#12161d" font-size="11">Û P1</text>
+  <text x="200" y="152" text-anchor="middle" fill="#64748b" font-size="9">Øbpn</text>
+  <rect x="280" y="112" width="100" height="56" fill="#fff" stroke="#2778c1"/>
+  <text x="330" y="136" text-anchor="middle" fill="#12161d" font-size="11">Û P2</text>
+  <text x="330" y="152" text-anchor="middle" fill="#64748b" font-size="9">X¨Óœ</text>
+  <line x1="118" y1="140" x2="148" y2="140" stroke="#0d9ec4" stroke-width="2" marker-end="url(#df-arrow)"/>
+  <text x="133" y="132" text-anchor="middle" fill="#64748b" font-size="9">“e</text>
+  <line x1="250" y1="140" x2="278" y2="140" stroke="#0d9ec4" stroke-width="2" marker-end="url(#df-arrow)"/>
+  <text x="264" y="132" text-anchor="middle" fill="#64748b" font-size="9">pnA</text>
+  <rect x="170" y="200" width="80" height="40" fill="#fff" stroke="#0d9ec4" stroke-dasharray="4 3"/>
+  <text x="210" y="225" text-anchor="middle" fill="#12161d" font-size="10">pnX¨ D</text>
+  <line x1="200" y1="168" x2="200" y2="198" stroke="#0d9ec4" stroke-width="1.5" marker-end="url(#df-arrow)"/>
+  <defs>
+    <marker id="df-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#0d9ec4"/>
+    </marker>
+  </defs>
+</svg>

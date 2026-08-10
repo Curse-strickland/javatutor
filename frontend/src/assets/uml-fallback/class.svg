@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 280" font-family="ui-monospace, monospace">
+  <rect width="420" height="280" fill="#f8fafb" stroke="#0d9ec4" stroke-width="1"/>
+  <text x="210" y="28" text-anchor="middle" fill="#12161d" font-size="14" font-weight="700">{þ · Y`M</text>
+  <rect x="40" y="60" width="140" height="120" fill="#fff" stroke="#2778c1"/>
+  <text x="110" y="82" text-anchor="middle" fill="#12161d" font-size="12" font-weight="700">«class» Main</text>
+  <line x1="40" y1="92" x2="180" y2="92" stroke="#2778c1"/>
+  <text x="50" y="110" fill="#64748b" font-size="10">- name: String</text>
+  <line x1="40" y1="120" x2="180" y2="120" stroke="#2778c1"/>
+  <text x="50" y="138" fill="#64748b" font-size="10">+ main(): void</text>
+  <text x="50" y="154" fill="#64748b" font-size="10">+ run(): void</text>
+  <rect x="240" y="60" width="140" height="100" fill="#fff" stroke="#0d9ec4"/>
+  <text x="310" y="82" text-anchor="middle" fill="#12161d" font-size="12" font-weight="700">«class» Student</text>
+  <line x1="240" y1="92" x2="380" y2="92" stroke="#0d9ec4"/>
+  <text x="250" y="110" fill="#64748b" font-size="10">- id: int</text>
+  <text x="250" y="126" fill="#64748b" font-size="10">- name: String</text>
+  <line x1="240" y1="136" x2="380" y2="136" stroke="#0d9ec4"/>
+  <text x="250" y="154" fill="#64748b" font-size="10">+ getName(): String</text>
+  <line x1="180" y1="110" x2="240" y2="110" stroke="#0d9ec4" stroke-width="1.5" marker-end="url(#cl-arrow)"/>
+  <text x="210" y="102" text-anchor="middle" fill="#64748b" font-size="9">uses</text>
+  <defs>
+    <marker id="cl-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#0d9ec4"/>
+    </marker>
+  </defs>
+</svg>
