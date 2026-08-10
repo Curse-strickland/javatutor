@@ -45,12 +45,13 @@ function extractArrays(heap, stackFrames) {
     const fields = obj.fields || {}
     const sourceVar = findVarByRef(stackFrames, obj.id || key)
     if (ARRAY_TYPE_PATTERN.test(type) && Array.isArray(fields.elementData)) {
+      const values = getArrayValues(heap, fields.elementData)
       arrays.push({
         id: obj.id || key,
         label: type,
-        values: getArrayValues(heap, fields.elementData),
+        values,
         headIndex: 0,
-        tailIndex: fields.elementData.length - 1,
+        tailIndex: values.length - 1,
         sourceVar,
       })
     }
@@ -81,7 +82,7 @@ export function extractDataStructures(heap, stackFrames, prevHeap = null, prevSt
   const ll = extractLinkedListView(heap, stackFrames, prevHeap, prevStackFrames)
   const enrichedNodes = enrichNodesWithPrev(ll.nodes, heap)
   const enrichedLL = { ...ll, nodes: enrichedNodes }
-  const doubly = enrichedNodes.some((n) => n.prev !== undefined && n.prev !== null)
+  const doubly = enrichedNodes.some((n) => 'prev' in n)
   const linkedLists = enrichedNodes.length ? [{ ...enrichedLL, doubly }] : []
 
   // Arrays
