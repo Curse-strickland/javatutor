@@ -6,7 +6,11 @@
         <span class="rc-dot" />
         <span class="panel-kicker">PROJECT</span>
         <span class="text-sm font-semibold" style="color: var(--text-h)">多文件项目</span>
-        <span class="multi-readonly-hint">只读预览</span>
+        <span class="highlight-legend">
+          <span class="legend-item"><span class="legend-arrow" style="color: rgba(128,128,128,0.50)">▶</span>上一步</span>
+          <span class="legend-item"><span class="legend-arrow" style="color: #fbbf24">▶</span>当前</span>
+          <span class="legend-item"><span class="legend-arrow" style="color: rgba(13,158,196,0.55)">▶</span>下一步</span>
+        </span>
       </div>
 
       <FileTabsBar />
@@ -16,14 +20,12 @@
           v-if="activeCode !== null"
           ref="editorRef"
           class="h-full"
-          :read-only="true"
+          :read-only="false"
         />
         <div v-else class="editor-empty">
           <p>点击「+ 上传」添加 .java 文件</p>
         </div>
       </div>
-
-      <ProjectRunBar />
     </div>
 
     <!-- 可拖拽分割条 -->
@@ -35,14 +37,23 @@
     <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
       <div class="right-card-header">
         <span class="rc-dot" />
-        <span class="panel-kicker">UML</span>
-        <button class="right-tab" :class="{ active: store.multiRightTab === 'flow' }" @click="store.switchMultiRightTab('flow')">流程</button>
+        <span class="panel-kicker">INSPECT</span>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'variables' }" @click="store.switchMultiRightTab('variables')">变量</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'controlflow' }" @click="store.switchMultiRightTab('controlflow')">流程</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'flow' }" @click="store.switchMultiRightTab('flow')">流程图</button>
         <button class="right-tab" :class="{ active: store.multiRightTab === 'dataflow' }" @click="store.switchMultiRightTab('dataflow')">数据流</button>
         <button class="right-tab" :class="{ active: store.multiRightTab === 'structure' }" @click="store.switchMultiRightTab('structure')">结构</button>
         <button class="right-tab" :class="{ active: store.multiRightTab === 'class' }" @click="store.switchMultiRightTab('class')">类图</button>
         <button class="right-tab" :class="{ active: store.multiRightTab === 'usecase' }" @click="store.switchMultiRightTab('usecase')">用例</button>
       </div>
       <div class="flex-1 right-card-body">
+        <div v-show="store.multiRightTab === 'variables'" class="right-pane">
+          <MemoryPanel />
+          <ConsoleOutput />
+        </div>
+        <div v-show="store.multiRightTab === 'controlflow'" class="right-pane">
+          <ControlFlowPanel v-if="store.multiRightTab === 'controlflow'" :active="true" />
+        </div>
         <div v-show="store.multiRightTab === 'flow'" class="right-pane">
           <UmlPanel kind="flow" :files="store.multiState.files" />
         </div>
@@ -61,6 +72,9 @@
       </div>
     </div>
   </div>
+
+  <!-- 底部控制栏：浮动可拖动，默认位于编辑区下方居中 -->
+  <ControlBar mode="multi" @run-project="onRunProject" />
 </template>
 
 <script setup>
@@ -68,8 +82,11 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import FileTabsBar from './FileTabsBar.vue'
-import ProjectRunBar from './ProjectRunBar.vue'
 import UmlPanel from './UmlPanel.vue'
+import MemoryPanel from './MemoryPanel.vue'
+import ConsoleOutput from './ConsoleOutput.vue'
+import ControlFlowPanel from './ControlFlowPanel.vue'
+import ControlBar from './ControlBar.vue'
 
 const store = usePlayerStore()
 const editorRef = ref(null)
@@ -92,14 +109,118 @@ const activeCode = computed(() => {
   return files[idx].code
 })
 
+const activeFileName = computed(() => {
+  const files = store.multiState.files
+  const idx = store.multiState.activeFileIndex
+  if (!files.length || idx < 0 || idx >= files.length) return null
+  return files[idx].name
+})
+
+// 保存当前文件编辑内容到 store（切换文件 / 运行前调用）
+function saveActiveFile() {
+  const idx = store.multiState.activeFileIndex
+  if (idx < 0 || idx >= store.multiState.files.length) return
+  const code = editorRef.value?.getCode()
+  if (typeof code === 'string') {
+    store.multiState.files[idx].code = code
+  }
+}
+
+// 运行整个项目：先保存当前文件编辑内容再运行
+async function onRunProject() {
+  saveActiveFile()
+  const files = store.multiState.files
+  if (!files.length) return
+  await store.runProject()
+}
+
+/**
+ * 计算「当前显示文件」的三色高亮行。
+ * 上一步 / 下一步是全局唯一的（即 step-1 和 step+1），
+ * 只有当它们恰好也属于当前文件时才在当前文件里高亮；
+ * 若属于其他文件，则当前文件只显示属于它的那些，等切到对应文件时再各自显示。
+ */
+function computeHighlight() {
+  const file = activeFileName.value
+  const steps = store.steps
+  const step = store.currentStep
+  if (!file || !steps.length) return { curr: null, prev: null, next: null }
+
+  const currStep = steps[step]
+  const curr = (currStep && currStep.file === file) ? currStep.line : null
+
+  const prevStep = step > 0 ? steps[step - 1] : null
+  const prev = (prevStep && prevStep.file === file) ? prevStep.line : null
+
+  const nextStep = step < steps.length - 1 ? steps[step + 1] : null
+  const next = (nextStep && nextStep.file === file) ? nextStep.line : null
+
+  return { curr, prev, next }
+}
+
+// 对当前显示文件应用高亮（幂等，可重复调用）
+async function applyHighlight() {
+  await nextTick()
+  if (!editorRef.value) return
+  const { curr, prev, next } = computeHighlight()
+  if (curr || prev || next) {
+    editorRef.value.highlightLine(curr, prev, next)
+  } else {
+    editorRef.value.clearHighlights()
+  }
+}
+
+/**
+ * 将视图同步到指定步骤：
+ * 若该步骤属于其他文件则自动切换（切换时由 watch 负责保存旧文件）；随后应用高亮。
+ */
+async function syncToStep(step) {
+  const steps = store.steps
+  if (!steps.length) return
+  const s = Math.max(0, Math.min(step, steps.length - 1))
+  const targetFile = steps[s]?.file
+  if (targetFile && targetFile !== activeFileName.value) {
+    const idx = store.multiState.files.findIndex(f => f.name === targetFile)
+    if (idx >= 0) {
+      store.setActiveMultiFile(idx)
+      await nextTick()
+    }
+  }
+  await applyHighlight()
+}
+
+// 切换文件或内容变化 → 先保存旧文件，再载入新文件代码，并恢复高亮
+// 注意：必须同时监听 activeFileIndex 和 activeCode，
+// 因为首次上传时 activeFileIndex 保持 0 不变，只有 activeCode 从 null 变为内容，
+// 若只监听 activeFileIndex 会导致编辑器不加载文件内容。
 watch(
   () => [store.multiState.activeFileIndex, activeCode.value],
-  async () => {
-    if (activeCode.value === null) return
-    await nextTick()
-    editorRef.value?.setCode(activeCode.value)
+  async ([newIdx, newCode], [oldIdx, oldCode]) => {
+    // 切换文件时先保存旧文件内容（此时编辑器仍是旧文件内容）
+    if (oldIdx !== undefined && oldIdx !== newIdx && oldIdx >= 0 && oldIdx < store.multiState.files.length) {
+      const code = editorRef.value?.getCode()
+      if (typeof code === 'string') {
+        store.multiState.files[oldIdx].code = code
+      }
+    }
+    if (newCode === null) return
+    if (newCode !== oldCode) {
+      await nextTick()
+      editorRef.value?.setCode(newCode)
+    }
+    await applyHighlight()
   },
 )
+
+// 运行后 steps 整体替换 → 同步到当前步骤所在文件并高亮
+watch(() => store.steps, async (steps) => {
+  if (steps && steps.length) await syncToStep(store.currentStep)
+})
+
+// 步进切换 → 自动跳文件 + 高亮
+watch(() => store.currentStep, async (step) => {
+  await syncToStep(step)
+})
 
 onMounted(async () => {
   await nextTick()
@@ -112,6 +233,8 @@ onMounted(async () => {
     await nextTick()
     editorRef.value?.setCode(activeCode.value)
   }
+  // 恢复高亮（例如从单文件切回来时 steps 仍在）
+  await applyHighlight()
   window.addEventListener('resize', onWindowResize)
 })
 
@@ -206,15 +329,26 @@ const onWindowResize = () => {
   color: var(--text-muted);
 }
 
-.multi-readonly-hint {
-  margin-left: auto;
-  padding: 2px 8px;
+/* 高亮图例 — 与单文件一致 */
+.highlight-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 12px;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.06em;
   color: var(--text-muted);
-  border: 1px dashed var(--border);
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.legend-arrow {
+  font-size: 10px;
+  line-height: 1;
 }
 
 .editor-wrap {
