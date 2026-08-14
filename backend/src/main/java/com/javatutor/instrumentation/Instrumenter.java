@@ -13,7 +13,12 @@ import java.util.*;
 
 public class Instrumenter {
 
+    /** 向后兼容：单文件模式默认文件名 */
     public String instrument(String userCode){
+        return instrument(userCode, "Main.java");
+    }
+
+    public String instrument(String userCode, String fileName){
         //parse 用户的代码,形成ast
         //cu就是抽象语法树的根节点
         /**
@@ -40,6 +45,9 @@ public class Instrumenter {
 
         //使用局部数组避免 Spring 单例下的线程安全问题
         int[] counter = {1};
+
+        // 文件名（用于运行时步骤归属哪个文件）
+        final String fname = fileName == null || fileName.isBlank() ? "Main.java" : fileName;
 
 
 
@@ -153,14 +161,14 @@ public class Instrumenter {
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     // 确保包含 for-init 中声明的循环变量
                                     collectDirectVariables(stmt, insideVars);
-                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter, fname));
                                     // 仅在进入体首部记录，退出时通过后续退出记录采集快照，避免重复
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     fs.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter, fname));
                                     newBody.addStatement(body);
                                     newBody = (BlockStmt) super.visit(newBody, null);
                                     fs.setBody(newBody);
@@ -174,14 +182,14 @@ public class Instrumenter {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter, fname));
                                     // 仅在进入体首部记录，退出时由后续退出记录采集快照
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     fes.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter, fname));
                                     newBody.addStatement(body);
                                     newBody = (BlockStmt) super.visit(newBody, null);
                                     fes.setBody(newBody);
@@ -195,14 +203,14 @@ public class Instrumenter {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                        bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
+                                        bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter, fname));
                                         // 仅在进入体首部记录，退出时由后续退出记录采集快照
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     ws.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter, fname));
                                     newBody.addStatement(body);
                                     newBody = (BlockStmt) super.visit(newBody, null);
                                     ws.setBody(newBody);
@@ -216,13 +224,13 @@ public class Instrumenter {
                                     BlockStmt bodyBlock = body.asBlockStmt();
                                     List<String> insideVars = collectVisibleVariables(bodyBlock, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter));
+                                    bodyBlock.getStatements().addFirst(buildRecordStatement(ln, insideVars, counter, fname));
                                 } else {
                                     BlockStmt newBody = new BlockStmt();
                                     ds.setBody(newBody);
                                     List<String> insideVars = collectVisibleVariables(newBody, -1);
                                     collectDirectVariables(stmt, insideVars);
-                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter));
+                                    newBody.addStatement(buildRecordStatement(ln, insideVars, counter, fname));
                                     newBody.addStatement(body);
                                     newBody = (BlockStmt) super.visit(newBody, null);
                                     ds.setBody(newBody);
@@ -234,7 +242,7 @@ public class Instrumenter {
                                 // 在 if 之前插入一次记录以表示条件判断时的高亮（无论 true/false 都应高亮）
                                 List<String> condVars = collectVisibleVariables(block, i);
                                 collectDirectVariables(stmt, condVars);
-                                newStatements.add(buildRecordStatement(ln, condVars, counter));
+                                newStatements.add(buildRecordStatement(ln, condVars, counter, fname));
 
                                 // 如果 else 分支是另一个 IfStmt（即 else if），递归给它也加条件高亮
                                 if (ifs.getElseStmt().isPresent()) {
@@ -245,7 +253,7 @@ public class Instrumenter {
                                         List<String> elseVars = collectVisibleVariables(block, i);
                                         collectDirectVariables(elseIf, elseVars);
                                         BlockStmt wrap = new BlockStmt();
-                                        wrap.addStatement(buildRecordStatement(elseLn, elseVars, counter));
+                                        wrap.addStatement(buildRecordStatement(elseLn, elseVars, counter, fname));
                                         wrap.addStatement(elseIf);
                                         ifs.setElseStmt(wrap);
                                     }
@@ -264,7 +272,7 @@ public class Instrumenter {
                             // return 语句：只需在 return 之前插入 record
                             // 不额外加 pushFrame/popFrame — return 后代码不可达
                             List<String> visibleBefore = collectVisibleVariables(block, i);
-                            newStatements.add(buildRecordStatement(line, visibleBefore, counter));
+                            newStatements.add(buildRecordStatement(line, visibleBefore, counter, fname));
                             newStatements.add(stmt);
                         } else {
                             // 检测语句中的方法调用（如 factorial(3)）
@@ -273,7 +281,7 @@ public class Instrumenter {
                             String callee = detectMethodCall(stmt);
                             if (callee != null) {
                                 List<String> visibleBefore = collectVisibleVariables(block, i - 1);
-                                newStatements.add(buildRecordStatement(line, visibleBefore, counter));
+                                newStatements.add(buildRecordStatement(line, visibleBefore, counter, fname));
                             }
                             // 原有逻辑
                             List<String[]> arrayAllocs = detectArrayAllocations(stmt);
@@ -286,7 +294,7 @@ public class Instrumenter {
                                 newStatements.add(buildAllocObjectStatement(alloc[0]));
                             }
                             List<String> visibleAfter = collectVisibleVariables(block, i);
-                            newStatements.add(buildRecordStatement(line, visibleAfter, counter));
+                            newStatements.add(buildRecordStatement(line, visibleAfter, counter, fname));
                         }
                     } else {
                         newStatements.add(stmt);
@@ -304,7 +312,7 @@ public class Instrumenter {
 
     //instrument用到的辅助方法，不对外开放接口
     //
-    private Statement buildRecordStatement(int line, List<String> varNames, int[] counter) {
+    private Statement buildRecordStatement(int line, List<String> varNames, int[] counter, String fname) {
         //拼接参数
         StringBuilder mapArgs = new StringBuilder();
         for(int i = 0 ; i < varNames.size() ; i++){
@@ -320,6 +328,7 @@ public class Instrumenter {
         String recordCall = "TraceEngine.record("
         + s + ","
         + line + ","
+        + "\"" + fname + "\","
         + "TraceEngine.buildMap(new Object[]{" + mapArgs.toString() + "})"
         + ");";
 
