@@ -46,6 +46,8 @@
           <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
           <div v-else class="chat-bubble assistant">
             <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
+            <!-- 流式进行中：直接渲染正文，避免半截「决策痕迹」JSON 闪现；完成后由 DecisionTracePanel 切分 -->
+            <DecisionTracePanel v-else-if="!isStreamingTail(i)" :content="m.text" />
             <span v-else v-html="renderMarkdown(m.text)"></span>
           </div>
         </div>
@@ -154,8 +156,9 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { marked } from 'marked'
 import { usePlayerStore } from '../stores/player'
+import { renderMarkdown } from '../utils/markdown.js'
+import DecisionTracePanel from './DecisionTracePanel.vue'
 
 defineProps({
   /** 嵌在右侧 INSPECT 分页时铺满高度，并隐藏关闭按钮 */
@@ -187,6 +190,11 @@ function sendChat() {
   store.askQuestion(q)
 }
 
+// 当前正在流式累积的尾巴消息：保持正文直接渲染，等 isExplaining 结束后再切分痕迹
+function isStreamingTail(i) {
+  return store.isExplaining && i === store.chatMessages.length - 1
+}
+
 function scrollChatToBottom() {
   const el = chatBodyRef.value
   if (!el) return
@@ -206,30 +214,7 @@ const tabs = [
   { id: 'algorithm', label: '算法' },
 ]
 
-// Markdown 渲染：用项目已依赖的 marked 解析，自定义 renderer 防 XSS
-marked.use({
-  renderer: {
-    // 丢弃原始 HTML，防脚本注入
-    html() { return '' },
-    // 链接仅允许 http/https，其余协议按纯文本输出
-    link(token) {
-      const href = token.href || ''
-      if (!/^https?:\/\//i.test(href)) return token.text || href
-      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${token.text || href}</a>`
-    },
-  },
-  breaks: true,
-  gfm: true,
-})
-
-function escapeAttr(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-}
-
-function renderMarkdown(text) {
-  if (!text) return ''
-  return marked.parse(text)
-}
+// Markdown 渲染由 utils/markdown.js 统一提供（marked + XSS 防护）
 
 // Auto-scroll：跟随流式解说贴底；观察消息内容高度变化
 watch(
