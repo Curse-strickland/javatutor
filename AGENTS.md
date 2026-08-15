@@ -117,6 +117,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/superpowers/specs/` | 设计 spec |
 | `docs/superpowers/plans/` | 实施计划（含 `2026-08-15-decision-trace-panel.md`） |
 | `docs/superpowers/plans/2026-08-15-chat-stage-streaming-and-quote-fix.md` | Coze 阶段流式 + 回答代码引用修复计划 |
+| `docs/superpowers/plans/2026-08-15-integrated-followup-plan.md` | 综合接力计划：流式验收 + 光标修复 + 耗时指标 |
 | `docs/devlog/2026-08-15-chat-step-context-fix.md` | 单步问答 steps 链路修复开发日志 |
 | `docs/devlog/2026-08-15-chat-stage-streaming-quote-fix.md` | Coze 阶段流式 + 回答代码引用修复开发日志 |
 | `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review（含整改复验） |
