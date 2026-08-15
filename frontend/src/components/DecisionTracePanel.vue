@@ -10,7 +10,16 @@
       </div>
 
       <!-- 可折叠决策痕迹：蓝色圆点 + 标题 + chevron（设计系统统一折叠模式） -->
-      <div class="trace-toggle" @click="open = !open">
+      <div
+        class="trace-toggle"
+        role="button"
+        tabindex="0"
+        :aria-expanded="open ? 'true' : 'false'"
+        :aria-controls="traceJsonId"
+        @click="open = !open"
+        @keydown.enter.prevent="open = !open"
+        @keydown.space.prevent="open = !open"
+      >
         <span class="trace-dot" />
         <span class="trace-toggle-label">决策痕迹</span>
         <svg
@@ -22,7 +31,7 @@
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </div>
-      <pre v-show="open" class="trace-json">{{ traceJson }}</pre>
+      <pre v-show="open" :id="traceJsonId" class="trace-json">{{ traceJson }}</pre>
     </div>
   </div>
 </template>
@@ -39,6 +48,9 @@ const props = defineProps({
 })
 
 const open = ref(false)
+
+// 每条消息一个独立实例，折叠区 id 需唯一（aria-controls 引用）
+const traceJsonId = `decision-trace-json-${Math.random().toString(36).slice(2, 8)}`
 
 const parts = computed(() => splitDecisionTrace(props.content))
 const bodyHtml = computed(() => renderMarkdown(parts.value.body || ''))

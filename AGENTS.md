@@ -2,15 +2,22 @@
 
 ## 项目定位
 
-Java 算法可视化教学工具。用户在浏览器写 Java 代码 → 后端 AST 插桩 + 内存编译 + 沙箱执行 → 前端逐步播放变量快照 + 行高亮 + AI 解说。
+Java 算法可视化教学工具 + Coze 智能体辅助教学。用户在浏览器写 Java 代码 → 后端 AST 插桩 + 内存编译 + 沙箱执行 → 前端逐步播放变量快照 + 行高亮 + AI 解说。支持单文件运行模式、多文件项目静态分析与 UML 图、Coze 智能体自由问答与决策痕迹展示。
+
+## 仓库结构
+
+- `JavaTutor`：前后端主仓库（本文件所在仓库）。
+- `javatutor-coze`：Coze 侧智能体项目（LangGraph 代码项目，部署在 Coze 平台）；JavaTutor 通过 `/api/ai/*` 调用其 API。
 
 ## 技术栈
 
 | 层 | 技术 |
 |----|------|
 | 后端 | Spring Boot 3.2.0, Java 17, Maven, JavaParser 3.25.10 |
-| 前端 | Vue 3.5, Pinia 3, Monaco Editor 0.55, Tailwind CSS 3, Vite 8 |
-| 通信 | REST (`POST /api/run`), SSE (`GET /api/explain/{runId}/{step}`) |
+| 前端 | Vue 3.5, Pinia 3, Monaco Editor 0.55, Tailwind CSS 3, Vite 8, marked, mermaid |
+| 测试 | 前端 vitest（`npm test`）；后端 JUnit（`mvnw test`） |
+| AI | Coze API（SSE 流式）、DeepSeek API（备用分析）、OpenAI 兼容接口（ExplainController 旧链路） |
+| 通信 | REST `/api/run`、`/api/ai/analyze`、`/api/ai/uml`、`/api/ai/animate`、`/api/controlflow`；SSE `/api/ai/chat`、`/api/explain` |
 
 ## 设计系统
 
@@ -20,41 +27,21 @@ Java 算法可视化教学工具。用户在浏览器写 Java 代码 → 后端 
 
 本地前提：JDK 17+、Maven、Node.js 18+。
 
-### GitHub Codespaces（零安装）
-
-仓库页 Code → Codespaces → Create codespace on main。环境自动构建后：
-
 ```bash
 # 终端 1 — 后端 (8080)
-cd backend && ./mvnw spring-boot:run
+cd backend && ./mvnw spring-boot:run    # Windows: mvnw.cmd
 
 # 终端 2 — 前端 (5173)
-cd frontend && npm run dev
+cd frontend && npm install && npm run dev
 ```
 
-Ports 面板点击 5173 端口小地球图标打开浏览器。
+停止：`Ctrl+C` 两个终端。`pom.xml` 已配置 `-Djava.security.manager=allow`，无需手动指定。
 
-### 本地启动
+Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感配置；本地密钥写在 `coze-local.properties`（已被 gitignore，禁止提交）。
 
-```bash
-# 终端 1 — 后端
-cd backend && mvn spring-boot:run    # 端口 8080
+## 后端核心流程
 
-# 终端 2 — 前端
-cd frontend && npm install && npm run dev   # 端口 5173
-```
-
-停止：`Ctrl+C` 两个终端。
-
-`pom.xml` 配置了 `-Djava.security.manager=allow`（SecurityManager 必需），无需手动指定。
-
-### 仅编译检查
-
-```bash
-cd backend && mvn compile
-```
-
-## 后端核心流程 (POST /api/run)
+### 单文件运行 `POST /api/run`
 
 ```
 ① runId = UUID
@@ -70,124 +57,110 @@ cd backend && mvn compile
 ⑪ RunResponse.ok(runId, steps)
 ```
 
+### Coze 问答链路 `/api/ai/chat`
+
+```
+① 前端 stores/player.js 发送 code + steps + currentStep/currentLine + variables（含 _explainTopic）
+② CozeAIController.chat() 组装 payload（source_code/steps/current_step_index/user_question/...）转发 Coze /stream_run
+③ Coze 侧 javatutor-coze LangGraph：parse_context → analyze_code → GSSC 上下文 → main_agent（step_facts 工具）→ critic/revise → final
+④ SSE chunk 事件回传；最终回答包含 【决策痕迹】\n{json}
+⑤ 前端 AiTutorPanel / DecisionTracePanel 解析展示
+```
+
 ## 关键文件地图
 
-### 后端 (backend/src/main/java/com/javatutor/)
-
-| 文件 | 职责 | 行数 |
-|------|------|------|
-| `JavatutorApplication.java` | Spring Boot 入口，`main()` | 26 |
-| `controller/RunController.java` | `POST /api/run` 全流程编排 + InMemoryClassLoader + SecurityManager 安装/卸载 | 197 |
-| `instrumentation/Instrumenter.java` | AST 插桩引擎：用 JavaParser 遍历 AST，在赋值/声明/循环/return 处插入 `TraceEngine.record()` | 427 |
-| `compiler/InMemoryCompiler.java` | javax.tools 内存编译：源码 → byte[]，拦截输出到内存 | 100 |
-| `compiler/SourceFileObject.java` | 包装内存字符串为编译器能读的 JavaFileObject | 39 |
-| `compiler/ClassFileObject.java` | 包装 ByteArrayOutputStream 为编译器输出桶 | 33 |
-| `compiler/TraceEngine.java` | 磁盘副本（运行时实际用的是 RunController 里硬编码的字符串常量） | 51 |
-| `model/RunRequest.java` | 请求 DTO：`{code}` | 24 |
-| `model/RunResponse.java` | 响应 DTO：`{success, runId, steps, error}` + `ok()`/`fail()` 工厂方法 | 74 |
-| **`sandbox/SandboxValidator.java`** | **沙箱 AST 层**：import 白名单 + 方法黑名单 + 类型黑名单 + import 位置校验 | 187 |
-| **`sandbox/SafeSecurityManager.java`** | **沙箱运行时层**：继承 SecurityManager，拦截文件写/删、外部网络、进程执行、System.exit(!=0) | 95 |
-
-### 前端 (frontend/src/)
+### 后端 `backend/src/main/java/com/javatutor/`
 
 | 文件 | 职责 |
 |------|------|
-| `main.js` | Vue 入口，挂载 Pinia |
-| `App.vue` | 主布局：左编辑器 + 右变量面板 + 底部控制栏（运行/步进/播放/速度） |
-| `stores/player.js` | Pinia store：steps, currentStep, runId, error；actions: runCode, nextStep, prevStep |
-| `components/Editor.vue` | Monaco Editor 包装：getCode(), highlightLine(line)，降级到 textarea |
-| `components/VariablePanel.vue` | 变量卡片：监听 store.currentVariables，值变化时闪光动画 |
+| `controller/RunController.java` | `POST /api/run` 全流程编排 + 沙箱安装/卸载 |
+| `controller/CozeAIController.java` | `/api/ai/chat`（SSE）、`/analyze`、`/uml`、`/animate` |
+| `controller/ExplainController.java` | 旧 AI 链路 `/explain`、`/analyze`、`/controlflow` |
+| `service/CozeService.java` | Coze API 转发（payload 组装、SSE 解析） |
+| `service/AnalyzeService.java` / `DeepSeekService.java` / `ControlFlowService.java` | 复杂度分析 / DeepSeek 备用 / 控制流图 |
+| `instrumentation/Instrumenter.java` | AST 插桩，插入 `TraceEngine.record()` |
+| `compiler/*` | 内存编译（`InMemoryCompiler` / `SourceFileObject` / `ClassFileObject`） |
+| `sandbox/SandboxValidator.java` | AST 静态沙箱：import 白名单 + 方法/类型黑名单 |
+| `sandbox/SafeSecurityManager.java` | 运行时沙箱：拦截文件写/删、外部网络、进程执行、`exit(≠0)` |
+| `model/ExplainRequest.java` | AI 请求体：`code` / `steps` / `step` / `currentLine` / `algorithmTags` 等 |
+
+### 前端 `frontend/src/`
+
+| 文件 | 职责 |
+|------|------|
+| `stores/player.js` | 运行状态 + 聊天/分析/动画/多文件状态；`askQuestion` / `requestAnalysis` 等 |
+| `components/SingleFileShell.vue` / `MultiFileShell.vue` | 单/多文件主外壳 |
+| `components/AiTutorPanel.vue` | 自由问答面板（流式渲染、快捷解说） |
+| `components/DecisionTracePanel.vue` | 决策痕迹展示：正文 + 来源标签 + 可折叠 JSON |
+| `components/UmlPanel.vue` | 多文件 UML：flow / dataflow / structure / class / usecase |
+| `components/MemoryPanel.vue` / `ControlFlowPanel.vue` | 堆栈 / 控制流可视化 |
+| `utils/decisionTrace.js` | 切分 `【决策痕迹】` JSON + 来源标签 |
+| `utils/markdown.js` | 共享 markdown 渲染（XSS 防护），AiTutorPanel / DecisionTracePanel 共用 |
+| `utils/dataStructureExtract.js` / `linkedListExtract.js` / `sortVizExtract.js` 等 | 数据结构 / 链表 / 排序可视化提取 |
 
 ### 配置
 
 | 文件 | 内容 |
 |------|------|
-| `backend/pom.xml` | Spring Boot 3.2.0 + JavaParser 3.25.10 + `-Djava.security.manager=allow` |
+| `backend/src/main/resources/coze.properties` | Coze API url / project-id / enabled（无 token） |
+| `backend/src/main/resources/coze-local.properties` | 本地密钥覆盖（gitignored，禁止提交） |
 | `backend/src/main/resources/application.properties` | `server.port=8080` |
-| `frontend/package.json` | Vue 3.5, Pinia 3, Monaco 0.55, Vite 8 |
+| `frontend/package.json` | scripts：`dev` / `build` / `test`（vitest）/ `test:watch` |
 | `frontend/vite.config.js` | `/api` → localhost:8080 代理 |
 
 ### 文档
 
 | 文件 | 内容 |
 |------|------|
-| `readme.md` | 项目简介 + API 契约 + 安全约定 |
-| `ROADMAP.md` | 路线图 Phase 1-5 |
-| `memo.md` | 前后端联调备忘录 |
-| `前端分工.md` | F1/F2 分工表 |
-| `docs/sandbox-design.md` | 沙箱设计文档：四层架构图、规则表、维护指南 |
-| `docs/sandbox-verification-checklist.md` | 31 条验收用例（A-G 组） |
-| `docs/devlog/2026-06-06-sandbox-step1-2.md` | Step 1-2 开发日志 |
-| `docs/devlog/2026-06-06-sandbox-step3.md` | Step 3 开发日志 |
-| `docs/devlog/2026-06-06-sandbox-step4.md` | Step 4 开发日志 |
+| `docs/DESIGN.md` | 设计系统规约（颜色/字体/切角/折叠模式） |
+| `docs/coze/` | Coze 侧接口、部署、数据流说明 |
+| `docs/superpowers/specs/` | 设计 spec |
+| `docs/superpowers/plans/` | 实施计划（含 `2026-08-15-decision-trace-panel.md`） |
 | `docs/devlog/2026-08-15-chat-step-context-fix.md` | 单步问答 steps 链路修复开发日志 |
-| `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review |
+| `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review（含整改复验） |
 | `docs/reviews/2026-08-15-javatutor-branch-audit-review.md` | 旧分支整合审查 review |
-| `java tutor.md` | 综合方案文档 |
+| `docs/old/` | 归档的旧文档（`sandbox-design` 等，仅历史参考） |
 
-## 文档与日志规范
+## 开发与审查 Hook（强制）
 
-1. 文件统一 UTF-8；文件名只允许字母、数字、下划线、短横线，禁止空格与特殊字符。
-2. 新增任何 spec、plan、devlog、review 时，必须在本文件「文档」表登记。
-3. 开发日志：统一放在 `docs/devlog/YYYY-MM-DD-<topic>.md`。完成完整新功能或修复重大 bug 后必须撰写，记录改动内容、验证结果与遗留问题；随功能一起提交。
-4. Review 日志：统一放在 `docs/reviews/YYYY-MM-DD-<topic>-review.md`。Review 内容除非过短（少于一条有效结论），必须撰写并登记；建议随被审代码一起提交到 git，保留审查历史。
-5. 文档内容不得出现 `TBD` / `TODO` 占位；未定的内容先定方案再写。
+| 触发点 | 必须动作 |
+|--------|----------|
+| 完成完整新功能 | 写 `docs/devlog/YYYY-MM-DD-<topic>.md`，记录改动/验证/遗留，并在本文档登记 |
+| 修复重大 bug | 同上，写 devlog |
+| 代码/分支/设计 review | 除非结论过短（少于一条有效结论），写 `docs/reviews/YYYY-MM-DD-<topic>-review.md` 并在本文档登记；随被审代码提交 git |
+| 新增 spec/plan | 放入 `docs/superpowers/specs|plans/YYYY-MM-DD-<topic>(-design|-plan).md` 并登记 |
+| 提交前 | 前端跑 `npm test` + `npm run build`；后端跑 `mvnw test`；确认无硬编码密钥 |
+| 文档变更 | 更新本文档「文档」表；文件名只允许字母/数字/下划线/短横线；统一 UTF-8；不得出现 `TBD` / `TODO` |
+| git 操作 | 除非用户明确指示，不主动 commit / push |
 
-## 当前分支与工作
+## 当前状态
 
-### 分支: `fix-ast-jump`
+- 当前分支：`feat/decision-trace-panel`
+- 已完成：决策痕迹面板（`DecisionTracePanel` + `decisionTrace.js` + 共享 `markdown.js` XSS 防护）；单步问答 steps 链路修复（chat 传 steps、step_facts 数据可用）；P2/P3-1 整改已复验（121 tests + build）
+- 进行中：P2 整改待提交；决策痕迹面板待合入 `main`
+- Coze 侧：`javatutor-coze` 分支 `feat/agent-architecture-improve`，多工具架构 + 评估系统
 
-HEAD 提交: `5e8f58c` — AST 高亮修复（组员做的）
-
-### 我的沙箱工作（未提交）
-
-**新增文件：**
-- `backend/src/main/java/com/javatutor/sandbox/SandboxValidator.java` — AST 静态扫描
-- `backend/src/main/java/com/javatutor/sandbox/SafeSecurityManager.java` — 运行时拦截
-- `docs/sandbox-design.md`, `docs/sandbox-verification-checklist.md` — 设计文档 + 验收清单
-- `docs/devlog/2026-06-06-sandbox-step*.md` — 开发日志
-
-**修改文件：**
-- `RunController.java` — 接入三层防护
-- `pom.xml` — `-Djava.security.manager=allow`
-
-### 沙箱三层防护
+## 沙箱实现要点
 
 ```
 ① AST 层 (SandboxValidator)
    ├─ import 白名单: java.util, java.lang, java.math, java.text
-   ├─ 方法黑名单: System.exit, Runtime.exec, Class.forName, 反射 invoke/setAccessible 等 6 种
-   ├─ 类型黑名单: FileWriter, FileInputStream, Socket, ServerSocket, ProcessBuilder, Thread 等 9 种
-   └─ import 位置校验: 不在类外就提示语法错误
-
+   ├─ 方法黑名单: System.exit, Runtime.exec, Class.forName, 反射 invoke/setAccessible 等
+   ├─ 类型黑名单: FileWriter, FileInputStream, Socket, ServerSocket, ProcessBuilder, Thread 等
+   └─ import 位置校验
 ② 编译隔离 (InMemoryCompiler) — 天然内存隔离
-
 ③ 运行时 (SafeSecurityManager)
    ├─ checkExec → 拦截外部命令
    ├─ checkWrite/checkDelete → 拦截文件写/删
    ├─ checkConnect → 只拦截非 localhost 的网络连接
    ├─ checkExit → 仅放行 exit(0)
-   ├─ checkRead/checkListen/checkAccept → 完全放行（否则误伤 Tomcat）
-   └─ checkPermission → 完全放行（否则 JVM 默认权限检查误伤 Tomcat/Jackson）
+   └─ checkRead/checkListen/checkAccept/checkPermission → 完全放行（否则误伤 Tomcat）
 ```
 
-### SecurityManager 的踩坑记录
-
-SecurityManager 是 JVM 全局单例，安装后 Tomcat 自身线程也受管。必须：
-1. `checkAccept`/`checkListen` 放行（否则 Tomcat 收不到 HTTP 请求）
-2. `checkRead` 完全放行（否则 Jackson 读 jar 包报错）
-3. `checkPermission` 完全放行（否则 setContextClassLoader 报 AccessControlException）
-4. `checkConnect` 只拦非 localhost（否则 Tomcat 内部通信被阻）
-
-最终能在不破坏 Tomcat 的前提下拦截 `System.exit(!=0)`、文件写入、外部网络连接、外部命令执行。但文件读取/监听/接受连接必须放行，由 AST 层兜底。
-
-### 已知局限
-
-- AST 类型黑名单匹配短名（如 `FileWriter`），全限定名 `java.io.FileWriter` 也能匹配（JavaParser 返回短名）
-- `while(true){}` 纯 CPU 死循环，Thread.interrupt() 无法终止（只有 wait/sleep/IO 能被中断）
-- SecurityManager 在 Java 17 deprecated，未来需迁移到 Java Agent 或容器隔离
-- 当前未限制内存（用户可 `new int[Integer.MAX_VALUE]`）
+已知局限：AST 黑名单匹配短名；`while(true){}` 纯 CPU 死循环无法被 interrupt 终止；SecurityManager 在 Java 17 已 deprecated；当前未限制内存上限。
 
 ## 验证
 
-浏览器打开 `localhost:5173`，点运行。验收清单见 `docs/sandbox-verification-checklist.md`（31 条）。
+- 前端：`cd frontend && npm test`（当前 121 tests）、`npm run build`
+- 后端：`cd backend && ./mvnw test`
+- 浏览器联调：`localhost:5173` 运行代码 → 提问 → 校验回答含 `【决策痕迹】` 且面板正常

@@ -12,8 +12,11 @@ marked.use({
     html() { return '' },
     link(token) {
       const href = token.href || ''
-      if (!/^https?:\/\//i.test(href)) return token.text || href
-      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${token.text || href}</a>`
+      // 链接文本必须转义：模型输出可能是 [<img onerror=...>](https://…)，直接内插会被 v-html 执行
+      const text = escapeHtml(token.text || href)
+      // 仅允许 http/https 协议；javascript: 等按纯文本输出，同时天然转义
+      if (!/^https?:\/\//i.test(href)) return text
+      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`
     },
   },
   breaks: true,
@@ -22,6 +25,15 @@ marked.use({
 
 function escapeAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 export function renderMarkdown(text) {
