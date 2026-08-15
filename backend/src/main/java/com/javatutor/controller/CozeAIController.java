@@ -69,7 +69,7 @@
 
                  cozeService.streamExplain(
                      request.getCode(),
-                     null,
+                     request.getSteps(),
                      request.getStep(),
                      request.getCurrentLine(),
                      question,

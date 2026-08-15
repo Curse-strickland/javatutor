@@ -162,6 +162,15 @@ export const usePlayerStore = defineStore('player', {
       const assistantIdx = this.chatMessages.length - 1
 
       try {
+        // 单步问答必须把执行快照传给 Coze，step_facts 才能给出当前步骤证据
+        const stepSnapshots = (this.steps || []).map(s => ({
+          step: s.step,
+          line: s.line,
+          variables: s.variables || {},
+          heap: s.heap || {},
+          stackFrames: s.stackFrames || [],
+          output: s.output
+        }))
         const response = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -171,6 +180,7 @@ export const usePlayerStore = defineStore('player', {
             step: this.currentStep,
             totalSteps: this.totalSteps,
             currentLine: this.currentLine,
+            steps: stepSnapshots,
             variables: { ...this.currentVariables, _explainTopic: q },
           }),
           signal: this.explainAbortController.signal
