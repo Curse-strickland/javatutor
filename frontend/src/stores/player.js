@@ -15,6 +15,7 @@ export const usePlayerStore = defineStore('player', {
     autoExplain: false,
     explainExpanded: false,
     explainError: null,
+    explainStage: '',
     explainAbortController: null,
     explainHistory: {},
     // Code analysis state
@@ -154,6 +155,7 @@ export const usePlayerStore = defineStore('player', {
 
       this.isExplaining = true
       this.explainError = null
+      this.explainStage = ''
       this.explainAbortController = new AbortController()
 
       // 先放入用户消息，再追加空 assistant 消息接收流式回复
@@ -202,6 +204,8 @@ export const usePlayerStore = defineStore('player', {
             this.chatMessages[assistantIdx].text += eventData.join('\n')
           } else if (currentEvent === 'error') {
             this.explainError = eventData.join('\n')
+          } else if (currentEvent === 'stage' && eventData.length) {
+            this.explainStage = eventData.join('\n')
           }
           currentEvent = ''
           eventData = []

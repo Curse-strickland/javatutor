@@ -52,6 +52,10 @@
             <DecisionTracePanel v-else :content="m.text" />
           </div>
         </div>
+        <div v-if="store.isExplaining && store.explainStage" class="chat-stage">
+          <span class="stage-dot" />
+          {{ store.explainStage }}
+        </div>
         <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
       </div>
       <!-- 快捷问题 + 输入框 -->
@@ -546,6 +550,28 @@ function explainTag(tagName) {
 }
 .chat-bubble.assistant :deep(em) { color: var(--text-muted); }
 .chat-typing { color: var(--text-muted); }
+.chat-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.stage-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  animation: stage-pulse 1.6s steps(2) infinite;
+}
+@keyframes stage-pulse { 50% { opacity: 0.28; } }
+@media (prefers-reduced-motion: reduce) {
+  .stage-dot { animation: none; }
+}
 .chat-input-area {
   display: flex;
   flex-direction: column;

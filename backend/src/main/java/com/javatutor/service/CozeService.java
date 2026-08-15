@@ -50,7 +50,8 @@
                                String sessionId,
                                String intent,
                                List<String> algorithmTags,
-                               Consumer<String> onChunk) throws Exception {
+                               Consumer<String> onChunk,
+                               Consumer<String> onStage) throws Exception {
 
          if (!isEnabled()) {
              throw new IllegalStateException("Coze is disabled.");
@@ -125,9 +126,13 @@
                          JsonNode errorNode = node.at("/content/error");
                          String errMsg = errorNode != null && !errorNode.isNull()
                              ? errorNode.asText() : "Unknown";
-                         throw new RuntimeException("Coze agent error: " + errMsg);
-                     }
-                 } catch (Exception e) {
+                        throw new RuntimeException("Coze agent error: " + errMsg);
+                    } else if ("message_start".equals(type)) {
+                        if (onStage != null) {
+                            onStage.accept("正在分析代码并生成回答…");
+                        }
+                    }
+                } catch (Exception e) {
                      if (e instanceof RuntimeException re
                          && re.getMessage().startsWith("Coze")) throw e;
                  }
@@ -141,10 +146,10 @@
                                    String userQuestion,
                                    String sessionId,
                                    String intent) throws Exception {
-         StringBuilder sb = new StringBuilder();
-         streamExplain(sourceCode, null, currentStepIndex, currentLine,
-             userQuestion, null, sessionId, intent, null, sb::append);
-         return sb.toString();
+        StringBuilder sb = new StringBuilder();
+        streamExplain(sourceCode, null, currentStepIndex, currentLine,
+            userQuestion, null, sessionId, intent, null, sb::append, null);
+        return sb.toString();
      }
 
      /** 阻塞获取完整回答，附带步骤数据（animate 分支依赖 steps 生成 SVG）。 */
@@ -156,9 +161,9 @@
                                             String sessionId,
                                             String intent,
                                             List<String> algorithmTags) throws Exception {
-         StringBuilder sb = new StringBuilder();
-         streamExplain(sourceCode, steps, currentStepIndex, currentLine,
-             userQuestion, null, sessionId, intent, algorithmTags, sb::append);
-         return sb.toString();
+        StringBuilder sb = new StringBuilder();
+        streamExplain(sourceCode, steps, currentStepIndex, currentLine,
+            userQuestion, null, sessionId, intent, algorithmTags, sb::append, null);
+        return sb.toString();
      }
  }
