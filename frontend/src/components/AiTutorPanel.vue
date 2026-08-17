@@ -46,8 +46,15 @@
           <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
           <div v-else class="chat-bubble assistant">
             <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
-            <span v-else v-html="renderMarkdown(m.text)"></span>
+            <!-- 流式累积期间保持 markdown 渲染，避免未完成的【决策痕迹】JSON 闪烁；
+                 回答结束后整条消息交给 DecisionTracePanel 解析展示 -->
+            <span v-else-if="store.isExplaining" v-html="renderMarkdown(m.text)"></span>
+            <DecisionTracePanel v-else :content="m.text" />
           </div>
+        </div>
+        <div v-if="store.isExplaining && store.explainStage" class="chat-stage">
+          <span class="stage-dot" />
+          {{ store.explainStage }}
         </div>
         <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
       </div>
@@ -154,8 +161,10 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { marked } from 'marked'
 import { usePlayerStore } from '../stores/player'
+
+import { renderMarkdown } from '../utils/markdown.js'
+import DecisionTracePanel from './DecisionTracePanel.vue'
 
 defineProps({
   /** 嵌在右侧 INSPECT 分页时铺满高度，并隐藏关闭按钮 */
@@ -206,30 +215,7 @@ const tabs = [
   { id: 'algorithm', label: '算法' },
 ]
 
-// Markdown 渲染：用项目已依赖的 marked 解析，自定义 renderer 防 XSS
-marked.use({
-  renderer: {
-    // 丢弃原始 HTML，防脚本注入
-    html() { return '' },
-    // 链接仅允许 http/https，其余协议按纯文本输出
-    link(token) {
-      const href = token.href || ''
-      if (!/^https?:\/\//i.test(href)) return token.text || href
-      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${token.text || href}</a>`
-    },
-  },
-  breaks: true,
-  gfm: true,
-})
-
-function escapeAttr(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-}
-
-function renderMarkdown(text) {
-  if (!text) return ''
-  return marked.parse(text)
-}
+// Markdown 渲染见 utils/markdown.js（marked + 自定义 renderer 防 XSS，与 DecisionTracePanel 共用）
 
 // Auto-scroll：跟随流式解说贴底；观察消息内容高度变化
 watch(
@@ -564,6 +550,28 @@ function explainTag(tagName) {
 }
 .chat-bubble.assistant :deep(em) { color: var(--text-muted); }
 .chat-typing { color: var(--text-muted); }
+.chat-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.stage-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  animation: stage-pulse 1.6s steps(2) infinite;
+}
+@keyframes stage-pulse { 50% { opacity: 0.28; } }
+@media (prefers-reduced-motion: reduce) {
+  .stage-dot { animation: none; }
+}
 .chat-input-area {
   display: flex;
   flex-direction: column;

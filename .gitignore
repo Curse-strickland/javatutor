@@ -36,7 +36,7 @@ CLAUDE.md
 /.cache/
 /.tmp/
 backend/target/
-reviews/
+/reviews/
 test-sandbox.sh
 
 # 本地覆盖配置（可能含真实密钥，禁止提交）
@@ -47,7 +47,6 @@ backend/src/main/resources/application-local.properties
 *.pptx
 ppt/
 projects/
-AGENTS.md
 .codex/config.toml
 .codex/environments/environment.toml
 docs/coze/项目文档-AI智能体组.md
