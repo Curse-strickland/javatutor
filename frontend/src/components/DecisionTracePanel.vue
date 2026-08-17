@@ -9,19 +9,19 @@
         <span v-for="s in sources" :key="s" class="trace-chip">{{ s }}</span>
       </div>
 
-      <!-- 可折叠决策痕迹：蓝色圆点 + 标题 + chevron（设计系统统一折叠模式） -->
+      <!-- 可折叠执行过程摘要：蓝色圆点 + 标题 + chevron（设计系统统一折叠模式） -->
       <div
         class="trace-toggle"
         role="button"
         tabindex="0"
         :aria-expanded="open ? 'true' : 'false'"
-        :aria-controls="traceJsonId"
+        :aria-controls="tracePanelId"
         @click="open = !open"
         @keydown.enter.prevent="open = !open"
         @keydown.space.prevent="open = !open"
       >
         <span class="trace-dot" />
-        <span class="trace-toggle-label">决策痕迹</span>
+        <span class="trace-toggle-label">执行过程</span>
         <svg
           class="trace-chevron"
           :class="{ rotated: open }"
@@ -31,7 +31,23 @@
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </div>
-      <pre v-show="open" :id="traceJsonId" class="trace-json">{{ traceJson }}</pre>
+      <div v-show="open" :id="tracePanelId" class="trace-panel">
+        <!-- 用户可读的执行过程摘要 -->
+        <div v-if="hasSummary" class="trace-summary">
+          <span v-if="summary.intentLabel" class="trace-intent">{{ summary.intentLabel }}</span>
+          <span v-if="summary.reviseText" class="trace-revise">{{ summary.reviseText }}</span>
+          <ul v-if="summary.toolLines.length" class="trace-tools">
+            <li v-for="(line, i) in summary.toolLines" :key="i">{{ line }}</li>
+          </ul>
+          <span v-else-if="summary.toolEmptyText" class="trace-revise">{{ summary.toolEmptyText }}</span>
+          <div class="trace-metrics">
+            <span v-if="summary.latencyText" class="trace-metric">{{ summary.latencyText }}</span>
+            <span v-if="summary.tokenText" class="trace-metric">{{ summary.tokenText }}</span>
+          </div>
+        </div>
+        <!-- 原始 JSON 仅开发者模式可见（?dev=1 或 localStorage jt-dev=1） -->
+        <pre v-if="devMode" class="trace-json">{{ traceJson }}</pre>
+      </div>
     </div>
   </div>
 </template>
@@ -40,23 +56,39 @@
 import { computed, ref } from 'vue'
 
 import { renderMarkdown } from '../utils/markdown.js'
-import { sourceLabels, splitDecisionTrace } from '../utils/decisionTrace.js'
+import { sourceLabels, splitDecisionTrace, traceSummary } from '../utils/decisionTrace.js'
 
 const props = defineProps({
   /** 完整消息文本：正文 + 【决策痕迹】JSON 标记 */
   content: { type: String, default: '' },
 })
 
-const open = ref(false)
+const open = ref(true)
 
 // 每条消息一个独立实例，折叠区 id 需唯一（aria-controls 引用）
-const traceJsonId = `decision-trace-json-${Math.random().toString(36).slice(2, 8)}`
+const tracePanelId = `decision-trace-panel-${Math.random().toString(36).slice(2, 8)}`
 
 const parts = computed(() => splitDecisionTrace(props.content))
 const bodyHtml = computed(() => renderMarkdown(parts.value.body || ''))
 const trace = computed(() => parts.value.trace)
 const sources = computed(() => sourceLabels(trace.value))
+const summary = computed(() => traceSummary(trace.value))
+const hasSummary = computed(() =>
+  summary.value.intentLabel !== '' || summary.value.reviseText !== '' ||
+  summary.value.toolLines.length > 0 || summary.value.toolEmptyText !== '' ||
+  summary.value.latencyText !== '' ||
+  summary.value.tokenText !== ''
+)
 const traceJson = computed(() => JSON.stringify(trace.value, null, 2))
+
+// 开发者模式：URL 带 ?dev=1 或 localStorage 标记 jt-dev=1 时展示原始 JSON
+const devMode = computed(() => {
+  try {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('dev') === '1') return true
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('jt-dev') === '1') return true
+  } catch { /* 安全模式/SSR 忽略 */ }
+  return false
+})
 </script>
 
 <style scoped>
@@ -117,8 +149,57 @@ const traceJson = computed(() => JSON.stringify(trace.value, null, 2))
 .trace-chevron.rotated {
   transform: rotate(180deg);
 }
+.trace-panel {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trace-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.trace-intent {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.trace-revise {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.trace-tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trace-tools li {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.trace-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 2px;
+}
+.trace-metric {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
 .trace-json {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 0;

@@ -2,6 +2,8 @@
 
  import com.fasterxml.jackson.databind.JsonNode;
  import com.fasterxml.jackson.databind.ObjectMapper;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
  import org.springframework.beans.factory.annotation.Value;
  import org.springframework.stereotype.Service;
 
@@ -33,6 +35,8 @@
      @Value("${coze.enabled:false}")
      private boolean enabled;
 
+     private static final Logger log = LoggerFactory.getLogger(CozeService.class);
+
      private final HttpClient httpClient = HttpClient.newHttpClient();
      private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -56,6 +60,8 @@
          if (!isEnabled()) {
              throw new IllegalStateException("Coze is disabled.");
          }
+
+         long startMs = System.currentTimeMillis();
 
          Map<String, Object> agentPayload = new LinkedHashMap<>();
          agentPayload.put("source_code", sourceCode);
@@ -131,11 +137,31 @@
                         if (onStage != null) {
                             onStage.accept("正在分析代码并生成回答…");
                         }
+                    } else if ("message_end".equals(type)) {
+                        // 平台耗时与 token 指标：message_end 返回 time_cost_ms，token_cost 位于其对象内
+                        long wallLatencyMs = System.currentTimeMillis() - startMs;
+                        JsonNode messageEnd = node.at("/content/message_end");
+                        long timeCostMs = messageEnd != null && !messageEnd.isNull()
+                            && messageEnd.has("time_cost_ms")
+                            ? messageEnd.get("time_cost_ms").asLong() : -1;
+                        JsonNode tokenCostNode = messageEnd != null && !messageEnd.isNull()
+                            ? messageEnd.get("token_cost") : null;
+                        long totalTokens = tokenCostNode != null && !tokenCostNode.isNull()
+                            && tokenCostNode.has("total_tokens")
+                            ? tokenCostNode.get("total_tokens").asLong() : -1;
+                        log.info("Coze message_end: wallLatencyMs={}, platformTimeCostMs={}, platformTotalTokens={}",
+                            wallLatencyMs, timeCostMs, totalTokens);
                     }
                 } catch (Exception e) {
-                     if (e instanceof RuntimeException re
-                         && re.getMessage().startsWith("Coze")) throw e;
-                 }
+                    if (e instanceof RuntimeException re
+                        && re.getMessage().startsWith("Coze")) {
+                        log.warn("Coze streamExplain failed after {}ms: {}",
+                            System.currentTimeMillis() - startMs, e.getMessage());
+                        throw e;
+                    }
+                    log.warn("Coze streamExplain parse error after {}ms: {}",
+                        System.currentTimeMillis() - startMs, e.getMessage());
+                }
              }
          }
      }
