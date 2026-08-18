@@ -87,11 +87,12 @@ class InstrumenterTest {
         "        }\n" +
         "        return copy;\n" +
         "    }\n" +
-        "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
+        "    public static void record(int step, int line, String fname, Map<String,Object> vars) {\n" +
         "        if (disabled) return;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
         "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
+        "        record.put(\"file\", fname);\n" +
         "        record.put(\"variables\", new LinkedHashMap<>(vars));\n" +
         "        if (capturedOutput != null) {\n" +
         "            String outStr = capturedOutput.toString();\n" +
