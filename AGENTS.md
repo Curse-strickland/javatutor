@@ -124,6 +124,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/devlog/2026-08-15-chat-stage-streaming-quote-fix.md` | Coze 阶段流式 + 回答代码引用修复开发日志 |
 | `docs/devlog/2026-08-15-integrated-followup.md` | 综合接力开发日志：流式验收 + 光标修复 + 耗时指标 |
 | `docs/devlog/2026-08-17-decision-trace-user-display-metrics.md` | 决策痕迹用户展示与耗时指标修复开发日志 |
+| `docs/devlog/2026-08-18-multi-file-project-run-merge.md` | 多文件项目运行分支合入 main：测试签名同步 + 合并冲突解决开发日志 |
 | `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review（含整改复验） |
 | `docs/reviews/2026-08-15-javatutor-branch-audit-review.md` | 旧分支整合审查 review |
 | `docs/old/` | 归档的旧文档（`sandbox-design` 等，仅历史参考） |
@@ -142,9 +143,9 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 
 ## 当前状态
 
-- 当前分支：`feat/decision-trace-panel`
-- 已完成：决策痕迹面板（`DecisionTracePanel` + `decisionTrace.js` + 共享 `markdown.js` XSS 防护）；单步问答 steps 链路修复（chat 传 steps、step_facts 数据可用）；P2/P3-1 整改已复验（121 tests + build）
-- 进行中：P2 整改待提交；决策痕迹面板待合入 `main`
+- 当前分支：`feat/multi-file-project-run`（已合并到 `main`，PR #34）
+- 已完成：决策痕迹面板（`DecisionTracePanel` + `decisionTrace.js` + 共享 `markdown.js` XSS 防护）已合入 main（PR #33）；单步问答 steps 链路修复；多文件项目整体运行 + 共享控制栏（`ControlBar.vue`）已合入 main（PR #34）
+- 进行中：多文件项目运行本地 `main` 待同步远程最新
 - Coze 侧：`javatutor-coze` 分支 `feat/agent-architecture-improve`，多工具架构 + 评估系统
 
 ## 沙箱实现要点
@@ -168,6 +169,6 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 
 ## 验证
 
-- 前端：`cd frontend && npm test`（当前 121 tests）、`npm run build`
-- 后端：`cd backend && ./mvnw test`
+- 前端：`cd frontend && npm test`（当前 128 tests）、`npm run build`
+- 后端：`cd backend && ./mvnw test`（当前 83 tests）
 - 浏览器联调：`localhost:5173` 运行代码 → 提问 → 校验回答含 `【决策痕迹】` 且面板正常
