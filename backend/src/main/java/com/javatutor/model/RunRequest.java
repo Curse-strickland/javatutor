@@ -6,6 +6,8 @@ public class RunRequest {
     private String code;
     private String mode = "default";
     private List<String> testCases;
+    private List<SourceFile> files;
+    private String entryClass;
 
     public RunRequest() {
     }
@@ -32,5 +34,19 @@ public class RunRequest {
     }
     public void setTestCases(List<String> testCases) {
         this.testCases = testCases;
+    }
+
+    public List<SourceFile> getFiles() {
+        return files;
+    }
+    public void setFiles(List<SourceFile> files) {
+        this.files = files;
+    }
+
+    public String getEntryClass() {
+        return entryClass;
+    }
+    public void setEntryClass(String entryClass) {
+        this.entryClass = entryClass;
     }
 }

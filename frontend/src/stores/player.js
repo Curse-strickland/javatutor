@@ -49,7 +49,7 @@ export const usePlayerStore = defineStore('player', {
       activeFileIndex: 0,
       umlCache: {},          // {kind: {svg, ts, source}}
     },
-    multiRightTab: 'flow',
+    multiRightTab: 'variables',
   }),
   getters: {
     currentVariables: (state) => {
@@ -62,6 +62,8 @@ export const usePlayerStore = defineStore('player', {
       return Object.keys(merged).length > 0 ? merged : (state.steps[state.currentStep]?.variables || {})
     },
     currentLine: (state) => state.steps[state.currentStep]?.line || null,
+    /** 当前步骤所属文件名（多文件项目运行用，单文件为空） */
+    currentStepFile: (state) => state.steps[state.currentStep]?.file || null,
     totalSteps: (state) => state.steps.length,
     currentHeap: (state) => state.steps[state.currentStep]?.heap || {},
     currentStackFrame: (state) => state.steps[state.currentStep]?.stackFrame || null,
@@ -106,23 +108,64 @@ export const usePlayerStore = defineStore('player', {
           body: JSON.stringify(body)
         })
         const data = await res.json()
-        if (data.code === 200 || data.success) {
-          this.steps = data.data || data.steps || []
-          this.runId = data.runId
-          this.output = data.output || ''
-          this.currentStep = 0
-          if (data.methodName) this.methodName = data.methodName
-          if (data.methodSignature) this.methodSignature = data.methodSignature
-          this.requestAnalysis()
-          this.cfViewStack = []
-          this.requestControlFlow()
-        } else {
-          this.error = data.error || data.msg || '未知错误'
-        }
+        this.applyRunResult(data)
       } catch (e) {
         this.error = e.message || '网络请求失败'
       } finally {
         this.isLoading = false
+      }
+    },
+
+    /** 多文件项目运行：把整个项目发送给后端统一编译执行 */
+    async runProject() {
+      const files = this.multiState.files
+      if (!files.length) return
+      this.isLoading = true
+      this.error = null
+      this.output = ''
+      this.runId = null
+      this.code = files[this.multiState.activeFileIndex]?.code || ''
+      this.chatMessages = []
+      this.explainError = null
+      this.explainHistory = {}
+      this.analysisData = null
+      this.analysisError = null
+      this.svgText = null
+      this.svgError = null
+      this.activeAiTab = 'explain'
+      if (this.explainAbortController) {
+        this.explainAbortController.abort()
+        this.explainAbortController = null
+      }
+      try {
+        const res = await fetch('/api/run/project', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files })
+        })
+        const data = await res.json()
+        this.applyRunResult(data)
+      } catch (e) {
+        this.error = e.message || '网络请求失败'
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    /** 统一处理运行结果（单文件 / 多文件共用） */
+    applyRunResult(data) {
+      if (data.code === 200 || data.success) {
+        this.steps = data.data || data.steps || []
+        this.runId = data.runId
+        this.output = data.output || ''
+        this.currentStep = 0
+        if (data.methodName) this.methodName = data.methodName
+        if (data.methodSignature) this.methodSignature = data.methodSignature
+        this.requestAnalysis()
+        this.cfViewStack = []
+        this.requestControlFlow()
+      } else {
+        this.error = data.error || data.msg || '未知错误'
       }
     },
     nextStep() {
@@ -449,7 +492,7 @@ export const usePlayerStore = defineStore('player', {
     // --- Multi-file mode ---
 
     switchMultiRightTab(tab) {
-      const allowed = ['flow', 'dataflow', 'structure', 'class', 'usecase']
+      const allowed = ['variables', 'controlflow', 'flow', 'dataflow', 'structure', 'class', 'usecase']
       if (allowed.includes(tab)) this.multiRightTab = tab
     },
 

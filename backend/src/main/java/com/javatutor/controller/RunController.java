@@ -6,6 +6,7 @@ import com.javatutor.sandbox.SandboxValidator;
 import com.javatutor.sandbox.SafeSecurityManager;
 import com.javatutor.model.RunRequest;
 import com.javatutor.model.RunResponse;
+import com.javatutor.model.SourceFile;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
@@ -283,11 +284,12 @@ public class RunController {
         "        }\n" +
         "        return copy;\n" +
         "    }\n" +
-        "    public static void record(int step, int line, Map<String,Object> vars) {\n" +
+        "    public static void record(int step, int line, String fname, Map<String,Object> vars) {\n" +
         "        if (disabled) return;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
         "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
+        "        record.put(\"file\", fname);\n" +
         "        LinkedHashMap<String,Object> varsCopy = new LinkedHashMap<>();\n" +
         "        for (Map.Entry<String,Object> e : vars.entrySet()) {\n" +
         "            Object v = e.getValue();\n" +
@@ -376,7 +378,7 @@ public class RunController {
         "        if (disabled) return cond;\n" +
         "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
         "        for (Map.Entry<String,?> e : vars.entrySet()) { map.put(e.getKey(), e.getValue()); }\n" +
-        "        record(step, line, map);\n" +
+        "        record(step, line, \"\", map);\n" +
         "        return cond;\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
@@ -429,50 +431,122 @@ public class RunController {
             sources.put(className, instrumentedCode);
             if (launcherCode != null) sources.put("Launcher", launcherCode);
 
-            Map<String,byte[]> bytecodeMap = compiler.compile(sources);
-            InMemoryClassLoader classLoader = new InMemoryClassLoader(bytecodeMap);
-            Class<?> traceEngineClass = classLoader.loadClass("TraceEngine");
-            Class<?> entryClass = (launcherCode != null) ? classLoader.loadClass("Launcher") : classLoader.loadClass(className);
-            traceEngineClass.getMethod("reset").invoke(null);
-
-            SecurityManager originalSM = System.getSecurityManager();
-            System.setSecurityManager(new SafeSecurityManager());
-            PrintStream originalOut = System.out;
-            ByteArrayOutputStream capturedOut = new ByteArrayOutputStream();
-            System.setOut(new PrintStream(capturedOut, true));
-            traceEngineClass.getMethod("setOutputStream", ByteArrayOutputStream.class).invoke(null, capturedOut);
-            String userOutput = "";
-            try {
-                ExecutorService executor = Executors.newSingleThreadExecutor();
-                try {
-                    Future<?> future = executor.submit(() -> {
-                        try { entryClass.getMethod("main", String[].class).invoke(null, (Object) new String[0]); }
-                        catch (Exception ex) { throw new RuntimeException(ex); }
-                    });
-                    try { future.get(5, TimeUnit.SECONDS); }
-                    catch (TimeoutException e) {
-                        traceEngineClass.getMethod("disable").invoke(null);
-                        future.cancel(true);
-                        return RunResponse.fail("运行超时（超过5秒）");
-                    }
-                } finally { executor.shutdownNow(); }
-            } finally {
-                System.out.flush();
-                System.setOut(originalOut);
-                userOutput = capturedOut.toString().replace("\r\n", "\n");
-                System.setSecurityManager(originalSM);
-            }
-
-            @SuppressWarnings("unchecked")
-            List<Map<String,Object>> steps = (List<Map<String,Object>>)
-                traceEngineClass.getMethod("getSteps").invoke(null);
-            return RunResponse.ok(runId, steps, userOutput, methodName, methodSignature);
+            String entryClassName = (launcherCode != null) ? "Launcher" : className;
+            return compileAndRun(sources, entryClassName, runId, methodName, methodSignature);
 
         } catch(Exception e){
-            Throwable root = e;
-            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-            return RunResponse.fail(root.getClass().getSimpleName() + ": " + root.getMessage());
+            return failFromException(e);
         }
+    }
+
+    /** 多文件项目运行：把整个项目作为一个整体编译并执行含 main 的入口类 */
+    @PostMapping("/run/project")
+    public RunResponse runProject(@RequestBody RunRequest request){
+        List<SourceFile> files = request.getFiles();
+        if (files == null || files.isEmpty()) return RunResponse.fail("项目不能为空，请先上传 .java 文件");
+        String runId = UUID.randomUUID().toString();
+
+        try{
+            Map<String,String> sources = new LinkedHashMap<>();
+            sources.put("TraceEngine", TRACE_ENGINE_SOURCE);
+
+            String detectedEntry = null;
+            for (SourceFile file : files) {
+                String name = file.getName();
+                String code = file.getCode();
+                if (code == null || code.isBlank()) return RunResponse.fail("文件「" + name + "」内容为空");
+                SandboxValidator.Result validation = SandboxValidator.validate(code);
+                if (!validation.allowed) return RunResponse.fail("文件「" + name + "」: " + validation.reason);
+
+                String className = extractClassName(code);
+                String instrumentedCode = instrumenter.instrument(code, name);
+                instrumentedCode = removePackageDeclaration(instrumentedCode);
+                sources.put(className, instrumentedCode);
+
+                if (detectedEntry == null && hasMainMethod(code)) detectedEntry = className;
+            }
+
+            String entryClassName = request.getEntryClass();
+            if (entryClassName == null || entryClassName.isBlank()) entryClassName = detectedEntry;
+            if (entryClassName == null || entryClassName.isBlank())
+                return RunResponse.fail("未找到包含 public static void main 的入口类");
+            if (!sources.containsKey(entryClassName))
+                return RunResponse.fail("入口类「" + entryClassName + "」不在上传的文件中");
+
+            return compileAndRun(sources, entryClassName, runId, null, null);
+
+        } catch(Exception e){
+            return failFromException(e);
+        }
+    }
+
+    /** 编译 sources 并执行入口类的 main 方法，收集插桩步骤与输出 */
+    private RunResponse compileAndRun(Map<String,String> sources, String entryClassName,
+                                      String runId, String methodName, String methodSignature) throws Exception {
+        Map<String,byte[]> bytecodeMap = compiler.compile(sources);
+        InMemoryClassLoader classLoader = new InMemoryClassLoader(bytecodeMap);
+        Class<?> traceEngineClass = classLoader.loadClass("TraceEngine");
+        Class<?> entryClass = classLoader.loadClass(entryClassName);
+        traceEngineClass.getMethod("reset").invoke(null);
+
+        SecurityManager originalSM = System.getSecurityManager();
+        System.setSecurityManager(new SafeSecurityManager());
+        PrintStream originalOut = System.out;
+        ByteArrayOutputStream capturedOut = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(capturedOut, true));
+        traceEngineClass.getMethod("setOutputStream", ByteArrayOutputStream.class).invoke(null, capturedOut);
+        String userOutput = "";
+        try {
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            try {
+                Future<?> future = executor.submit(() -> {
+                    try { entryClass.getMethod("main", String[].class).invoke(null, (Object) new String[0]); }
+                    catch (Exception ex) { throw new RuntimeException(ex); }
+                });
+                try { future.get(5, TimeUnit.SECONDS); }
+                catch (TimeoutException e) {
+                    traceEngineClass.getMethod("disable").invoke(null);
+                    future.cancel(true);
+                    return RunResponse.fail("运行超时（超过5秒）");
+                }
+            } finally { executor.shutdownNow(); }
+        } finally {
+            System.out.flush();
+            System.setOut(originalOut);
+            userOutput = capturedOut.toString().replace("\r\n", "\n");
+            System.setSecurityManager(originalSM);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String,Object>> steps = (List<Map<String,Object>>)
+            traceEngineClass.getMethod("getSteps").invoke(null);
+        return RunResponse.ok(runId, steps, userOutput, methodName, methodSignature);
+    }
+
+    /** 把异常根因包装成失败响应 */
+    private RunResponse failFromException(Exception e) {
+        Throwable root = e;
+        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+        return RunResponse.fail(root.getClass().getSimpleName() + ": " + root.getMessage());
+    }
+
+    /** 判断源码中是否包含 public static void main(String[] ...) */
+    private boolean hasMainMethod(String code) {
+        try {
+            CompilationUnit cu = StaticJavaParser.parse(code);
+            for (var t : cu.getTypes()) {
+                if (!t.isClassOrInterfaceDeclaration()) continue;
+                for (var m : t.asClassOrInterfaceDeclaration().getMethods()) {
+                    if (m.getNameAsString().equals("main") && m.isPublic() && m.isStatic()) {
+                        if (m.getParameters().size() == 1) return true;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // 解析失败时退回正则兜底
+        }
+        return Pattern.compile("(?s)\\bpublic\\s+static\\s+void\\s+main\\s*\\(\\s*String\\s*\\[\\s*\\]")
+            .matcher(code).find();
     }
 
     private String extractClassName(String code){
