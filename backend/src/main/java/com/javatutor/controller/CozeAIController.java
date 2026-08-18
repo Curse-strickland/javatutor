@@ -69,7 +69,7 @@
 
                  cozeService.streamExplain(
                      request.getCode(),
-                     null,
+                     request.getSteps(),
                      request.getStep(),
                      request.getCurrentLine(),
                      question,
@@ -80,6 +80,10 @@
                      null, // no algorithmTags for chat
                      chunk -> {
                          try { emitter.send(SseEmitter.event().name("chunk").data(chunk)); }
+                         catch (Exception e) { throw new RuntimeException(e); }
+                     },
+                     stage -> {
+                         try { emitter.send(SseEmitter.event().name("stage").data(stage)); }
                          catch (Exception e) { throw new RuntimeException(e); }
                      }
                  );

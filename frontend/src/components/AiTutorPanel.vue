@@ -46,10 +46,15 @@
           <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
           <div v-else class="chat-bubble assistant">
             <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
-            <!-- 流式进行中：直接渲染正文，避免半截「决策痕迹」JSON 闪现；完成后由 DecisionTracePanel 切分 -->
-            <DecisionTracePanel v-else-if="!isStreamingTail(i)" :content="m.text" />
-            <span v-else v-html="renderMarkdown(m.text)"></span>
+            <!-- 流式累积期间保持 markdown 渲染，避免未完成的【决策痕迹】JSON 闪烁；
+                 回答结束后整条消息交给 DecisionTracePanel 解析展示 -->
+            <span v-else-if="store.isExplaining" v-html="renderMarkdown(m.text)"></span>
+            <DecisionTracePanel v-else :content="m.text" />
           </div>
+        </div>
+        <div v-if="store.isExplaining && store.explainStage" class="chat-stage">
+          <span class="stage-dot" />
+          {{ store.explainStage }}
         </div>
         <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
       </div>
@@ -157,6 +162,7 @@
 <script setup>
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from '../stores/player'
+
 import { renderMarkdown } from '../utils/markdown.js'
 import DecisionTracePanel from './DecisionTracePanel.vue'
 
@@ -190,11 +196,6 @@ function sendChat() {
   store.askQuestion(q)
 }
 
-// 当前正在流式累积的尾巴消息：保持正文直接渲染，等 isExplaining 结束后再切分痕迹
-function isStreamingTail(i) {
-  return store.isExplaining && i === store.chatMessages.length - 1
-}
-
 function scrollChatToBottom() {
   const el = chatBodyRef.value
   if (!el) return
@@ -214,7 +215,7 @@ const tabs = [
   { id: 'algorithm', label: '算法' },
 ]
 
-// Markdown 渲染由 utils/markdown.js 统一提供（marked + XSS 防护）
+// Markdown 渲染见 utils/markdown.js（marked + 自定义 renderer 防 XSS，与 DecisionTracePanel 共用）
 
 // Auto-scroll：跟随流式解说贴底；观察消息内容高度变化
 watch(
@@ -549,6 +550,28 @@ function explainTag(tagName) {
 }
 .chat-bubble.assistant :deep(em) { color: var(--text-muted); }
 .chat-typing { color: var(--text-muted); }
+.chat-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.stage-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  animation: stage-pulse 1.6s steps(2) infinite;
+}
+@keyframes stage-pulse { 50% { opacity: 0.28; } }
+@media (prefers-reduced-motion: reduce) {
+  .stage-dot { animation: none; }
+}
 .chat-input-area {
   display: flex;
   flex-direction: column;

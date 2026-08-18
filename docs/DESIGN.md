@@ -1,30 +1,58 @@
 # Design System — JavaTutor
 
-> 专业、清晰、沉浸。像一本排版精良的教材，而非功能密集的 IDE。
+> 档案工业风（Rhodes Archive / HUD）。浅色冷灰底 + 切角轮廓 + 单一蓝青 accent。像一份排版严谨的技术档案，而非圆润的消费级 IDE。
+>
+> 实现源：`frontend/src/style.css` 的 `:root` tokens 与 `.card`/`.btn`/滚动条/Monaco 覆盖；组件样式见 `SingleFileShell.vue`、`MultiFileShell.vue`、`ModeBar.vue`、`AiTutorPanel.vue`。本文件是这些实现的规约，改动组件前先对照本文件。
 
 ---
 
 ## Color Palette
 
-统一深灰色调，蓝色为唯一 accent。无第二强调色。
+浅色冷灰基调，`#0d9ec4` 蓝青为唯一 accent。无第二强调色（琥珀/绿仅作语义警告或功能色，见下）。
+
+### 基础 Tokens（style.css `:root`）
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--bg` | `#2b2b32` | 页面背景 |
-| `--card-bg` | `rgba(55,55,63,0.88)` | 卡片表面 |
-| `--code-bg` | `#33333b` | 代码区 / 栈帧 / 堆对象 / 控制台内容区 |
-| `--text` | `#d4d4d8` | 正文 |
-| `--text-h` | `#f0f0f4` | 标题 / 强调 |
-| `--text-muted` | `#909098` | 辅助信息 / 占位 |
-| `--border` | `rgba(255,255,255,0.10)` | 卡片边框、分割线 |
-| `--primary` | `#0a84ff` | 主按钮渐变、accent 色 |
-| `--accent-bg` | `rgba(10,132,255,0.10)` | 蓝底标签 / value-flash 背景 |
-| `--accent-border` | `rgba(10,132,255,0.20)` | 聚焦边框 / 变更高亮边框 |
-| `--shadow` | `0 8px 30px rgba(0,0,0,0.5)` | 卡片投影 |
+| `--bg` | `#e9ebef` | 页面背景（冷灰） |
+| `--bg-2` | `#f4f5f8` | 卡片/面板表面 |
+| `--bg-3` | `#dde0e6` | 更深的灰底 |
+| `--fg` | `#12161d` | 主文字（近黑） |
+| `--muted` | `#4d5665` | 次级文字 |
+| `--faint` | `#8b93a1` | 辅助信息/占位/水印 |
+| `--line` | `#c9ced8` | 卡片边框、分割线 |
+| `--line-strong` | `#9aa2b0` | 强调边框、splitter handle、滚动条 thumb |
+| `--accent` | `#0d9ec4` | **唯一强调色**（蓝青） |
+| `--accent-ink` | `#ffffff` | accent 上的文字/图标 |
+| `--accent-bg` | `rgba(13,158,196,0.08)` | 蓝底标签、选中态背景、value-flash 背景 |
+| `--accent-border` | `rgba(13,158,196,0.35)` | 聚焦边框、选中态边框 |
+| `--warn` | `#d97b1e` | 警告（仅语义用途） |
+| `--danger` | `#c4433b` | 错误 |
+| `--success` | `#17a34a` | 成功（仅语义用途） |
+| `--cut` | `12px` | 卡片切角尺寸 |
+| `--shadow` | `0 14px 34px -18px rgba(18,22,29,0.35)` | 卡片投影 |
 
-**原则**: 只用蓝色 accent，不用绿/黄/紫等第二强调色。值变化高亮用蓝色 border + shadow，不用琥珀色。
+### App 别名（组件沿用旧变量名，勿在组件里改用新名）
 
-**例外 — 堆对象语义色板**: MemoryPanel 的堆对象识别使用 8 色调色板（绿/蓝/紫/琥珀/红/青/橙/薄荷）作为**功能性标记色**，用于区分最多 8 个不同的堆对象身份（数组、链表节点等），帮助用户隔空追踪引用关系。这是数据可视化的语义需求，不是 UI chrome 的装饰色。
+| Alias | Value | 说明 |
+|-------|-------|------|
+| `--text` | `var(--muted)` | 正文 |
+| `--text-h` | `var(--fg)` | 标题/强调文字 |
+| `--text-muted` | `var(--faint)` | 辅助文字 |
+| `--card-bg` | `rgba(244,245,248,0.88)` | 卡片表面 |
+| `--border` | `var(--line)` | 边框 |
+| `--code-bg` | `rgba(255,255,255,0.88)` | 代码区/输入区/内容区表面 |
+| `--editor-bg` | `transparent` | 编辑器透明，透出卡片底 |
+| `--editor-header-bg` | `rgba(255,255,255,0.66)` | 编辑器卡头 |
+| `--btn-bg` | `rgba(255,255,255,0.88)` | 次要按钮 |
+| `--primary` | `var(--accent)` | accent 的组件别名 |
+| `--primary-600` | `#0b89aa` | hover/按压加深 |
+
+**原则**: UI chrome 只用蓝青 accent，不用绿/黄做装饰强调。值变化高亮用 `--accent-bg` + `--accent-border`，不用琥珀色。
+
+**例外 — 功能性语义色板**:
+1. **堆对象识别 8 色板**（MemoryPanel）: 用于区分最多 8 个不同的堆对象身份（数组、链表节点等），帮助隔空追踪引用关系。
+2. **算法/数据结构标签分类色**（AiTutorPanel `tag-*`）: 排序/搜索/递归等 11 类功能色，点击触发解说。这些是数据分类语义色，不是 UI chrome 装饰。
 
 ---
 
@@ -32,39 +60,101 @@
 
 | Token | Stack | Usage |
 |-------|-------|-------|
-| `--sans` | `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, ...` | 正文、UI 标签 |
-| `--mono` | `ui-monospace, SFMono-Regular, Menlo, Monaco, ...` | 代码、变量值 |
+| `--sans` | `'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif` | 正文、UI 标签 |
+| `--heading` | 同 `--sans` | 大标题（h1/h2） |
+| `--mono` | `'JetBrains Mono', 'Noto Sans SC', Menlo, monospace` | 代码、变量值、kicker、按钮 |
+| 编辑器字体 | `'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace` | Monaco 渲染与输入框（本地 @font-face） |
 
 **字号层级**:
-- 标题: `font-semibold text-lg` (18px)
-- 卡片标题: `font-semibold text-sm` (14px) + 蓝色圆点
-- 变量名: `12px` / `13px`, color `--text-muted` 或 `--text`
-- 变量值: `16px semibold`, color `--text-h`, font `--mono`
-- 控制台输出: `13px`, line-height `1.6`, font `--mono`
-- 区域标签 (栈/堆): `12px semibold`, color `--text-muted`, **无 uppercase**
+- 区域标签 `.panel-kicker`: `--mono` 9.5px / 700 / `letter-spacing: 0.18em` / **uppercase** / `--text-muted`
+- 卡片标题: `--sans` 14px semibold, color `--text-h`
+- 按钮 `.btn`: `--mono` 12px / 700 / `letter-spacing: 0.08em` / **uppercase**
+- 变量名/标签: 12px, `--text-muted`
+- 变量值: 16px semibold mono, `--text-h`
+- 正文/聊天: 13–15px, line-height 1.55–1.65
+- 代码: mono, 12–16px
+
+**关键**: **uppercase + letter-spacing 是当前风格的既定语言**（kicker、按钮都用）。老规约"不用 uppercase 标签"已废除。
+
+---
+
+## 切角（核心形态）
+
+**直角 + clip-path 切角**是本设计系统最标志性的形态特征。所有卡片、按钮、面板头统一 `border-radius: 0`，用 clip-path 切角，绝不使用圆角。
+
+### 卡片 `.card`
+```css
+background: var(--card-bg);
+border-radius: 0;
+border: 1px solid var(--border);
+box-shadow: var(--shadow);
+clip-path: polygon(
+  var(--cut) 0, 100% 0,
+  100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%,
+  0 100%, 0 var(--cut)
+);
+```
+所有面板必须包裹在 `.card` 中。使用时搭配 `class="card p-3 mb-3"`。
+
+### 面板容器（ModeBar / runtime-wire / control-bar）
+切角 10px：
+```css
+clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+```
+
+### 按钮 `.btn`
+```css
+border-radius: 0;
+clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+padding: 8px 14px;
+font-family: var(--mono);
+font-weight: 700;
+font-size: 12px;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+transition: transform 160ms cubic-bezier(.22,.9,.27,1), box-shadow 160ms, opacity 160ms;
+```
+`.btn-primary`：`background: var(--accent); color: var(--accent-ink);` + 蓝青投影。按压态 `translateY(1px) scale(0.997)`。禁用态 `opacity: 0.6`。
+
+### 小标签/小切角（4px）
+小 chip（如 `multi-readonly-hint`）：`clip-path: polygon(4px 0, ...)`。
+
+### 蓝色圆点 `.rc-dot` / `.ai-dot`
+7px 方形（`border-radius: 0`），`background: var(--accent)`，单角切：
+```css
+clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+animation: wire-pulse 2s steps(2) infinite;  /* 50% { opacity: 0.28 } */
+```
 
 ---
 
 ## Component Patterns
 
-### 卡片 (`card`)
+### 卡头（editor-card-header）
 ```css
-background: var(--card-bg);
-border-radius: 12px;
-border: 1px solid var(--border);
-box-shadow: var(--shadow);
+display: flex; align-items: center; gap: 8px;
+padding: 12px 16px;
+border-bottom: 1px solid var(--border);
+position: relative;
+background: var(--editor-header-bg);
 ```
-所有面板必须包裹在 `.card` 中，不使用裸 `border-top` 分隔。
-
-使用时搭配 Tailwind: `class="card p-3 mb-3"`
+卡头底部一条 88px×2px 的 accent 下划线（`::after`）作为品牌强调，置于左 16px：
+```css
+.editor-card-header::after {
+  content: ''; position: absolute;
+  left: 16px; bottom: -1px;
+  width: 88px; height: 2px;
+  background: var(--accent);
+}
+```
+卡头内左侧用 `.panel-kicker`（uppercase mono 小字）+ 标题。
 
 ### 可折叠面板标题
-统一模式：蓝色圆点 (7px) + 标题文字 + chevron SVG 图标。
-
+统一模式：蓝色圆点（`.rc-dot`，7px 切角）+ 标题 + chevron SVG。
 ```html
 <div class="hs-header" @click="isOpen = !isOpen">
   <div class="flex items-center gap-2">
-    <span class="hs-dot" />  <!-- 7x7px, rounded-full, bg: var(--primary), opacity: 0.8 -->
+    <span class="rc-dot" />
     <span class="text-sm font-semibold" style="color: var(--text-h)">标题</span>
   </div>
   <svg class="hs-chevron" :class="{ rotated: isOpen }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -72,44 +162,53 @@ box-shadow: var(--shadow);
   </svg>
 </div>
 ```
-
-Chevron 旋转过渡: `transform 0.25s ease`。展开时 `rotate(180deg)`。
-
-### 按钮
-Apple 风格圆角按钮。主按钮蓝渐变，次要按钮透明边框。
-
-- 圆角: `12px`
-- padding: `8px 14px`
-- 按压: `translateY(1px) scale(0.997)`
-- transition: `transform 160ms cubic-bezier(.22,.9,.27,1)`
-
-### 变量卡片 (scalar-card)
-- `min-width: 100px; max-width: 220px`
-- `border-radius: 10px`
-- Flex column, gap: 6px
-- 值变化高亮: `.value-flash` → `background: var(--accent-bg); color: var(--primary); font-weight: 700`
-- 卡片边框高亮: `.card.flash` / `.scalar-card.value-flash` → `border-color: var(--accent-border); box-shadow: 0 6px 14px rgba(37,99,235,0.10)`
+Chevron 旋转 `transform 0.25s ease`，展开时 `rotate(180deg)`。
 
 ### 代码内容区
-所有展示代码/变量值的区域使用统一样式：
 ```css
 background: var(--code-bg);
 border: 1px solid var(--border);
-border-radius: 8px;
+border-radius: 0;
 ```
-用于：控制台输出 body、栈帧 frame、堆对象
+用于：控制台输出 body、栈帧、堆对象、聊天 body、输入框、代码区。
+
+### 聊天气泡（AiTutorPanel）
+- 用户 `.chat-bubble.user`: `--accent-bg` + `1px solid var(--accent-border)`，靠右
+- 助手 `.chat-bubble.assistant`: `--code-bg` + `1px solid var(--border)`，靠左
+- `max-width: 88%`, `border-radius: 0`, 13px, line-height 1.6
+- 内联 `code` 用 mono 12px + `--primary` 色；`pre` 用 code-bg + 边框
+- 引用知识库/来源的标签（如 trace-chip）: `--accent-bg` 底 + `--primary` 字 + 小号
+
+### 滚动条
+```css
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+```
+
+### Monaco 字体一致性（重要）
+Monaco 隐藏输入框与渲染字体必须一致，否则光标错位：
+```css
+.monaco-editor textarea.inputarea,
+.monaco-editor,
+.monaco-editor .view-lines {
+  font-family: 'Maple Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  letter-spacing: 0 !important;
+}
+```
 
 ---
 
 ## Motion
 
 - **缓动曲线**: `cubic-bezier(.22,.9,.27,1)` — 温和的 ease-out，无弹跳
-- **闪动时长**: `520ms`
-- **展开/折叠**: `0.25s ease`
-- **按钮按压**: `160ms`
-- **卡片进出**: `320ms enter / 280ms leave`
+- **展开/折叠**: `0.25s ease`（chevron rotate 180deg）
+- **按钮按压**: `160ms`（translateY(1px) scale(0.997)）
+- **圆点脉冲**: `wire-pulse 2s steps(2)`（`50% { opacity: 0.28 }`）— 指示"运行中"状态
+- **ai-dot / rc-dot 呼吸**: `2s steps(2)`，闪烁而非平滑渐隐
+- **输入框 hover**: `border-color 0.2s`
 
-所有动画必须支持 `@media (prefers-reduced-motion: reduce) { transition: none !important }`
+所有动画必须支持 `@media (prefers-reduced-motion: reduce) { animation: none; transition: none }`。
 
 ---
 
@@ -117,24 +216,29 @@ border-radius: 8px;
 
 - 卡片间距: `mb-3` (12px)
 - 卡片内边距: `p-3` (12px)
-- 元素间隙: `gap-3` (12px) / `gap-2` (8px)
+- 元素间隙: `gap-2` (8px) / `gap-3` (12px)
+- 卡头内边距: `padding: 12px 16px`
 - 不使用非标准间距
 
 ---
 
 ## Layout
 
-- 全高三区: 顶部状态栏 → 左右分栏 (编辑器 | 变量+堆栈+控制台) → 底部控制栏
+- 全高 `100vh` flex column：`ModeBar`（模式切换）→ `runtime-wire`（状态横幅）→ 主区（编辑器 | 右侧面板）
+- 单文件/多文件模式由 `SingleFileShell` / `MultiFileShell` 切换，共用同一套面板风格
 - 右侧面板: `flex flex-col`，内容区 `flex-1 overflow-auto`
-- 控制台嵌入滚动流，无输出时自动隐藏 (`v-if`)
-- 移动端 (<640px): 堆栈区纵向排列，分割线隐藏
+- 底部控制栏 `.control-bar`: `position: fixed` / `z-index: 5000`，可拖动，`backdrop-filter: blur(12px)`（浮层允许毛玻璃）
+- 滚动区域隐藏整页滚动（`html, body { overflow: hidden }`），禁止整页滚动条闪现导致布局抖动
+- 移动端 (<720px): 分栏纵向排列，分割线隐藏
 
 ---
 
 ## Anti-Patterns (禁止)
 
-- 不使用绿色 `#34d399` 或琥珀色 — 统一蓝色 accent
-- 不写 `text-transform: uppercase` + `letter-spacing` 的区域标签
-- 不写 `border-top` 裸分割 — 用卡片包裹
+- 不使用圆角（`border-radius: 0` + clip-path 切角是唯一形态）
+- 不用绿色 `#34d399` 或琥珀色做 UI 强调 — 统一蓝青 accent（例外仅限功能语义色板）
+- 不写裸 `border-top` 分割 — 用卡片包裹或用 `.editor-card-header` 的 accent 下划线
 - 不用文字 "▸ 展开/▾ 折叠" — 用 chevron SVG
-- 不用 `glassmorphism` 做装饰性默认背景
+- 不用 `glassmorphism` 做装饰性默认背景 — 仅浮层（控制栏）允许 `backdrop-filter`
+- 不用旧深色风格变量（`#2b2b32`、`#0a84ff`、12px 圆角、Apple 渐变按钮）— 已迁移到浅色 Rhodes tokens
+- 不把 `--code-bg`/`--card-bg` 写成不透明纯色 — 保留透明度让切角叠层有层次
