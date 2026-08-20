@@ -84,7 +84,7 @@ public class Instrumenter {
 
                 // 构造 try { pushFrame; ...body... } finally { popFrame; }
                 // 如果有参数，生成 pushFrame(methodName, "p1", p1, "p2", p2, ...)
-                StringBuilder pushCall = new StringBuilder("TraceEngine.pushFrame(\"" + methodName + "\"");
+                StringBuilder pushCall = new StringBuilder("TraceEngine.pushFrame(\"" + fname + "\", \"" + methodName + "\"");
                 for (com.github.javaparser.ast.body.Parameter p : md.getParameters()) {
                     String pName = p.getNameAsString();
                     pushCall.append(", \"").append(pName).append("\", ").append(pName);
@@ -286,12 +286,12 @@ public class Instrumenter {
                             // 原有逻辑
                             List<String[]> arrayAllocs = detectArrayAllocations(stmt);
                             for (String[] alloc : arrayAllocs) {
-                                newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1], alloc.length > 2 ? alloc[2] : "int"));
+                                newStatements.add(buildAllocArrayStatement(alloc[0], alloc[1], alloc.length > 2 ? alloc[2] : "int", fname));
                             }
                             newStatements.add(stmt);
                             List<String[]> objAllocs = detectObjectAllocations(stmt);
                             for (String[] alloc : objAllocs) {
-                                newStatements.add(buildAllocObjectStatement(alloc[0]));
+                                newStatements.add(buildAllocObjectStatement(alloc[0], fname));
                             }
                             List<String> visibleAfter = collectVisibleVariables(block, i);
                             newStatements.add(buildRecordStatement(line, visibleAfter, counter, fname));
@@ -324,9 +324,11 @@ public class Instrumenter {
         int s = counter[0];
         counter[0]++;
 
-        //生成完整的语句 — 用 buildMap 替代 Map.of() 突破 10 对 KV 上限
+        // 生成完整的语句 — 用 buildMap 替代 Map.of() 突破 10 对 KV 上限
+        // step 参数传 0：实际 step 由 TraceEngine 内部 nextStep 运行时全局递增，
+        // 插桩阶段的 counter 只在本文件内局部计数，跨文件会串号，故不再作为最终 step。
         String recordCall = "TraceEngine.record("
-        + s + ","
+        + "0,"
         + line + ","
         + "\"" + fname + "\","
         + "TraceEngine.buildMap(new Object[]{" + mapArgs.toString() + "})"
@@ -649,17 +651,19 @@ public class Instrumenter {
         return sb.toString();
     }
 
-    // 生成 TraceEngine.allocArray("arr", n, "char") 语句
-    private Statement buildAllocArrayStatement(String name, String lenExpr, String componentType) {
+    // 生成 TraceEngine.allocArray("file#arr", n, "char") 语句
+    private Statement buildAllocArrayStatement(String name, String lenExpr, String componentType, String fname) {
         String safeType = (componentType == null || componentType.isEmpty()) ? "int" : componentType;
-        String call = "TraceEngine.allocArray(\"" + name + "\", " + lenExpr + ", \"" + safeType + "\");";
+        String key = fname + "#" + name;
+        String call = "TraceEngine.allocArray(\"" + key + "\", " + lenExpr + ", \"" + safeType + "\");";
         return StaticJavaParser.parseStatement(call);
     }
 
-    // 生成 TraceEngine.allocObject("name", name) 或 TraceEngine.allocObject("head.next", head.next) 语句
+    // 生成 TraceEngine.allocObject("file#name", name) 或 TraceEngine.allocObject("file#head.next", head.next) 语句
     // 注意：第二个参数必须是目标表达式自身（引用已赋值的对象），而非 new Xxx() 构造表达式
-    private Statement buildAllocObjectStatement(String targetExpr) {
-        String call = "TraceEngine.allocObject(\"" + targetExpr + "\", " + targetExpr + ");";
+    private Statement buildAllocObjectStatement(String targetExpr, String fname) {
+        String key = fname + "#" + targetExpr;
+        String call = "TraceEngine.allocObject(\"" + key + "\", " + targetExpr + ");";
         return StaticJavaParser.parseStatement(call);
     }
 

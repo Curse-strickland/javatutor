@@ -293,6 +293,34 @@ const idToHeapKey = computed(() => {
   return map
 })
 
+// 短名（变量名）→ heap key 列表。后端堆 key 为 `file#name`，
+// 多文件下不同文件可能各自有同名变量（如多个 `arr`），因此一个短名可能对应多个 key。
+const nameToHeapKeys = computed(() => {
+  const map = {}
+  for (const key of Object.keys(heapMap.value)) {
+    const obj = heapMap.value[key]
+    const short = obj.name || (key.indexOf('#') >= 0 ? key.slice(key.indexOf('#') + 1) : key)
+    if (!map[short]) map[short] = []
+    map[short].push(key)
+  }
+  return map
+})
+
+/**
+ * 按变量短名解析堆 key。
+ * 单文件或唯一短名直接命中；多文件同名时用栈帧的 file 消歧，否则退回第一个。
+ */
+function resolveHeapKeyByName(name, file) {
+  const keys = nameToHeapKeys.value[name]
+  if (!keys || keys.length === 0) return null
+  if (keys.length === 1) return keys[0]
+  if (file) {
+    const hit = keys.find((k) => heapMap.value[k]?.file === file || k === `${file}#${name}`)
+    if (hit) return hit
+  }
+  return keys[0]
+}
+
 // 类别 → 中文别名映射（对应后端 TraceEngine.categorize 返回的 category 值）
 const CATEGORY_ALIAS = {
   'array': '数组',
@@ -386,14 +414,17 @@ const stackItemGroups = computed(() => {
           '--ref-bg': c.bg,
           '--ref-glow': c.glow,
         }
-      } else if (Array.isArray(val) && heap[name]) {
-        isRef = true
-        refId = heap[name].id || name
-        const lbl = lm[name]?.label
-        refLabel = lbl || name
-        const c = paletteFor(name)
-        refColor = c.text
-        refStyle = { '--ref-border': c.border, '--ref-bg': c.bg, '--ref-glow': c.glow }
+      } else if (Array.isArray(val)) {
+        const key = resolveHeapKeyByName(name, frame.file)
+        if (key && heap[key]) {
+          isRef = true
+          refId = heap[key].id || name
+          const lbl = lm[key]?.label
+          refLabel = lbl || name
+          const c = paletteFor(key)
+          refColor = c.text
+          refStyle = { '--ref-border': c.border, '--ref-bg': c.bg, '--ref-glow': c.glow }
+        }
       } else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
         // Map data: reference virtual heap entry (computed separately, no circular deps)
         const vId = '__vmap__' + name
@@ -439,18 +470,21 @@ const stackItemGroups = computed(() => {
         const key = idMap[pVal]
         label = lm[key]?.label || key
         color = (paletteFor(key)).text
-      } else if (typeof pVal === 'string' && heap[pVal]) {
-        // pVal matches a heap key name (arrays/collections store the name as value)
+      } else if (typeof pVal === 'string' && resolveHeapKeyByName(pVal, frame.file)) {
+        // pVal matches a heap variable name (arrays/collections store the name as value)
+        const key = resolveHeapKeyByName(pVal, frame.file)
         isRef = true
-        refId = heap[pVal].id || pVal
-        label = lm[pVal]?.label || pVal
-        color = (paletteFor(pVal)).text
-      } else if (Array.isArray(pVal) && heap[pName]) {
-        // pVal is a serialized collection array; fallback match by param name
-        isRef = true
-        refId = heap[pName].id || pName
-        label = lm[pName]?.label || pName
-        color = (paletteFor(pName)).text
+        refId = heap[key].id || pVal
+        label = lm[key]?.label || pVal
+        color = (paletteFor(key)).text
+      } else if (Array.isArray(pVal)) {
+        const key = resolveHeapKeyByName(pName, frame.file)
+        if (key && heap[key]) {
+          isRef = true
+          refId = heap[key].id || pName
+          label = lm[key]?.label || pName
+          color = (paletteFor(key)).text
+        }
       }
       return {
         isRef,

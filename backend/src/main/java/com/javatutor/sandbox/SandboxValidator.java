@@ -180,7 +180,9 @@ public class SandboxValidator {
             violations.add("不能使用反射: setAccessible() — 反射操作不允许执行");
         }
         if ("getDeclaredMethod".equals(methodName) || "getDeclaredField".equals(methodName)
-            || "getDeclaredConstructor".equals(methodName)) {
+            || "getDeclaredConstructor".equals(methodName)
+            || "getMethod".equals(methodName) || "getField".equals(methodName)
+            || "getConstructor".equals(methodName)) {
             violations.add("不能使用反射: " + methodName + "() — 反射操作不允许执行");
         }
         if ("newInstance".equals(methodName) && isCallOnClassType(call)) {

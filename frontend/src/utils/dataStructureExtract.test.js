@@ -91,6 +91,42 @@ describe('extractDataStructures — array', () => {
     expect(arrays[0].indexPointers.i).toBe(1)
   })
 
+  it('handles multi-file heap keys with file#name prefix', () => {
+    // 模拟多文件后端：堆 key 为 `file#name`，对象带短名 name + file
+    const heap = {
+      'Main.java#arr': {
+        id: '0xA1',
+        type: 'int[3]',
+        name: 'arr',
+        file: 'Main.java',
+        slots: [
+          { index: 0, value: 5 },
+          { index: 1, value: 3 },
+          { index: 2, value: 8 },
+        ],
+      },
+      'Helper.java#arr': {
+        id: '0xA2',
+        type: 'int[2]',
+        name: 'arr',
+        file: 'Helper.java',
+        slots: [
+          { index: 0, value: 1 },
+          { index: 1, value: 2 },
+        ],
+      },
+    }
+    const frames = [
+      { method: 'main', file: 'Main.java', args: {}, locals: { arr: [5, 3, 8] } },
+    ]
+    const { arrays } = extractDataStructures(heap, frames)
+    expect(arrays.length).toBeGreaterThanOrEqual(1)
+    // 主数组应正确识别为 Main.java 的 arr，且标签不带文件名前缀
+    const mainArr = arrays.find((a) => (a.sourceVar || a.id) === 'arr' && a.values.join() === '5,3,8')
+    expect(mainArr).toBeTruthy()
+    expect(mainArr.sourceVar).toBe('arr')
+  })
+
   it('overlays deepest-frame live values and drops stale arr alias during mergeSort', () => {
     const heap = {
       arr: {

@@ -11,6 +11,8 @@ public class RunResponse {
     private String output;
     private String methodName;
     private String methodSignature;
+    private String entryClass;
+    private String entryCode;
 
     public RunResponse() {
     }
@@ -36,6 +38,12 @@ public class RunResponse {
     public String getMethodSignature() {
         return methodSignature;
     }
+    public String getEntryClass() {
+        return entryClass;
+    }
+    public String getEntryCode() {
+        return entryCode;
+    }
 
     public void setSuccess(boolean success) {
         this.success = success;
@@ -57,6 +65,12 @@ public class RunResponse {
     }
     public void setMethodSignature(String methodSignature) {
         this.methodSignature = methodSignature;
+    }
+    public void setEntryClass(String entryClass) {
+        this.entryClass = entryClass;
+    }
+    public void setEntryCode(String entryCode) {
+        this.entryCode = entryCode;
     }
 
     public static RunResponse ok(String runId, List<Map<String, Object>> steps, String output) {
