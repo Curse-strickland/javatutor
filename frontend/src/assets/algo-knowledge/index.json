@@ -15,12 +15,16 @@
       ]
     },
     {
-      "id": "search",
-      "title": "搜索",
+      "id": "search-and-find",
+      "title": "查找与搜索",
       "file": "search.md",
       "anchors": [
-        { "id": "二分查找", "title": "二分查找" },
-        { "id": "边界与变体", "title": "边界变体" }
+        { "id": "顺序查找", "title": "顺序" },
+        { "id": "哈希查找", "title": "哈希" },
+        { "id": "二分查找", "title": "二分" },
+        { "id": "边界与变体", "title": "变体" },
+        { "id": "广度优先搜索-bfs", "title": "BFS" },
+        { "id": "深度优先搜索-dfs", "title": "DFS" }
       ]
     },
     {
