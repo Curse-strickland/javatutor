@@ -1,7 +1,7 @@
 <template>
   <div
     class="array-node"
-    :class="{ highlighted: isHighlighted, first: isFirst, last: isLast }"
+    :class="{ highlighted: isHighlighted, first: isFirst, last: isLast, pivot: isPivot }"
     :style="highlightStyle"
   >
     <div class="array-node-val">{{ value == null ? '∅' : value }}</div>
@@ -13,6 +13,8 @@
 import { computed } from 'vue'
 import { colorForRole, primaryRoleFromLabels } from '../utils/pointerRoleColors.js'
 
+const PIVOT_COLOR = '#f97316'
+
 const props = defineProps({
   value: { type: [Number, String, Object, Boolean], default: null },
   index: { type: Number, required: true },
@@ -22,6 +24,8 @@ const props = defineProps({
   pointerLabels: { type: Array, default: () => [] },
   /** Explicit role override: mid | next | prev | insert */
   role: { type: String, default: null },
+  /** Mark this cell as the quicksort pivot zone (orange tint, regardless of highlight). */
+  isPivot: { type: Boolean, default: false },
 })
 
 const resolvedRole = computed(() => {
@@ -30,6 +34,15 @@ const resolvedRole = computed(() => {
 })
 
 const highlightStyle = computed(() => {
+  if (props.isPivot) {
+    // Pivot cell always wears orange, even when a pointer (i/j) also lands here.
+    return {
+      background: `${PIVOT_COLOR}26`,
+      borderColor: PIVOT_COLOR,
+      zIndex: 2,
+      position: 'relative',
+    }
+  }
   if (!props.isHighlighted) return {}
   const color = colorForRole(resolvedRole.value) || colorForRole('mid')
   return {
@@ -72,5 +85,9 @@ const highlightStyle = computed(() => {
   color: var(--text-muted);
   border-top: 1px solid var(--border);
   text-align: center;
+}
+.array-node.pivot {
+  border-color: #f97316;
+  box-shadow: inset 0 0 0 1px #f97316;
 }
 </style>

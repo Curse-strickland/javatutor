@@ -35,12 +35,15 @@
         :label="sortViz.label"
       />
       <template v-else-if="sortViz.mode === 'heap'">
-        <p class="dst-sort-note">堆结构见下方「树 / 堆」；数组视图：</p>
+        <p class="dst-sort-note">堆树视图（绿色 = 已排序尾段）：</p>
+        <TreeCanvas v-if="heapTree" :tree="heapTree" class="dst-heap-tree" />
         <SortArrayCanvas
           :values="sortViz.values"
           :pointers="sortViz.pointers"
           :range="sortViz.range"
           :active-index="sortViz.activeIndex"
+          :pivot="sortViz.pivot"
+          :sorted-range="sortViz.sortedRange"
           :label="sortViz.label"
         />
       </template>
@@ -50,6 +53,7 @@
         :pointers="sortViz.pointers"
         :range="sortViz.range"
         :active-index="sortViz.activeIndex"
+        :pivot="sortViz.pivot"
         :label="sortViz.label"
       />
     </section>
@@ -86,6 +90,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '../../stores/player'
 import { extractDataStructures } from '../../utils/dataStructureExtract.js'
 import { extractSortViz } from '../../utils/sortVizExtract.js'
+import { buildHeapTreeFromArray } from '../../utils/heapTreeExtract.js'
 import LinkedListCanvas from '../LinkedListCanvas.vue'
 import ArrayCanvas from '../ArrayCanvas.vue'
 import TreeCanvas from '../TreeCanvas.vue'
@@ -120,6 +125,15 @@ const sortViz = computed(() => {
   return extractSortViz(step.heap || {}, step.stackFrames || [], store.code || '')
 })
 
+const heapTree = computed(() => {
+  if (!sortViz.value || sortViz.value.mode !== 'heap') return null
+  return buildHeapTreeFromArray(
+    sortViz.value.values,
+    sortViz.value.heapSize,
+    sortViz.value.pointers,
+  )
+})
+
 const anyDetected = computed(() =>
   result.value.linkedLists.length > 0
   || result.value.arrays.length > 0
@@ -149,6 +163,7 @@ const badges = computed(() => [
 .dst-section-h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-h); margin: 8px 0; }
 .dst-tree-canvas { margin-bottom: 10px; }
 .dst-graph-canvas { margin-bottom: 10px; }
+.dst-heap-tree { margin-bottom: 10px; }
 .dst-sort-note {
   font-family: var(--mono);
   font-size: 10px;
