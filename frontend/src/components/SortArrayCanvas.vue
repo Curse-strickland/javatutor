@@ -161,31 +161,11 @@ const pointerEntries = computed(() => {
   const entries = []
   const seen = new Set()
   const len = props.values?.length || 0
-  const showLimit = 2
 
   for (const [index, chips] of chipsByCell.value.entries()) {
     if (index < 0 || index >= len) continue
     const overflow = layout.value.overflowByCell.get(index)
-    const selectionSet = overflowSelections.value.get(index)
-
-    let visible
-    let summaryLabel
-    if (overflow && selectionSet && selectionSet.size > 0) {
-      // 用户已保存选择：visible 是 pivot + 用户挑选的 chip（保持原始顺序），截到 showLimit
-      const pivotChip = chips.find((c) => c.name.startsWith('pivot='))
-      const selectedChips = chips.filter(
-        (c) => !c.name.startsWith('pivot=') && selectionSet.has(c.name)
-      )
-      visible = [pivotChip, ...selectedChips].filter(Boolean).slice(0, showLimit)
-      summaryLabel = 'else'
-    } else if (overflow) {
-      visible = overflow.visibleChips
-      summaryLabel = `+${overflow.hiddenCount}`
-    } else {
-      visible = chips
-      summaryLabel = null
-    }
-
+    const visible = overflow ? overflow.visibleChips : chips
     const leftBase = index * layout.value.cellWidth + layout.value.cellWidth / 2
 
     for (const chip of visible) {
@@ -203,14 +183,15 @@ const pointerEntries = computed(() => {
       })
     }
 
-    if (summaryLabel !== null) {
-      const summaryKey = summaryLabel === 'else'
-        ? `${index}:else`
-        : `${index}:+${overflow.hiddenCount}`
+    if (overflow) {
+      const selectionSet = overflowSelections.value.get(index)
+      const summary = selectionSet && selectionSet.size > 0
+        ? { label: 'else', key: `${index}:else` }
+        : { label: `+${overflow.hiddenCount}`, key: `${index}:+${overflow.hiddenCount}` }
       entries.push({
-        key: summaryKey,
+        key: summary.key,
         index,
-        label: summaryLabel,
+        label: summary.label,
         left: leftBase,
         color: ELSE_COLOR,
         chipStyle: chipStyleFor(null, ELSE_COLOR),
