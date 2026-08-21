@@ -490,8 +490,8 @@ function formatValue(v) {
   flex-shrink: 0;
   background: var(--card-bg);
   border: 1.5px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  border-radius: var(--ds-cell-radius);
+  box-shadow: var(--ds-cell-shadow);
   transition:
     transform 360ms cubic-bezier(.22,.9,.27,1),
     background 520ms cubic-bezier(.22,.9,.27,1),

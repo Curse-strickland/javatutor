@@ -168,6 +168,7 @@ function chipStyle(lab) {
   font-size: 13px;
   background: var(--card-bg);
   overflow: visible;
+  border-radius: var(--ds-cell-radius-sm);
 }
 .mx-corner {
   width: 28px;
@@ -191,6 +192,8 @@ function chipStyle(lab) {
   padding: 8px 10px;
   text-align: center;
   border: 1px solid var(--border);
+  border-radius: var(--ds-cell-radius-sm);
+  box-shadow: var(--ds-cell-shadow);
   color: var(--text-h);
   font-weight: 600;
   transition: background 0.15s, border-color 0.15s;
