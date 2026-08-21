@@ -11,7 +11,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { colorForRole, primaryRoleFromLabels } from '../utils/pointerRoleColors.js'
+import { colorForRole, primaryRoleFromLabels, POINTER_ROLE_COLORS } from '../utils/pointerRoleColors.js'
 
 const props = defineProps({
   value: { type: [Number, String, Object, Boolean], default: null },
