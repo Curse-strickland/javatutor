@@ -229,12 +229,18 @@ const rangeHighlight = computed(() => {
 
 ### 6.3 `ArrayCanvas.vue`
 
-如有同模式的 range / sorted band（基于 `.ac-strip`），同样套用 6.2 算法。`.ac-strip` 的 `gap` 同步抽 `--ds-strip-gap: 2px`：
+`ArrayCanvas.vue` 当前没有 range / sorted band（仅有 `.ac-strip` 主体），无需套 6.2 算法；但其 `.ac-strip` 也使用 `gap: 2px`，与 `SortArrayCanvas` 的 `.sac-strip` 同源。统一抽 `--ds-strip-gap` token：
 
 ```css
+/* style.css */
+:root { --ds-strip-gap: 2px; }
+
+/* SortArrayCanvas.vue / ArrayCanvas.vue 各自 */
 .sac-strip,
 .ac-strip { gap: var(--ds-strip-gap, 2px); }
 ```
+
+未来若 `ArrayCanvas` 增 range / sorted band，按 6.2 同款算法补即可。
 
 ### 6.4 边框四边对齐
 
@@ -242,16 +248,16 @@ const rangeHighlight = computed(() => {
 
 ```css
 .sac-range,
-.ac-range,
-.sac-sorted,
-.ac-sorted {
+.sac-sorted {
   /* 现有 ... */
   border-top: 1px solid color-mix(in srgb, var(--range-color, #3b82f6) 25%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--range-color, #3b82f6) 25%, transparent);
 }
 ```
 
-`--range-color` 默认 `#3b82f6`（range 蓝），sorted 用 `#10b981` 通过 `style="--range-color: #10b981"` 注入。
+`--range-color` 默认 `#3b82f6`（range 蓝），sorted 用 `#10b981` 通过 `:style="{'--range-color': '#10b981'}"` 注入。
+
+注：`ArrayCanvas.vue` 当前没有 range / sorted band（仅 `SortArrayCanvas` 使用），无需对 `.ac-strip` 加 .ac-range/.ac-sorted 样式；仅复用 `--ds-strip-gap` token 让两处 CSS 同源。
 
 ---
 
@@ -408,11 +414,11 @@ font-size / line-height / letter-spacing 全部不动。
 |---|---|
 | `pointerRoleColors.test.js`（增） | `colorForRole('insert') === '#d946ef'`, `colorForRole('neutral') === '#f59e0b'`, insert ≠ root |
 | `SortArrayCanvas` GAP 计算 utility（新增 `utils/rangeRect.js` + 单测） | `rangeRect(0, 0, 48, 2)` = `{left: 0, width: 48}`；`rangeRect(2, 4, 48, 2)` = `{left: 100, width: 146}` |
-| `search.md` 渲染冒烟 | v-html 不抛错，5+ anchor 全部存在 |
+| `search.md` 渲染冒烟 | v-html 不抛错；6 个 anchor（顺序 / 哈希 / 二分 / 变体 / BFS / DFS）全部存在 |
 
 ### 11.2 集成测试
 
-- 知识库「查找与搜索」类目展开 → anchor 跳转到对应章节，章节标题可点击回顶。
+- 知识库「查找与搜索」类目展开 → anchor 跳转到对应章节，章节标题可点击回顶；6 个 anchor 全部生效。
 - ModeBar runtime wire 跑动 → marquee 不抖动；删除 runtime wire DOM 后切换 mode 不报错。
 - 树 / 堆 canvas（heap sort / bst）→ chip 不透明、SVG 边在 chip 下面。
 - 数组 range（快排 l..r）→ range 框与格子左 / 右边线 1px 对齐（截图比对）。
