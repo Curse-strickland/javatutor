@@ -10,12 +10,12 @@
       </div>
     </div>
 
-    <section v-if="result.linkedLists.length" class="dst-section">
+    <section v-if="resultRaw.linkedLists.length" class="dst-section">
       <h4 class="dst-section-h">链表</h4>
       <LinkedListCanvas
-        :nodes="result.linkedLists[0].nodes"
-        :pointer-labels="result.linkedLists[0].pointerLabels"
-        :highlighted-node-ids="result.linkedLists[0].highlightedNodeIds"
+        :nodes="resultRaw.linkedLists[0].nodes"
+        :pointer-labels="resultRaw.linkedLists[0].pointerLabels"
+        :highlighted-node-ids="resultRaw.linkedLists[0].highlightedNodeIds"
       />
     </section>
 
@@ -58,25 +58,25 @@
       />
     </section>
 
-    <section v-if="result.arrays.length" class="dst-section">
+    <section v-if="visibleResult.arrays.length" class="dst-section">
       <h4 class="dst-section-h">数组 / 栈 / 队列</h4>
-      <ArrayCanvas :arrays="result.arrays" :highlighted-index="-1" />
+      <ArrayCanvas :arrays="visibleResult.arrays" :highlighted-index="-1" />
     </section>
 
-    <section v-if="result.trees.length" class="dst-section">
+    <section v-if="resultRaw.trees.length" class="dst-section">
       <h4 class="dst-section-h">树 / 堆</h4>
       <TreeCanvas
-        v-for="(tree, i) in result.trees"
+        v-for="(tree, i) in resultRaw.trees"
         :key="i"
         :tree="tree"
         class="dst-tree-canvas"
       />
     </section>
 
-    <section v-if="result.graphs.length" class="dst-section">
+    <section v-if="resultRaw.graphs.length" class="dst-section">
       <h4 class="dst-section-h">图</h4>
       <GraphCanvas
-        v-for="graph in result.graphs"
+        v-for="graph in resultRaw.graphs"
         :key="graph.id"
         :graph="graph"
         class="dst-graph-canvas"
@@ -108,7 +108,7 @@ const stepContext = computed(() => {
   return { step, prev }
 })
 
-const result = computed(() => {
+const resultRaw = computed(() => {
   if (!stepContext.value) return { linkedLists: [], arrays: [], trees: [], graphs: [] }
   const { step, prev } = stepContext.value
   return extractDataStructures(
@@ -134,20 +134,28 @@ const heapTree = computed(() => {
   )
 })
 
+const visibleArrays = computed(() => {
+  const primaryId = sortViz.value?.primaryArrayId
+  if (!primaryId) return resultRaw.value.arrays
+  return resultRaw.value.arrays.filter((a) => a.id !== primaryId)
+})
+
+const visibleResult = computed(() => ({ ...resultRaw.value, arrays: visibleArrays.value }))
+
 const anyDetected = computed(() =>
-  result.value.linkedLists.length > 0
-  || result.value.arrays.length > 0
-  || result.value.trees.length > 0
-  || result.value.graphs.length > 0
+  resultRaw.value.linkedLists.length > 0
+  || resultRaw.value.arrays.length > 0
+  || resultRaw.value.trees.length > 0
+  || resultRaw.value.graphs.length > 0
   || sortViz.value != null
 )
 
 const badges = computed(() => [
-  { key: 'll', label: '链表', count: result.value.linkedLists.length },
+  { key: 'll', label: '链表', count: resultRaw.value.linkedLists.length },
   { key: 'sort', label: '排序', count: sortViz.value ? 1 : 0 },
-  { key: 'arr', label: '数组', count: result.value.arrays.length },
-  { key: 'tree', label: '树', count: result.value.trees.length },
-  { key: 'graph', label: '图', count: result.value.graphs.length },
+  { key: 'arr', label: '数组', count: resultRaw.value.arrays.length },
+  { key: 'tree', label: '树', count: resultRaw.value.trees.length },
+  { key: 'graph', label: '图', count: resultRaw.value.graphs.length },
 ])
 </script>
 
