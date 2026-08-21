@@ -291,7 +291,7 @@ const popoverAnchor = computed(() => {
   const rect = wrapEl.value.getBoundingClientRect()
   const idx = popoverOpenCell.value
   return {
-    cellLeft: rect.left + idx * layout.value.cellWidth,
+    cellLeft: rect.left + idx * layout.value.cellWidth - wrapEl.value.scrollLeft,
     cellWidth: layout.value.cellWidth,
     containerTop: rect.top,
   }
