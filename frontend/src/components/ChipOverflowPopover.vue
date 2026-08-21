@@ -2,6 +2,7 @@
   <Teleport to="body">
     <div
       v-if="open && mounted"
+      ref="popoverEl"
       class="chip-overflow-popover"
       :style="popoverStyle"
       @click.stop
@@ -49,13 +50,16 @@ const props = defineProps({
 
 const emit = defineEmits(['update:selection', 'close'])
 const mounted = ref(false)
+const popoverEl = ref(null)
 
 onMounted(() => {
   mounted.value = true
   window.addEventListener('keydown', onKeydown)
+  document.addEventListener('mousedown', onPointerDown, true)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('mousedown', onPointerDown, true)
 })
 
 watch(() => props.open, (v) => {
@@ -65,6 +69,12 @@ watch(() => props.open, (v) => {
 function onKeydown(e) {
   if (!props.open) return
   if (e.key === 'Escape') emit('close')
+}
+
+function onPointerDown(e) {
+  if (!props.open) return
+  const root = popoverEl.value
+  if (root && !root.contains(e.target)) emit('close')
 }
 
 function toggle(name) {
