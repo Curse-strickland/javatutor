@@ -1,5 +1,6 @@
 <template>
   <ArrayCell
+    class="array-node"
     :value="value"
     :index="index"
     :is-first="isFirst"
