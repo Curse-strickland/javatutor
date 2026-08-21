@@ -4,6 +4,7 @@ import {
   colorForPointerName,
   primaryRoleFromLabels,
   POINTER_ROLE_COLORS,
+  colorForRole,
 } from './pointerRoleColors.js'
 
 describe('pointerRoleColors', () => {
@@ -45,5 +46,16 @@ describe('pointerRoleColors', () => {
   it('prefers mid when multiple labels share a cell', () => {
     expect(primaryRoleFromLabels(['left', 'mid', 'right'])).toBe('mid')
     expect(primaryRoleFromLabels(['prev', 'next'])).toBe('next')
+  })
+})
+
+describe('neutral role (else chip fallback)', () => {
+  it('exposes neutral role color', () => {
+    expect(POINTER_ROLE_COLORS.neutral).toBe('#9ca3af')
+    expect(colorForRole('neutral')).toBe('#9ca3af')
+  })
+
+  it('does not infer neutral from pointer names', () => {
+    expect(inferPointerRole('neutral')).toBeNull()
   })
 })

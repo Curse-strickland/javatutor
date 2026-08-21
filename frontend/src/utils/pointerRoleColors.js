@@ -12,6 +12,7 @@ export const POINTER_ROLE = {
   PREV: 'prev',
   INSERT: 'insert',
   ROOT: 'root',
+  NEUTRAL: 'neutral',
 }
 
 export const POINTER_ROLE_COLORS = {
@@ -20,6 +21,7 @@ export const POINTER_ROLE_COLORS = {
   prev: '#6b7280',
   insert: '#ef476f',
   root: '#ef476f',
+  neutral: '#9ca3af',
 }
 
 const MID_NAMES = /^(mid|cur|curr|current|node|key|pivot|i)$/i
