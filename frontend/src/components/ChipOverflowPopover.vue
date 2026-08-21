@@ -102,8 +102,16 @@ const popoverStyle = computed(() => {
   // 水平贴边
   if (left < 8) left = 8
   if (left + POPOVER_W > props.viewportWidth - 8) left = props.viewportWidth - 8 - POPOVER_W
-  // 上方空间不够就落下方
-  if (top < 8) top = props.anchor.containerTop + 12
+  // 垂直：优先上方；上方贴顶就落到下方，并避免下方也溢出
+  const belowTop = props.anchor.containerTop + 12
+  if (top < 8) {
+    // 上方贴顶 → 落下方，但仍要兜住视口底部
+    top = Math.min(belowTop, props.viewportHeight - POPOVER_H_EST - 8)
+  } else if (top + POPOVER_H_EST > props.viewportHeight - 8) {
+    // 上方放置会被视口底截断 → 切到下方
+    top = Math.min(belowTop, props.viewportHeight - POPOVER_H_EST - 8)
+  }
+  if (top < 8) top = 8
   return {
     position: 'fixed',
     left: `${left}px`,
