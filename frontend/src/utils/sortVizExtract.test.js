@@ -436,33 +436,3 @@ describe('extractSortViz', () => {
     expect(viz.pivot).toEqual({ value: 4, index: 0 })
   })
 })
-
-describe('primaryArrayId', () => {
-  it('extractSortViz exposes primaryArrayId matching the chosen heap entry', () => {
-    const heap = {
-      a: {
-        id: 'arr-1',
-        type: 'int[]',
-        slots: [
-          { index: 0, value: 4 },
-          { index: 1, value: 1 },
-          { index: 2, value: 3 },
-          { index: 3, value: 2 },
-        ],
-      },
-    }
-    const frames = [{
-      method: 'mergeSort',
-      args: {},
-      locals: { arr: { ref: 'arr-1' }, left: 0, right: 3, mid: 1 },
-    }]
-    const viz = extractSortViz(heap, frames, 'mergeSort')
-    expect(viz.primaryArrayId).toBe('arr-1') // obj.id wins over heap key
-  })
-
-  it('primaryArrayId is null when no array can be picked', () => {
-    const heap = { x: { id: 'x', type: 'Integer', fields: { value: 1 } } }
-    const viz = extractSortViz(heap, [{ args: {}, locals: {} }])
-    expect(viz).toBeNull()
-  })
-})

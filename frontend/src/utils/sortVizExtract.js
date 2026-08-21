@@ -62,7 +62,7 @@ function findPrimaryIntArray(heap, stackFrames) {
       for (const [name, val] of Object.entries(bucket)) {
         if (TMP_ARRAY_PATTERN.test(name)) continue
         if (Array.isArray(val) && isNumericArray(val)) {
-          return { values: val.slice(), label: name, id: name }
+          return { values: val.slice(), label: name }
         }
       }
     }
@@ -92,13 +92,7 @@ function findPrimaryIntArray(heap, stackFrames) {
   ranked.sort((a, b) => b.score - a.score)
   if (!ranked.length) return null
   const best = ranked[0].arr
-  // 选中的 heap entry id 优先用 `obj.id`，否则用 `arr.id`
-  const heapKey = Object.keys(heap).find((k) => heap[k] === best || heap[k]?.id === best.id)
-  return {
-    values: best.values.slice(),
-    label: best.sourceVar || best.label || 'array',
-    id: best.id || heapKey || null,
-  }
+  return { values: best.values.slice(), label: best.sourceVar || best.label || 'array' }
 }
 
 /** Temp / aux buffer used by classic merge sort (`tmp` / `temp` / `aux`). */
@@ -566,7 +560,6 @@ export function extractSortViz(heap, stackFrames, codeHint = '') {
     sortedRange,
     label,
     arrayLabel,
-    primaryArrayId: primary.id,
   }
 
   if (mode === 'merge-tree') {
