@@ -206,34 +206,6 @@
             </div>
           </transition>
         </div>
-        <!-- AI 解说切换按钮 -->
-        <button
-          class="ctrl-btn ai-toggle-btn"
-          :class="{ active: store.explainExpanded, pulsing: store.isExplaining }"
-          @click="toggleAiPanel"
-          title="AI 解说"
-          aria-label="AI 解说"
-        >
-          <!-- 对话气泡 + AI 星芒：概括「智能解说」 -->
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M3.5 4.5h12.5v9.5H10l-3.5 3v-3H3.5V4.5z"
-              stroke="currentColor"
-              stroke-width="1.75"
-              stroke-linejoin="miter"
-            />
-            <path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" />
-            <path
-              d="M18.2 3.2l.55 1.45 1.45.55-1.45.55-.55 1.45-.55-1.45-1.45-.55 1.45-.55.55-1.45z"
-              fill="currentColor"
-            />
-            <path
-              d="M20.8 8.2l.35.9.9.35-.9.35-.35.9-.35-.9-.9-.35.9-.35.35-.9z"
-              fill="currentColor"
-              opacity="0.7"
-            />
-          </svg>
-        </button>
       </div>
     </div>
   </div>
@@ -533,12 +505,6 @@ watch(() => store.currentStep, async (step) => {
     editorRef.value.clearHighlights()
   }
 })
-
-// --- AI 解说 ---
-
-function toggleAiPanel() {
-  store.toggleExplainPanel()
-}
 
 // 步骤切换：自动模式请求解说当前步骤（自由问答聊天）
 watch(() => store.currentStep, (newVal, oldVal) => {
@@ -874,7 +840,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   backdrop-filter: blur(12px);
   width: fit-content;
   max-width: calc(100vw - 40px);
-  min-width: 380px;
+  min-width: 320px;
   transition: box-shadow 0.2s;
   /* 不可对整栏用 clip-path：会裁掉上方展开的速度菜单 / AI 面板 */
   overflow: visible;
@@ -1021,30 +987,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   background: var(--primary-600);
   color: #fff;
   box-shadow: 0 12px 24px -12px rgba(13, 158, 196, 0.75);
-}
-
-/* AI toggle button */
-.ai-toggle-btn {
-  position: relative;
-  gap: 4px;
-  padding: 6px 10px;
-  background: var(--btn-bg);
-}
-.ai-toggle-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
-.ai-toggle-btn.active {
-  color: var(--accent);
-  background: var(--accent-bg);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-.ai-toggle-btn.pulsing {
-  animation: ai-pulse 1.5s ease-in-out infinite;
-}
-@keyframes ai-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
 }
 
 /* Spin animation */
@@ -1205,7 +1147,6 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-toggle-btn.pulsing { animation: none; }
   .spin { animation: none; }
 }
 </style>
