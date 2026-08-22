@@ -88,8 +88,8 @@
   --btn-bg: rgba(255, 255, 255, 0.88);
   --success: #17a34a;
 
-  --sans: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
-  --heading: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  --sans: 'Inter', 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  --heading: 'Archivo', 'Inter', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
   --mono: 'JetBrains Mono', 'Noto Sans SC', Menlo, monospace;
 
   font: 15px/1.55 var(--sans);
@@ -119,6 +119,11 @@
     0 4px 12px -4px rgba(18, 22, 29, 0.10);
   --ak-tag-shadow-hover: 0 2px 6px rgba(18, 22, 29, 0.10),
     0 8px 20px -6px rgba(18, 22, 29, 0.16);
+}
+
+@keyframes wire-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.18; }
 }
 
 /* Archive paper card */
