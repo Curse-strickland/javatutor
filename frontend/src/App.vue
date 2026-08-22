@@ -7,34 +7,6 @@
     <Live2DWidget />
     <GlobalStatus />
 
-    <div class="runtime-wire" aria-label="运行时数据流">
-      <div class="wire-left">
-        <span class="wire-mark" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none">
-            <path d="M5 1h18l4 4v18l-4 4H5l-4-4V5l4-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"/>
-            <circle class="wire-pulse-dot" cx="14" cy="14" r="4.5" fill="currentColor" opacity="1"/>
-            <circle cx="14" cy="14" r="8" stroke="currentColor" stroke-width="1" stroke-dasharray="2.5 3.5" opacity="0.4"/>
-          </svg>
-        </span>
-        <span class="wire-title">
-          <b>RUNTIME WIRE</b>
-          <span>教学终端 · HEARTBEAT</span>
-        </span>
-      </div>
-      <div class="wire-row">
-        <div class="marquee-track">
-          <span v-for="(item, i) in wireItems" :key="'a'+i" class="wire-item">
-            <span class="wire-dot">·</span>{{ item.name }}
-            <span class="wire-coord">{{ item.coord }}</span>
-          </span>
-          <span v-for="(item, i) in wireItems" :key="'b'+i" class="wire-item" aria-hidden="true">
-            <span class="wire-dot">·</span>{{ item.name }}
-            <span class="wire-coord">{{ item.coord }}</span>
-          </span>
-        </div>
-      </div>
-    </div>
-
     <SingleFileShell v-if="store.mode === 'single'" />
     <MultiFileShell v-else-if="store.mode === 'multi'" />
 
@@ -65,15 +37,6 @@ onBeforeUnmount(() => {
   document.body.classList.remove('boot-intro-active')
 })
 const store = usePlayerStore()
-const wireItems = [
-  { name: 'TRACE', coord: 'AST' },
-  { name: 'STEP', coord: 'PLAYBACK' },
-  { name: 'HEAP', coord: 'VIEW' },
-  { name: 'STACK', coord: 'FRAME' },
-  { name: 'AI TUTOR', coord: 'COZE' },
-  { name: 'SANDBOX', coord: 'JDK17' },
-  { name: 'LIVE2D', coord: 'OP' },
-]
 const videoSrc = ref('')
 provide('videoSrc', videoSrc)
 const audioSrc = ref('')
@@ -130,107 +93,4 @@ provide('audioVolume', audioVolume)
   background-size: 56px 56px;
 }
 
-/* ---- Runtime wire banner (prototype .wire, compact) ---- */
-.runtime-wire {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: minmax(170px, 240px) 1fr;
-  align-items: stretch;
-  min-height: 44px;
-  margin: 10px 12px 0;
-  background: var(--card-bg);
-  border: 1px solid var(--line, var(--border));
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  box-shadow: var(--shadow);
-}
-.runtime-wire::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  width: 120px;
-  height: 2px;
-  background: var(--accent);
-}
-.wire-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  border-right: 1px solid var(--line, var(--border));
-}
-.wire-mark {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-}
-.wire-pulse-dot {
-  animation: wire-pulse 1.6s steps(2) infinite;
-}
-@keyframes wire-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.18; }
-}
-.wire-title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.2;
-}
-.wire-title b {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--text-h);
-}
-.wire-title span {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.wire-row {
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
-  min-width: 0;
-}
-.marquee-track {
-  display: inline-flex;
-  gap: 28px;
-  padding-right: 28px;
-  animation: wire-marquee 42s linear infinite;
-}
-.wire-item {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-.wire-dot { color: var(--accent); }
-.wire-coord {
-  color: var(--text-muted);
-  font-size: 9px;
-}
-@keyframes wire-marquee { to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) {
-  .marquee-track { animation: none; }
-  .wire-pulse { animation: none; }
-}
-@media (max-width: 720px) {
-  .runtime-wire { grid-template-columns: 1fr; }
-  .wire-left { border-right: none; border-bottom: 1px solid var(--border); }
-}
 </style>
