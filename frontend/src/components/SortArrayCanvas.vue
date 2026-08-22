@@ -63,7 +63,7 @@
 
     <ChipOverflowPopover
       v-if="popoverOpenCell !== null"
-      :chips="overflowChipsForCell(popoverOpenCell)"
+      :chips="sortChipsForPopover(overflowChipsForCell(popoverOpenCell))"
       :selection="overflowSelections.get(popoverOpenCell) || new Set()"
       :anchor="popoverAnchor"
       :open="true"
@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import ArrayCell from './ArrayCell.vue'
 import ChipOverflowPopover from './ChipOverflowPopover.vue'
 import { computeChipLayout } from '../utils/chipOverlayLayout.js'
@@ -87,6 +87,7 @@ import {
   POINTER_ROLE_COLORS,
 } from '../utils/pointerRoleColors.js'
 import { withVerticalPlacement } from '../utils/pointerPlacement.js'
+import { sortChipsForPopover } from '../utils/arrayChips.js'
 
 const PIVOT_COLOR = '#f97316'
 const ELSE_COLOR = POINTER_ROLE_COLORS.neutral
@@ -104,15 +105,12 @@ const props = defineProps({
 const wrapEl = ref(null)
 const popoverOpenCell = ref(null)
 const overflowSelections = ref(new Map())
-const viewportW = ref(window.innerWidth)
-const viewportH = ref(window.innerHeight)
 
-function onResize() {
-  viewportW.value = window.innerWidth
-  viewportH.value = window.innerHeight
+function onScroll() {
+  popoverOpenCell.value = null
 }
-onMounted(() => window.addEventListener('resize', onResize))
-onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+onMounted(() => window.addEventListener('scroll', onScroll, true))
+onBeforeUnmount(() => window.removeEventListener('scroll', onScroll, true))
 
 // step 变更 / props 变更 → 重置 popover + selections
 watch(() => [props.pointers, props.values, props.pivot, props.range, props.sortedRange], () => {
@@ -257,12 +255,13 @@ function isPointerIndex(i) {
 
 // popover helpers
 function overflowChipsForCell(index) {
-  return chipsByCell.value.get(index) || []
+  const chips = chipsByCell.value.get(index) || []
+  return chips.filter((c) => !c.name.startsWith('pivot='))
 }
 
 function onChipClick(entry) {
   if (!entry.isSummary) return
-  popoverOpenCell.value = popoverOpenCell.value === entry.index ? null : entry.index
+  popoverOpenCell.value = entry.index
 }
 
 function onSelectionChange(index, newSet) {

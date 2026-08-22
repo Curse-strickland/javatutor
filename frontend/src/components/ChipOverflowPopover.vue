@@ -4,6 +4,8 @@
       v-if="open && mounted"
       ref="popoverRef"
       class="chip-overflow-popover"
+      role="dialog"
+      aria-label="选择保留的 chip"
       :style="popoverStyle"
       @click.stop
     >
