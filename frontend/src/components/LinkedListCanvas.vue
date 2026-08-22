@@ -489,7 +489,7 @@ function formatValue(v) {
   display: flex;
   flex-shrink: 0;
   background: var(--card-bg);
-  border: 1.5px solid var(--border);
+  border: var(--ds-cell-border);
   border-radius: var(--ds-cell-radius);
   box-shadow: var(--ds-cell-shadow);
   transition:

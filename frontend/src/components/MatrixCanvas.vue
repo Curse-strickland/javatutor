@@ -191,7 +191,7 @@ function chipStyle(lab) {
   min-height: 40px;
   padding: 8px 10px;
   text-align: center;
-  border: 1px solid var(--border);
+  border: var(--ds-cell-border);
   border-radius: var(--ds-cell-radius-sm);
   box-shadow: var(--ds-cell-shadow);
   color: var(--text-h);
