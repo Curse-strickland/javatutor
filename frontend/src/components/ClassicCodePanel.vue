@@ -187,6 +187,65 @@ const groups = [
     }
 }`,
       },
+      {
+        name: '堆排序',
+        desc: 'Heap Sort — O(n log n)',
+        code: `public class HeapSort {
+    public static void main(String[] args) {
+        int[] arr = {9, 4, 7, 1, 6, 2, 8, 3, 5};
+        int n = arr.length;
+        // 建堆：从最后一个非叶节点向下调整（大顶堆）
+        for (int i = n / 2 - 1; i >= 0; i--) {
+            heapify(arr, n, i);
+        }
+        // 依次将堆顶（最大值）与末尾交换，并缩小堆
+        for (int end = n - 1; end > 0; end--) {
+            int t = arr[0];
+            arr[0] = arr[end];
+            arr[end] = t;
+            heapify(arr, end, 0);
+        }
+    }
+
+    static void heapify(int[] a, int n, int i) {
+        int largest = i;
+        int left = 2 * i + 1;
+        int right = 2 * i + 2;
+        // 找出父节点与左右子节点中的最大值
+        if (left < n && a[left] > a[largest]) largest = left;
+        if (right < n && a[right] > a[largest]) largest = right;
+        if (largest != i) {
+            int t = a[i];
+            a[i] = a[largest];
+            a[largest] = t;
+            heapify(a, n, largest);
+        }
+    }
+}`,
+      },
+      {
+        name: '希尔排序',
+        desc: 'Shell Sort — O(n log n)',
+        code: `public class ShellSort {
+    public static void main(String[] args) {
+        int[] arr = {9, 1, 5, 3, 7, 2, 8, 4, 6};
+        int n = arr.length;
+        // 增量序列：gap 每次减半
+        for (int gap = n / 2; gap > 0; gap /= 2) {
+            // 对每个分组做插入排序
+            for (int i = gap; i < n; i++) {
+                int key = arr[i];
+                int j = i;
+                while (j >= gap && arr[j - gap] > key) {
+                    arr[j] = arr[j - gap];
+                    j -= gap;
+                }
+                arr[j] = key;
+            }
+        }
+    }
+}`,
+      },
     ],
   },
 
@@ -619,6 +678,120 @@ const groups = [
     }
 }`,
       },
+      {
+        name: '网络流',
+        desc: 'Max Flow — Edmonds-Karp O(VE²)',
+        code: `public class MaxFlow {
+    public static void main(String[] args) {
+        int n = 6; // 节点数 0..5
+        int[][] capacity = new int[n][n];
+        // 有向边：capacity[from][to] = 容量
+        capacity[0][1] = 16; capacity[0][2] = 13;
+        capacity[1][2] = 10; capacity[1][3] = 12;
+        capacity[2][1] = 4;  capacity[2][4] = 14;
+        capacity[3][2] = 9;  capacity[3][5] = 20;
+        capacity[4][3] = 7;  capacity[4][5] = 4;
+        int source = 0, sink = 5;
+        System.out.println("max flow: " + edmondsKarp(capacity, source, sink, n));
+    }
+
+    // Edmonds-Karp：BFS 找增广路径 + 更新残量网络
+    static int edmondsKarp(int[][] cap, int s, int t, int n) {
+        int[][] flow = new int[n][n];
+        int maxFlow = 0;
+        while (true) {
+            int[] parent = new int[n];
+            java.util.Arrays.fill(parent, -1);
+            parent[s] = s;
+            java.util.Queue<Integer> q = new java.util.LinkedList<>();
+            q.add(s);
+            while (!q.isEmpty() && parent[t] == -1) {
+                int u = q.poll();
+                for (int v = 0; v < n; v++) {
+                    if (parent[v] == -1 && cap[u][v] - flow[u][v] > 0) {
+                        parent[v] = u;
+                        q.add(v);
+                    }
+                }
+            }
+            if (parent[t] == -1) break; // 无增广路径，结束
+            int push = Integer.MAX_VALUE; // 瓶颈容量
+            for (int v = t; v != s; v = parent[v]) {
+                push = Math.min(push, cap[parent[v]][v] - flow[parent[v]][v]);
+            }
+            for (int v = t; v != s; v = parent[v]) {
+                flow[parent[v]][v] += push;
+                flow[v][parent[v]] -= push;
+            }
+            maxFlow += push;
+        }
+        return maxFlow;
+    }
+}`,
+      },
+      {
+        name: '有向图',
+        desc: 'Directed Graph — DFS O(V+E)',
+        code: `public class DirectedGraph {
+    public static void main(String[] args) {
+        int n = 6; // 节点数 0..5
+        java.util.List<java.util.List<Integer>> adj = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) adj.add(new java.util.ArrayList<>());
+        // 有向边：adj[from].add(to)
+        adj.get(0).add(1); adj.get(0).add(2);
+        adj.get(1).add(3);
+        adj.get(2).add(3); adj.get(2).add(4);
+        adj.get(3).add(5);
+        adj.get(4).add(5);
+        // DFS 深度优先遍历
+        boolean[] visited = new boolean[n];
+        dfs(adj, 0, visited);
+    }
+
+    static void dfs(java.util.List<java.util.List<Integer>> adj, int u, boolean[] visited) {
+        visited[u] = true;
+        System.out.print(u + " ");
+        for (int v : adj.get(u)) {
+            if (!visited[v]) dfs(adj, v, visited);
+        }
+    }
+}`,
+      },
+      {
+        name: '无向图',
+        desc: 'Undirected Graph — BFS O(V+E)',
+        code: `public class UndirectedGraph {
+    public static void main(String[] args) {
+        int n = 6; // 节点数 0..5
+        java.util.List<java.util.List<Integer>> adj = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) adj.add(new java.util.ArrayList<>());
+        // 无向边：双向添加
+        addEdge(adj, 0, 1); addEdge(adj, 0, 2);
+        addEdge(adj, 1, 3); addEdge(adj, 2, 3);
+        addEdge(adj, 3, 4); addEdge(adj, 4, 5);
+        // BFS 广度优先遍历
+        boolean[] visited = new boolean[n];
+        java.util.Queue<Integer> q = new java.util.LinkedList<>();
+        q.add(0);
+        visited[0] = true;
+        while (!q.isEmpty()) {
+            int u = q.poll();
+            System.out.print(u + " ");
+            for (int v : adj.get(u)) {
+                if (!visited[v]) {
+                    visited[v] = true;
+                    q.add(v);
+                }
+            }
+        }
+    }
+
+    static void addEdge(java.util.List<java.util.List<Integer>> adj, int u, int v) {
+        adj.get(u).add(v);
+        adj.get(v).add(u);
+    }
+}`,
+      },
     ],
   },
 
@@ -832,6 +1005,84 @@ const groups = [
     }
 }`,
       },
+      {
+        name: '栈',
+        desc: 'Stack — 后进先出 LIFO O(1)',
+        code: `public class StackDemo {
+    public static void main(String[] args) {
+        java.util.Stack<Integer> stack = new java.util.Stack<>();
+        // 入栈 push
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        // 查看栈顶 peek
+        System.out.println("top: " + stack.peek()); // 3
+        // 出栈 pop（后进先出 LIFO）
+        while (!stack.isEmpty()) {
+            System.out.print(stack.pop() + " "); // 3 2 1
+        }
+    }
+}`,
+      },
+      {
+        name: '队列',
+        desc: 'Queue — 先进先出 FIFO O(1)',
+        code: `public class QueueDemo {
+    public static void main(String[] args) {
+        java.util.Queue<Integer> queue = new java.util.LinkedList<>();
+        // 入队 offer
+        queue.offer(1);
+        queue.offer(2);
+        queue.offer(3);
+        // 查看队首 peek
+        System.out.println("front: " + queue.peek()); // 1
+        // 出队 poll（先进先出 FIFO）
+        while (!queue.isEmpty()) {
+            System.out.print(queue.poll() + " "); // 1 2 3
+        }
+    }
+}`,
+      },
+      {
+        name: '优先队列',
+        desc: 'Priority Queue — 堆 O(log n)',
+        code: `public class PriorityQueueDemo {
+    public static void main(String[] args) {
+        // 默认小顶堆：最小值优先出队
+        java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>();
+        pq.offer(5);
+        pq.offer(2);
+        pq.offer(8);
+        pq.offer(1);
+        // 每次 poll 出当前最小元素
+        while (!pq.isEmpty()) {
+            System.out.print(pq.poll() + " "); // 1 2 5 8
+        }
+    }
+}`,
+      },
+      {
+        name: '红黑树',
+        desc: 'Red-Black Tree — 自平衡 O(log n)',
+        code: `public class RedBlackTree {
+    public static void main(String[] args) {
+        // TreeMap 内部实现即为红黑树（自平衡二叉搜索树）
+        java.util.TreeMap<Integer, String> tree = new java.util.TreeMap<>();
+        tree.put(3, "three");
+        tree.put(1, "one");
+        tree.put(5, "five");
+        tree.put(2, "two");
+        tree.put(4, "four");
+        // 按键升序遍历（等价于红黑树中序遍历）
+        for (Integer key : tree.keySet()) {
+            System.out.println(key + " -> " + tree.get(key));
+        }
+        // 查找操作
+        System.out.println("floor(3): " + tree.floorKey(3));    // 3
+        System.out.println("ceiling(4): " + tree.ceilingKey(4)); // 4
+    }
+}`,
+      },
     ],
   },
 
@@ -1018,6 +1269,70 @@ const groups = [
             curr = next;               // 前移
         }
         head = prev; // 新头节点
+    }
+}`,
+      },
+      {
+        name: '单向链表',
+        desc: 'Singly Linked List — 头插 O(1)',
+        code: `public class SinglyList {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int v) { val = v; }
+    }
+
+    public static void main(String[] args) {
+        ListNode head = null;
+        // 头插法：依次插入 3 → 2 → 1，最终 1→2→3
+        head = insertHead(head, 3);
+        head = insertHead(head, 2);
+        head = insertHead(head, 1);
+        // 遍历链表
+        ListNode cur = head;
+        while (cur != null) {
+            System.out.print(cur.val + " ");
+            cur = cur.next;
+        }
+    }
+
+    static ListNode insertHead(ListNode head, int val) {
+        ListNode node = new ListNode(val);
+        node.next = head;
+        return node;
+    }
+}`,
+      },
+      {
+        name: '双向链表',
+        desc: 'Doubly Linked List — 双向指针',
+        code: `public class DoublyList {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode prev;
+        ListNode(int v) { val = v; }
+    }
+
+    public static void main(String[] args) {
+        ListNode head = null;
+        // 头插法构建 1↔2↔3
+        head = insertHead(head, 3);
+        head = insertHead(head, 2);
+        head = insertHead(head, 1);
+        // 正向遍历
+        ListNode cur = head;
+        while (cur != null) {
+            System.out.print(cur.val + " ");
+            cur = cur.next;
+        }
+    }
+
+    static ListNode insertHead(ListNode head, int val) {
+        ListNode node = new ListNode(val);
+        node.next = head;
+        if (head != null) head.prev = node; // 维护前驱指针
+        return node;
     }
 }`,
       },

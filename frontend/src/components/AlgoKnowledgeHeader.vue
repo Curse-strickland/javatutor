@@ -85,7 +85,7 @@ const mdByFile = {
 }
 
 const categories = index.categories
-const expanded = ref(false)
+const expanded = ref(true)
 const activeCategoryId = ref(categories[0]?.id ?? '')
 const contentRef = ref(null)
 
@@ -122,8 +122,14 @@ watch(expanded, (isOpen) => {
 
 <style scoped>
 .algo-knowledge {
+  display: flex;
+  flex-direction: column;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+.algo-knowledge.expanded {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .ak-header {
   display: flex;
@@ -158,7 +164,7 @@ watch(expanded, (isOpen) => {
 .ak-body {
   display: flex;
   flex-direction: column;
-  max-height: min(42vh, 360px);
+  flex: 1;
   min-height: 0;
   padding: 0 8px 8px;
   background: var(--card-bg);
