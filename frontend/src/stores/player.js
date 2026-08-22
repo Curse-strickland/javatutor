@@ -34,7 +34,7 @@ export const usePlayerStore = defineStore('player', {
     methodName: '',
     methodSignature: '',
     // File upload state
-    rightTab: 'variables',
+    rightTab: 'datastructure',
     pendingFiles: [],
     uploadHistory: (() => {
       try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
@@ -348,7 +348,7 @@ export const usePlayerStore = defineStore('player', {
     // --- File upload actions ---
 
     switchRightTab(tab) {
-      const allowed = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor', 'animate']
+      const allowed = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor']
       if (allowed.includes(tab)) this.rightTab = tab
     },
 
