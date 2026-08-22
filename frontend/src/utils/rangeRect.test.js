@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rangeRect } from './rangeRect.js'
+import { rangeRect, columnLefts } from './rangeRect.js'
 
 describe('rangeRect', () => {
   it('单格 (lo=hi=0)', () => {
@@ -12,5 +12,16 @@ describe('rangeRect', () => {
   })
   it('gap=0 时与简单公式一致', () => {
     expect(rangeRect(1, 3, 50, 0)).toEqual({ left: 50, width: 150 })
+  })
+  it('每列宽（数组）时累加对应列', () => {
+    // 列宽 [40, 60, 48]，gap=2
+    // left(1..2): left = 40+2 = 42；width = 60 + 2 + 48 = 110
+    expect(rangeRect(1, 2, [40, 60, 48], 2)).toEqual({ left: 42, width: 110 })
+  })
+})
+
+describe('columnLefts', () => {
+  it('累加每列宽 + gap', () => {
+    expect(columnLefts([40, 60, 48], 2)).toEqual([0, 42, 104])
   })
 })

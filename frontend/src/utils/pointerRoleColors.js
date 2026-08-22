@@ -94,6 +94,7 @@ export function primaryRoleFromLabels(labels) {
 
 /**
  * CSS-friendly style bits for a role-colored chip / border.
+ * 背景不透明（叠加时上层 chip 完全遮住下层，避免半透明混合模糊），保留描边。
  * @param {string|null} role
  */
 export function roleStyle(role) {
@@ -102,7 +103,7 @@ export function roleStyle(role) {
   return {
     color,
     borderColor: `${color}66`,
-    background: `${color}22`,
+    background: 'var(--card-bg)',
     fill: color,
   }
 }

@@ -5,6 +5,7 @@ import {
   primaryRoleFromLabels,
   POINTER_ROLE_COLORS,
   colorForRole,
+  roleStyle,
 } from './pointerRoleColors.js'
 
 describe('pointerRoleColors', () => {
@@ -69,5 +70,18 @@ describe('extended color palette (insert/neutral)', () => {
   })
   it('neutral 为 amber', () => {
     expect(colorForRole('neutral')).toBe('#f59e0b')
+  })
+})
+
+describe('roleStyle (不透明背景 + 保留描边)', () => {
+  it('chip 背景不透明，描边保留为角色色', () => {
+    const style = roleStyle('mid')
+    expect(style.background).toBe('var(--card-bg)')
+    expect(style.borderColor).toBe(`${POINTER_ROLE_COLORS.mid}66`)
+    expect(style.color).toBe(POINTER_ROLE_COLORS.mid)
+  })
+
+  it('未知角色返回空对象', () => {
+    expect(roleStyle(null)).toEqual({})
   })
 })

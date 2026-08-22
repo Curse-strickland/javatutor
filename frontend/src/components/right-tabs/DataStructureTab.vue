@@ -120,8 +120,13 @@ const resultRaw = computed(() => {
   )
 })
 
+// 数组形式模式（快排/插入/希尔等）隐藏下方重复数组；堆排/归并等非数组形式保留
+const ARRAY_FORM_MODES = new Set(['array-pointers', 'bars', 'array'])
+
 const visibleArrays = computed(() => {
-  const primaryId = sortViz.value?.primaryArrayId
+  const viz = sortViz.value
+  if (!viz || !ARRAY_FORM_MODES.has(viz.mode)) return resultRaw.value.arrays
+  const primaryId = viz.primaryArrayId
   if (!primaryId) return resultRaw.value.arrays
   return resultRaw.value.arrays.filter((a) => !matchesPrimaryArray(a, primaryId))
 })

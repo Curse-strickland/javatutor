@@ -2,6 +2,12 @@
   <div class="sort-array-canvas">
     <div class="sac-header">
       <span class="sac-label">{{ label }}</span>
+      <button
+        v-if="distinctVars.length"
+        type="button"
+        class="sac-var-toggle"
+        @click="openVarSelector($event)"
+      >展示的变量</button>
     </div>
     <div class="sac-strip-wrap" ref="wrapEl">
       <div class="sac-pointers sac-pointers-above">
@@ -11,21 +17,13 @@
           class="sac-pointer"
           :style="{ left: entry.left + 'px' }"
         >
-          <span
-            class="sac-pointer-text"
-            :class="{ 'sac-pointer-summary': entry.isSummary }"
-            :style="entry.chipStyle"
-            @click="onChipClick(entry)"
-          >{{ entry.label }}</span>
+          <span class="sac-pointer-text" :style="entry.chipStyle">{{ entry.label }}</span>
           <svg class="sac-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
             <path d="M0 0 L10 0 L5 6 Z" :fill="entry.color" />
           </svg>
         </div>
       </div>
-      <div
-        class="sac-strip"
-        :style="{ gridTemplateColumns: `repeat(${values.length}, ${layout.cellWidth}px)` }"
-      >
+      <div class="sac-strip" :style="{ gridTemplateColumns: layout.gridTemplate }">
         <div v-if="sortedHighlight" class="sac-sorted" :style="sortedHighlight" />
         <div v-if="rangeHighlight" class="sac-range" :style="rangeHighlight" />
         <ArrayCell
@@ -51,24 +49,19 @@
           <svg class="sac-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
             <path d="M5 0 L10 6 L0 6 Z" :fill="entry.color" />
           </svg>
-          <span
-            class="sac-pointer-text"
-            :class="{ 'sac-pointer-summary': entry.isSummary }"
-            :style="entry.chipStyle"
-            @click="onChipClick(entry)"
-          >{{ entry.label }}</span>
+          <span class="sac-pointer-text" :style="entry.chipStyle">{{ entry.label }}</span>
         </div>
       </div>
     </div>
 
-    <ChipOverflowPopover
-      v-if="popoverOpenCell !== null"
-      :chips="sortChipsForPopover(overflowChipsForCell(popoverOpenCell))"
-      :selection="overflowSelections.get(popoverOpenCell) || new Set()"
-      :anchor="popoverAnchor"
+    <VarVisibilityPopover
+      v-if="varSelectorOpen"
+      :vars="distinctVars"
+      :hidden="hiddenVars"
+      :anchor="varSelectorAnchor"
       :open="true"
-      @update:selection="(s) => onSelectionChange(popoverOpenCell, s)"
-      @close="popoverOpenCell = null"
+      @update:hidden="onHiddenChange"
+      @close="varSelectorOpen = false"
     />
   </div>
 </template>
@@ -76,7 +69,7 @@
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import ArrayCell from './ArrayCell.vue'
-import ChipOverflowPopover from './ChipOverflowPopover.vue'
+import VarVisibilityPopover from './VarVisibilityPopover.vue'
 import { computeChipLayout } from '../utils/chipOverlayLayout.js'
 import {
   colorForPointerName,
@@ -84,14 +77,11 @@ import {
   inferPointerRole,
   primaryRoleFromLabels,
   roleStyle,
-  POINTER_ROLE_COLORS,
 } from '../utils/pointerRoleColors.js'
-import { withVerticalPlacement } from '../utils/pointerPlacement.js'
-import { sortChipsForPopover } from '../utils/arrayChips.js'
-import { rangeRect } from '../utils/rangeRect.js'
+import { withCellPlacement } from '../utils/pointerPlacement.js'
+import { rangeRect, columnLefts } from '../utils/rangeRect.js'
 
 const PIVOT_COLOR = '#f97316'
-const ELSE_COLOR = POINTER_ROLE_COLORS.neutral
 
 const props = defineProps({
   values: { type: Array, required: true },
@@ -104,20 +94,33 @@ const props = defineProps({
 })
 
 const wrapEl = ref(null)
-const popoverOpenCell = ref(null)
-const overflowSelections = ref(new Map())
+const varSelectorOpen = ref(false)
+const varSelectorAnchor = ref({ left: 0, top: 0 })
+const hiddenVars = ref(new Set())
 
 function onScroll() {
-  popoverOpenCell.value = null
+  varSelectorOpen.value = false
 }
 onMounted(() => window.addEventListener('scroll', onScroll, true))
 onBeforeUnmount(() => window.removeEventListener('scroll', onScroll, true))
 
-// step 变更 / props 变更 → 重置 popover + selections
+// step 变更 / props 变更 → 重置 popover + 变量选择
 watch(() => [props.pointers, props.values, props.pivot, props.range, props.sortedRange], () => {
-  popoverOpenCell.value = null
-  overflowSelections.value = new Map()
+  varSelectorOpen.value = false
+  hiddenVars.value = new Set()
 }, { deep: true })
+
+function openVarSelector(event) {
+  varSelectorOpen.value = true
+  const rect = event?.currentTarget?.getBoundingClientRect()
+  varSelectorAnchor.value = rect
+    ? { left: rect.left, top: rect.bottom + 4 }
+    : { left: 0, top: 0 }
+}
+
+function onHiddenChange(set) {
+  hiddenVars.value = set
+}
 
 const pivotIndex = computed(() => (props.pivot && typeof props.pivot.index === 'number' ? props.pivot.index : null))
 
@@ -148,82 +151,77 @@ const chipsByCell = computed(() => {
   return map
 })
 
-const layout = computed(() => computeChipLayout({ chipsByCell: chipsByCell.value }))
-
-// pointer chip 列表（含 +N / else）
-const pointerEntries = computed(() => {
-  const entries = []
+const distinctVars = computed(() => {
   const seen = new Set()
-  const len = props.values?.length || 0
-
-  for (const [index, chips] of chipsByCell.value.entries()) {
-    if (index < 0 || index >= len) continue
-    const overflow = layout.value.overflowByCell.get(index)
-    const selectionSet = overflowSelections.value.get(index)
-
-    let visible
-    let summaryLabel
-    if (overflow && selectionSet && selectionSet.size > 0) {
-      const pivotChip = chips.find((c) => c.name.startsWith('pivot='))
-      const selectedChips = chips.filter(
-        (c) => !c.name.startsWith('pivot=') && selectionSet.has(c.name)
-      )
-      visible = [pivotChip, ...selectedChips].filter(Boolean).slice(0, 2)
-      summaryLabel = 'else'
-    } else if (overflow) {
-      visible = overflow.visibleChips
-      summaryLabel = `+${overflow.hiddenCount}`
-    } else {
-      visible = chips
-      summaryLabel = null
-    }
-
-    const leftBase = index * layout.value.cellWidth + layout.value.cellWidth / 2
-
-    for (const chip of visible) {
-      const key = `${index}:${chip.name}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      const role = chip.role || (chip.name.startsWith('pivot=') ? null : null)
-      const color = chip.color
-      entries.push({
-        key,
-        index,
-        label: chip.name,
-        left: leftBase,
-        color,
-        chipStyle: chipStyleFor(role, color),
-        isSummary: false,
-      })
-    }
-
-    if (summaryLabel !== null) {
-      const summaryKey = summaryLabel === 'else'
-        ? `${index}:else`
-        : `${index}:+${overflow.hiddenCount}`
-      entries.push({
-        key: summaryKey,
-        index,
-        label: summaryLabel,
-        left: leftBase,
-        color: ELSE_COLOR,
-        chipStyle: chipStyleFor(null, ELSE_COLOR),
-        isSummary: true,
-      })
+  const vars = []
+  for (const chips of chipsByCell.value.values()) {
+    for (const c of chips) {
+      if (seen.has(c.name)) continue
+      seen.add(c.name)
+      vars.push({ name: c.name, color: c.color })
     }
   }
-
-  return withVerticalPlacement(entries)
+  return vars
 })
+
+const visibleChipsByCell = computed(() => {
+  if (hiddenVars.value.size === 0) return chipsByCell.value
+  const out = new Map()
+  for (const [idx, chips] of chipsByCell.value.entries()) {
+    const kept = chips.filter((c) => !hiddenVars.value.has(c.name))
+    if (kept.length) out.set(idx, kept)
+  }
+  return out
+})
+
+const layout = computed(() => computeChipLayout({
+  chipsByCell: visibleChipsByCell.value,
+  length: props.values?.length || 0,
+}))
+
+let _gap = null
+function stripGap() {
+  if (_gap == null) {
+    _gap = 2
+    if (typeof document !== 'undefined') {
+      const g = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-strip-gap'))
+      if (!Number.isNaN(g)) _gap = g
+    }
+  }
+  return _gap
+}
 
 function chipStyleFor(role, color) {
   return roleStyle(role) || {
     color,
     borderColor: `${color}66`,
-    background: `${color}22`,
+    background: 'var(--card-bg)',
     fill: color,
   }
 }
+
+// pointer chip 列表（无折叠；每格一个在上、两个在下、多个重叠且上下随机）
+const pointerEntries = computed(() => {
+  const lefts = columnLefts(layout.value.cellWidths, stripGap())
+  const entries = []
+
+  for (const [index, chips] of visibleChipsByCell.value.entries()) {
+    if (index < 0 || index >= lefts.length) continue
+    const left = lefts[index] + layout.value.cellWidths[index] / 2
+    for (const chip of chips) {
+      entries.push({
+        key: `${index}:${chip.name}`,
+        index,
+        label: chip.name,
+        left,
+        color: chip.color,
+        chipStyle: chipStyleFor(chip.role, chip.color),
+      })
+    }
+  }
+
+  return withCellPlacement(entries)
+})
 
 const aboveEntries = computed(() => pointerEntries.value.filter((e) => e.placement === 'above'))
 const belowEntries = computed(() => pointerEntries.value.filter((e) => e.placement === 'below'))
@@ -234,8 +232,7 @@ const rangeHighlight = computed(() => {
   const lo = Math.max(0, r.lo)
   const hi = Math.min(props.values.length - 1, r.hi)
   if (lo > hi) return null
-  const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-strip-gap')) || 2
-  const rect = rangeRect(lo, hi, layout.value.cellWidth, gap)
+  const rect = rangeRect(lo, hi, layout.value.cellWidths, stripGap())
   return { left: `${rect.left}px`, width: `${rect.width}px` }
 })
 
@@ -245,8 +242,7 @@ const sortedHighlight = computed(() => {
   const lo = Math.max(0, r.lo)
   const hi = Math.min(props.values.length - 1, r.hi)
   if (lo > hi) return null
-  const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-strip-gap')) || 2
-  const rect = rangeRect(lo, hi, layout.value.cellWidth, gap)
+  const rect = rangeRect(lo, hi, layout.value.cellWidths, stripGap())
   // sorted 用 green 注入到 --range-color
   return {
     left: `${rect.left}px`,
@@ -257,52 +253,34 @@ const sortedHighlight = computed(() => {
 
 function labelsAt(i) { return [] }  // pointer chip 已在外层渲染，cell 不重复
 function roleAt(i) {
-  return primaryRoleFromLabels(chipsByCell.value.get(i)?.map((c) => c.name) || [])
+  return primaryRoleFromLabels(visibleChipsByCell.value.get(i)?.map((c) => c.name) || [])
 }
 function isPointerIndex(i) {
-  return chipsByCell.value.has(i)
+  return visibleChipsByCell.value.has(i)
 }
-
-// popover helpers
-function overflowChipsForCell(index) {
-  const chips = chipsByCell.value.get(index) || []
-  return chips.filter((c) => !c.name.startsWith('pivot='))
-}
-
-function onChipClick(entry) {
-  if (!entry.isSummary) return
-  popoverOpenCell.value = entry.index
-}
-
-function onSelectionChange(index, newSet) {
-  const next = new Map(overflowSelections.value)
-  next.set(index, newSet)
-  overflowSelections.value = next
-}
-
-const popoverAnchor = computed(() => {
-  if (popoverOpenCell.value === null || !wrapEl.value) {
-    return { cellLeft: 0, cellWidth: 0, containerTop: 0 }
-  }
-  const rect = wrapEl.value.getBoundingClientRect()
-  const idx = popoverOpenCell.value
-  return {
-    cellLeft: rect.left + idx * layout.value.cellWidth - wrapEl.value.scrollLeft,
-    cellWidth: layout.value.cellWidth,
-    containerTop: rect.top,
-  }
-})
 </script>
 
 <style scoped>
 .sort-array-canvas { padding: 4px 0; }
-.sac-header { margin-bottom: 6px; }
+.sac-header { margin-bottom: 6px; display: flex; align-items: baseline; gap: 10px; }
 .sac-label {
   font-family: var(--mono);
   font-size: 10px;
   color: var(--text-muted);
   letter-spacing: 0.06em;
 }
+.sac-var-toggle {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 3px;
+  padding: 1px 6px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+}
+.sac-var-toggle:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .sac-strip-wrap {
   position: relative;
   display: inline-block;
@@ -341,11 +319,6 @@ const popoverAnchor = computed(() => {
   border: 1px solid transparent;
   white-space: nowrap;
 }
-.sac-pointer-summary {
-  pointer-events: auto;
-  cursor: pointer;
-}
-.sac-pointer-summary:hover { filter: brightness(0.92); }
 .sac-pointer-triangle { flex-shrink: 0; margin-top: -1px; }
 .sac-pointer-below .sac-pointer-triangle { margin-top: 0; margin-bottom: -1px; }
 .sac-strip {
@@ -358,8 +331,7 @@ const popoverAnchor = computed(() => {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: color-mix(in srgb, var(--range-color, #3b82f6) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--range-color, #3b82f6) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--range-color, #3b82f6) 45%, transparent);
   border-radius: var(--ds-cell-radius);
   pointer-events: none;
   z-index: 0;
@@ -368,8 +340,7 @@ const popoverAnchor = computed(() => {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: color-mix(in srgb, var(--range-color, #10b981) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--range-color, #10b981) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--range-color, #10b981) 45%, transparent);
   border-radius: var(--ds-cell-radius);
   pointer-events: none;
   z-index: 0;

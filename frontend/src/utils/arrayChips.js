@@ -53,19 +53,3 @@ export function matchesPrimaryArray(arr, primaryId) {
   const pid = String(primaryId)
   return String(arr.id) === pid || String(arr.sourceVar) === pid
 }
-
-const POPOVER_ROLE_ORDER = { mid: 0, next: 1, prev: 2 }
-
-function popoverRoleRank(chip) {
-  if (chip.name && String(chip.name).startsWith('pivot=')) return 3
-  return POPOVER_ROLE_ORDER[chip.role] ?? 99
-}
-
-/**
- * Sort chips for the popover by the spec role palette:
- * mid → next → prev → pivot → custom.
- * Stable within each group.
- */
-export function sortChipsForPopover(chips) {
-  return [...chips].sort((a, b) => popoverRoleRank(a) - popoverRoleRank(b))
-}
