@@ -219,7 +219,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import MemoryPanel from './MemoryPanel.vue'
@@ -247,6 +247,9 @@ const switchGroup = (group) => {
   if (rightGroup.value !== group) store.switchRightTab(GROUP_DEFAULT_TAB[group])
 }
 const editorRef = ref(null)
+// AI 编辑建议 → 编辑器（AiTutorPanel 里的卡片组件 inject 使用）
+provide('applyAiEdits', (edits) => editorRef.value?.applyAiEdits(edits) ?? null)
+provide('undoAiEdits', () => editorRef.value?.undoAiEdits())
 const containerRef = ref(null)
 const progressRef = ref(null)
 const controlBarRef = ref(null)

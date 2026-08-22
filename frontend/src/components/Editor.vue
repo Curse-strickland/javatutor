@@ -16,6 +16,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as monaco from 'monaco-editor'
+import { planEdits } from '../utils/editSuggestion'
 
 const props = defineProps({
   readOnly: { type: Boolean, default: false },
@@ -298,11 +299,44 @@ const setCode = (code) => {
   clearHighlights()
 }
 
+/**
+ * 应用 AI 编辑建议：整批一次 executeEdits（一个 undo 单位，Ctrl+Z 可回滚）。
+ * @returns {null | { applied: number, planned: Array }} 无 Monaco 实例（textarea 回退）时返回 null
+ */
+const applyAiEdits = (edits) => {
+  if (!editor) return null
+  const model = editor.getModel()
+  if (!model) return null
+  const planned = planEdits(model.getValue(), edits)
+  const applicable = planned.filter((p) => p.status === 'ok')
+  if (applicable.length) {
+    editor.pushUndoStop()
+    editor.executeEdits(
+      'ai-edit-suggestion',
+      applicable.map((p) => {
+        const s = model.getPositionAt(p.start)
+        const e = model.getPositionAt(p.end)
+        return {
+          range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column),
+          text: p.new_string,
+        }
+      }),
+    )
+    editor.pushUndoStop()
+  }
+  return { applied: applicable.length, planned }
+}
+
+/** 撤销最近一次应用的 AI 编辑（走 Monaco undo 栈） */
+const undoAiEdits = () => {
+  if (editor) editor.trigger('ai-edit-suggestion', 'undo', null)
+}
+
 watch(() => props.readOnly, (val) => {
   if (editor) editor.updateOptions({ readOnly: val })
 })
 
-defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode })
+defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode, applyAiEdits, undoAiEdits })
 </script>
 
 <style>
