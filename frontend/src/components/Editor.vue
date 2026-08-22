@@ -29,6 +29,13 @@ let currentDecorations = []
 let ro = null
 const loadError = ref(false)
 
+/** 字体测宽校准：容器尺寸变化或字体加载完成后调用，保证光标与字符渲染对齐 */
+const recalibrate = () => {
+  if (!editor) return
+  editor.layout()
+  try { editor.remeasureFonts() } catch (_) { /* ignore */ }
+}
+
 /** 点击「导入」按钮 → 触发隐藏的文件选择器 */
 const triggerImport = () => {
   fileInputRef.value?.click()
@@ -76,8 +83,7 @@ const fallbackCode = ref(`public class UserCode {
 onMounted(() => {
   if (editorContainer.value) {
     try {
-      // 等待字体加载完成后再初始化编辑器
-      document.fonts.ready.then(() => {
+      const initMonaco = () => {
         // Cursor Light（本地 Cursor 主题 cursor-light-color-theme.json）
         monaco.editor.defineTheme('cursor-light', {
           base: 'vs',
@@ -159,16 +165,11 @@ onMounted(() => {
           padding: { top: 8, left: 0 }
         })
 
-        const recalibrate = () => {
-          if (!editor) return
-          editor.layout()
-          try { editor.remeasureFonts() } catch (_) { /* ignore */ }
-        }
+        // 延迟校准：覆盖字体在初始化后才 swap 的场景
         setTimeout(recalibrate, 50)
         setTimeout(recalibrate, 300)
-        if (document.fonts?.load) {
-          document.fonts.load("16px 'Maple Mono'").then(recalibrate).catch(() => {})
-        }
+        setTimeout(recalibrate, 800)
+        setTimeout(recalibrate, 2000)
 
         // 用户编辑代码时清除旧的高亮（旧步骤数据已过时）
         if (!props.readOnly) {
@@ -186,7 +187,27 @@ onMounted(() => {
         } else {
           window.addEventListener('resize', () => editor.layout())
         }
-      })
+      }
+
+      // 字体晚到 / swap 后强制重新测宽，保证光标与字符渲染对齐
+      if (document.fonts?.addEventListener) {
+        document.fonts.addEventListener('loadingdone', recalibrate)
+        document.fonts.addEventListener('loadingerror', recalibrate)
+      }
+
+      // 先显式加载编辑器用到的字体再初始化。若字体未就绪，Monaco 会用 fallback
+      // 字体测宽；字体加载完成后字符被重新渲染得更宽，但 Monaco 不重测宽 → 光标累积偏移。
+      // 主题把注释渲染为斜体（独立的 ~20MB Italic 字面），粘贴/置入含注释的代码会触发
+      // 斜体晚加载，因此 regular + italic 两个字面都要预载。
+      // 不依赖 document.fonts.ready：它会被无关的 Web Fonts 拖慢/干扰时序。
+      if (document.fonts?.load) {
+        Promise.all([
+          document.fonts.load("16px 'Maple Mono'").catch(() => {}),
+          document.fonts.load("italic 16px 'Maple Mono'").catch(() => {}),
+        ]).then(initMonaco)
+      } else {
+        initMonaco()
+      }
     } catch (e) {
       // Monaco 加载或初始化失败时，回退到可编辑的 textarea
       console.error('Monaco init failed, falling back to textarea:', e)
@@ -198,6 +219,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (editor) editor.dispose()
   if (ro && root.value) ro.unobserve(root.value)
+  if (document.fonts?.removeEventListener) {
+    document.fonts.removeEventListener('loadingdone', recalibrate)
+    document.fonts.removeEventListener('loadingerror', recalibrate)
+  }
 })
 
 const getCode = () => {
