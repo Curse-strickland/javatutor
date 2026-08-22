@@ -19,9 +19,9 @@ export const POINTER_ROLE_COLORS = {
   mid: '#eab308',
   next: '#3b82f6',
   prev: '#6b7280',
-  insert: '#ef476f',
   root: '#ef476f',
-  neutral: '#9ca3af',
+  insert: '#d946ef',
+  neutral: '#f59e0b',
 }
 
 const MID_NAMES = /^(mid|cur|curr|current|node|key|pivot|i)$/i
