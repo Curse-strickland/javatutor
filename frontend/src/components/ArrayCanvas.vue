@@ -57,7 +57,7 @@
             v-for="entry in belowEntriesFor(arr.id)"
             :key="entry.key"
             class="ac-pointer ac-pointer-below"
-            :style="{ left: entry.left + 'px' }"
+            :style="{ left: entry.left + 'px', fontSize: layoutFor(arr.id).chipFontSize + 'px' }"
           >
             <svg class="ac-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
               <path d="M5 0 L10 6 L0 6 Z" :fill="entry.color" />
@@ -72,12 +72,12 @@
         </div>
 
         <ChipOverflowPopover
-          v-if="popoverOpenFor === arr.id"
-          :chips="overflowChipsForArr(arr.id)"
-          :selection="overflowSelections.get(arr.id) || new Set()"
+          v-if="popoverOpenFor === popoverKey(arr.id, popoverCellIndex)"
+          :chips="sortChipsForPopover(overflowChipsForCell(arr.id, popoverCellIndex))"
+          :selection="overflowSelections.get(popoverKey(arr.id, popoverCellIndex)) || new Set()"
           :anchor="popoverAnchorFor(arr.id)"
           :open="true"
-          @update:selection="(s) => onSelectionChange(arr.id, s)"
+          @update:selection="(s) => onSelectionChange(popoverKey(arr.id, popoverCellIndex), s)"
           @close="popoverOpenFor = null"
         />
       </div>
@@ -100,6 +100,7 @@ import {
   POINTER_ROLE_COLORS,
 } from '../utils/pointerRoleColors.js'
 import { withVerticalPlacement } from '../utils/pointerPlacement.js'
+import { buildArrayChipsByCell, sortChipsForPopover } from '../utils/arrayChips.js'
 
 const ELSE_COLOR = POINTER_ROLE_COLORS.neutral
 
@@ -111,12 +112,12 @@ const props = defineProps({
 const wrapEls = ref(new Map())
 const popoverOpenFor = ref(null)
 const overflowSelections = ref(new Map())
-const viewportW = ref(window.innerWidth)
-const viewportH = ref(window.innerHeight)
 
-function onResize() { viewportW.value = window.innerWidth; viewportH.value = window.innerHeight }
-onMounted(() => window.addEventListener('resize', onResize))
-onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+function onScroll() {
+  popoverOpenFor.value = null
+}
+onMounted(() => window.addEventListener('scroll', onScroll, true))
+onBeforeUnmount(() => window.removeEventListener('scroll', onScroll, true))
 
 watch(() => props.arrays, () => {
   popoverOpenFor.value = null
@@ -129,30 +130,7 @@ function bindWrapEl(arrId, el) {
 }
 
 function chipsByCellFor(arr) {
-  const map = new Map()
-  const len = arr.values?.length || 0
-  const pointers = arr.indexPointers || {}
-  for (const [name, idx] of Object.entries(pointers)) {
-    if (idx == null || idx < 0 || idx >= len) continue
-    const color = colorForPointerName(name) || colorForRole('mid')
-    const role = inferPointerRole(name)
-    if (!map.has(idx)) map.set(idx, [])
-    map.get(idx).push({ name, color, role })
-  }
-  const rec = arr.pointerLabels || {}
-  for (const [idxStr, labels] of Object.entries(rec)) {
-    const idx = Number(idxStr)
-    if (idx < 0 || idx >= len) continue
-    for (const label of labels || []) {
-      if (!map.has(idx)) map.set(idx, [])
-      map.get(idx).push({
-        name: label,
-        color: colorForPointerName(label) || colorForRole('mid'),
-        role: inferPointerRole(label),
-      })
-    }
-  }
-  return map
+  return buildArrayChipsByCell(arr)
 }
 
 const layoutsByArrId = computed(() => {
@@ -187,12 +165,13 @@ function pointerEntriesFor(arr) {
   const entries = []
   const seen = new Set()
   const len = arr.values?.length || 0
-  const sel = overflowSelections.value.get(arrId) || new Set()
 
   for (const [index, chips] of chipsByCell.entries()) {
     if (index < 0 || index >= len) continue
     const overflow = layout.overflowByCell.get(index)
     const leftBase = index * layout.cellWidth + layout.cellWidth / 2
+    const cellKey = popoverKey(arrId, index)
+    const sel = overflowSelections.value.get(cellKey) || new Set()
 
     let visible
     let summaryLabel
@@ -251,10 +230,6 @@ function pointerEntriesFor(arr) {
   return withVerticalPlacement(entries)
 }
 
-const aboveEntriesByArrId = ref(new Map())
-const belowEntriesByArrId = ref(new Map())
-
-// 由于 entries 依赖 overflowSelections，每次需要重算；用 computed 不太好直接存 map，直接写函数
 function aboveEntriesFor(arrId) {
   const arr = props.arrays.find((a) => a.id === arrId)
   if (!arr) return []
@@ -266,23 +241,31 @@ function belowEntriesFor(arrId) {
   return pointerEntriesFor(arr).filter((e) => e.placement === 'below')
 }
 
-function overflowChipsForArr(arrId) {
+const popoverCellIndex = computed(() => {
+  if (!popoverOpenFor.value) return null
+  const idx = popoverOpenFor.value.lastIndexOf(':')
+  if (idx === -1) return null
+  return Number(popoverOpenFor.value.slice(idx + 1))
+})
+
+function popoverKey(arrId, cellIndex) {
+  return `${arrId}:${cellIndex}`
+}
+
+function overflowChipsForCell(arrId, cellIndex) {
   const arr = props.arrays.find((a) => a.id === arrId)
-  if (!arr) return []
-  const out = []
-  const chipsByCell = chipsByCellFor(arr)
-  for (const chips of chipsByCell.values()) out.push(...chips)
-  return out
+  if (!arr || cellIndex == null) return []
+  return chipsByCellFor(arr).get(cellIndex) || []
 }
 
 function onChipClick(entry, arrId) {
   if (!entry.isSummary) return
-  popoverOpenFor.value = popoverOpenFor.value === arrId ? null : arrId
+  popoverOpenFor.value = popoverKey(arrId, entry.index)
 }
 
-function onSelectionChange(arrId, newSet) {
+function onSelectionChange(key, newSet) {
   const next = new Map(overflowSelections.value)
-  next.set(arrId, newSet)
+  next.set(key, newSet)
   overflowSelections.value = next
 }
 
