@@ -17,22 +17,30 @@
         :pointer-labels="arr.pointerLabels"
       />
 
-      <div v-else class="ac-strip-wrap">
+      <div v-else class="ac-strip-wrap" :ref="(el) => bindWrapEl(arr.id, el)">
         <div class="ac-pointers ac-pointers-above">
           <div
-            v-for="entry in aboveEntries(arr)"
+            v-for="entry in aboveEntriesFor(arr.id)"
             :key="entry.key"
             class="ac-pointer"
-            :style="{ left: entry.left + 'px' }"
+            :style="{ left: entry.left + 'px', fontSize: layoutFor(arr.id).chipFontSize + 'px' }"
           >
-            <span class="ac-pointer-text" :style="entry.chipStyle">{{ entry.label }}</span>
+            <span
+              class="ac-pointer-text"
+              :class="{ 'ac-pointer-summary': entry.isSummary }"
+              :style="entry.chipStyle"
+              @click="onChipClick(entry, arr.id)"
+            >{{ entry.label }}</span>
             <svg class="ac-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
               <path d="M0 0 L10 0 L5 6 Z" :fill="entry.color" />
             </svg>
           </div>
         </div>
-        <div class="ac-strip">
-          <ArrayNode
+        <div
+          class="ac-strip"
+          :style="{ gridTemplateColumns: `repeat(${arr.values.length}, ${layoutFor(arr.id).cellWidth}px)` }"
+        >
+          <ArrayCell
             v-for="(v, i) in arr.values"
             :key="i"
             :value="v"
@@ -46,7 +54,7 @@
         </div>
         <div class="ac-pointers ac-pointers-below">
           <div
-            v-for="entry in belowEntries(arr)"
+            v-for="entry in belowEntriesFor(arr.id)"
             :key="entry.key"
             class="ac-pointer ac-pointer-below"
             :style="{ left: entry.left + 'px' }"
@@ -54,98 +62,241 @@
             <svg class="ac-pointer-triangle" width="10" height="6" viewBox="0 0 10 6">
               <path d="M5 0 L10 6 L0 6 Z" :fill="entry.color" />
             </svg>
-            <span class="ac-pointer-text" :style="entry.chipStyle">{{ entry.label }}</span>
+            <span
+              class="ac-pointer-text"
+              :class="{ 'ac-pointer-summary': entry.isSummary }"
+              :style="entry.chipStyle"
+              @click="onChipClick(entry, arr.id)"
+            >{{ entry.label }}</span>
           </div>
         </div>
+
+        <ChipOverflowPopover
+          v-if="popoverOpenFor === arr.id"
+          :chips="overflowChipsForArr(arr.id)"
+          :selection="overflowSelections.get(arr.id) || new Set()"
+          :anchor="popoverAnchorFor(arr.id)"
+          :open="true"
+          @update:selection="(s) => onSelectionChange(arr.id, s)"
+          @close="popoverOpenFor = null"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import ArrayNode from './ArrayNode.vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import ArrayCell from './ArrayCell.vue'
+import ChipOverflowPopover from './ChipOverflowPopover.vue'
 import MatrixCanvas from './MatrixCanvas.vue'
+import { computeChipLayout } from '../utils/chipOverlayLayout.js'
 import {
   colorForPointerName,
   colorForRole,
   inferPointerRole,
   primaryRoleFromLabels,
   roleStyle,
+  POINTER_ROLE_COLORS,
 } from '../utils/pointerRoleColors.js'
 import { withVerticalPlacement } from '../utils/pointerPlacement.js'
 
-defineProps({
+const ELSE_COLOR = POINTER_ROLE_COLORS.neutral
+
+const props = defineProps({
   arrays: { type: Array, required: true },
   highlightedIndex: { type: Number, default: -1 },
 })
 
-const CELL_MIN_WIDTH = 48
-const FALLBACK_COLOR = colorForRole('mid')
+const wrapEls = ref(new Map())
+const popoverOpenFor = ref(null)
+const overflowSelections = ref(new Map())
+const viewportW = ref(window.innerWidth)
+const viewportH = ref(window.innerHeight)
 
-function labelsAt(arr, index) {
-  const fromRecord = arr.pointerLabels?.[index]
-  if (fromRecord?.length) return fromRecord
-  const fromPointers = []
+function onResize() { viewportW.value = window.innerWidth; viewportH.value = window.innerHeight }
+onMounted(() => window.addEventListener('resize', onResize))
+onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+
+watch(() => props.arrays, () => {
+  popoverOpenFor.value = null
+  overflowSelections.value = new Map()
+}, { deep: true })
+
+function bindWrapEl(arrId, el) {
+  if (el) wrapEls.value.set(arrId, el)
+  else wrapEls.value.delete(arrId)
+}
+
+function chipsByCellFor(arr) {
+  const map = new Map()
+  const len = arr.values?.length || 0
   const pointers = arr.indexPointers || {}
   for (const [name, idx] of Object.entries(pointers)) {
-    if (idx === index) fromPointers.push(name)
+    if (idx == null || idx < 0 || idx >= len) continue
+    const color = colorForPointerName(name) || colorForRole('mid')
+    const role = inferPointerRole(name)
+    if (!map.has(idx)) map.set(idx, [])
+    map.get(idx).push({ name, color, role })
   }
-  return fromPointers
+  const rec = arr.pointerLabels || {}
+  for (const [idxStr, labels] of Object.entries(rec)) {
+    const idx = Number(idxStr)
+    if (idx < 0 || idx >= len) continue
+    for (const label of labels || []) {
+      if (!map.has(idx)) map.set(idx, [])
+      map.get(idx).push({
+        name: label,
+        color: colorForPointerName(label) || colorForRole('mid'),
+        role: inferPointerRole(label),
+      })
+    }
+  }
+  return map
 }
 
+const layoutsByArrId = computed(() => {
+  const out = {}
+  for (const arr of props.arrays) {
+    if (arr.dims === 2) continue
+    out[arr.id] = computeChipLayout({ chipsByCell: chipsByCellFor(arr) })
+  }
+  return out
+})
+
+function layoutFor(arrId) {
+  return layoutsByArrId.value[arrId] || { cellWidth: 48, chipFontSize: 11, overflowByCell: new Map() }
+}
+
+function labelsAt(arr, index) {
+  const chips = chipsByCellFor(arr).get(index) || []
+  return chips.map((c) => c.name)
+}
 function roleAt(arr, index) {
-  return primaryRoleFromLabels(labelsAt(arr, index))
+  const chips = chipsByCellFor(arr).get(index) || []
+  return primaryRoleFromLabels(chips.map((c) => c.name))
 }
-
 function isPointerHighlighted(arr, index) {
-  const pointers = arr.indexPointers || {}
-  return Object.values(pointers).includes(index)
+  return chipsByCellFor(arr).has(index)
 }
 
 function pointerEntriesFor(arr) {
+  const arrId = arr.id
+  const layout = layoutFor(arrId)
+  const chipsByCell = chipsByCellFor(arr)
   const entries = []
   const seen = new Set()
-  const valuesLen = arr.values?.length || 0
+  const len = arr.values?.length || 0
+  const sel = overflowSelections.value.get(arrId) || new Set()
 
-  const addEntry = (index, label) => {
-    if (index == null || index < 0 || index >= valuesLen) return
-    const key = `${index}:${label}`
-    if (seen.has(key)) return
-    seen.add(key)
-    const role = inferPointerRole(label)
-    const color = colorForPointerName(label) || FALLBACK_COLOR
-    entries.push({
-      key,
-      index,
-      label,
-      left: index * CELL_MIN_WIDTH + CELL_MIN_WIDTH / 2,
-      color,
-      chipStyle: roleStyle(role),
-    })
-  }
+  for (const [index, chips] of chipsByCell.entries()) {
+    if (index < 0 || index >= len) continue
+    const overflow = layout.overflowByCell.get(index)
+    const leftBase = index * layout.cellWidth + layout.cellWidth / 2
 
-  const pointers = arr.indexPointers || {}
-  for (const [name, idx] of Object.entries(pointers)) {
-    addEntry(idx, name)
-  }
+    let visible
+    let summaryLabel
+    if (overflow && sel.size > 0) {
+      visible = chips.filter((c) => sel.has(c.name)).slice(0, 2)
+      summaryLabel = 'else'
+    } else if (overflow) {
+      visible = overflow.visibleChips
+      summaryLabel = `+${overflow.hiddenCount}`
+    } else {
+      visible = chips
+      summaryLabel = null
+    }
 
-  const record = arr.pointerLabels || {}
-  for (const [idxStr, labels] of Object.entries(record)) {
-    const index = Number(idxStr)
-    for (const label of labels || []) {
-      addEntry(index, label)
+    for (const chip of visible) {
+      const key = `${index}:${chip.name}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      entries.push({
+        key,
+        index,
+        label: chip.name,
+        left: leftBase,
+        color: chip.color,
+        chipStyle: roleStyle(chip.role) || {
+          color: chip.color,
+          borderColor: `${chip.color}66`,
+          background: `${chip.color}22`,
+          fill: chip.color,
+        },
+        isSummary: false,
+      })
+    }
+
+    if (summaryLabel !== null) {
+      const summaryKey = summaryLabel === 'else'
+        ? `${index}:else`
+        : `${index}:+${overflow.hiddenCount}`
+      entries.push({
+        key: summaryKey,
+        index,
+        label: summaryLabel,
+        left: leftBase,
+        color: ELSE_COLOR,
+        chipStyle: {
+          color: ELSE_COLOR,
+          borderColor: `${ELSE_COLOR}66`,
+          background: `${ELSE_COLOR}22`,
+          fill: ELSE_COLOR,
+        },
+        isSummary: true,
+      })
     }
   }
 
   return withVerticalPlacement(entries)
 }
 
-function aboveEntries(arr) {
+const aboveEntriesByArrId = ref(new Map())
+const belowEntriesByArrId = ref(new Map())
+
+// 由于 entries 依赖 overflowSelections，每次需要重算；用 computed 不太好直接存 map，直接写函数
+function aboveEntriesFor(arrId) {
+  const arr = props.arrays.find((a) => a.id === arrId)
+  if (!arr) return []
   return pointerEntriesFor(arr).filter((e) => e.placement === 'above')
 }
-
-function belowEntries(arr) {
+function belowEntriesFor(arrId) {
+  const arr = props.arrays.find((a) => a.id === arrId)
+  if (!arr) return []
   return pointerEntriesFor(arr).filter((e) => e.placement === 'below')
+}
+
+function overflowChipsForArr(arrId) {
+  const arr = props.arrays.find((a) => a.id === arrId)
+  if (!arr) return []
+  const out = []
+  const chipsByCell = chipsByCellFor(arr)
+  for (const chips of chipsByCell.values()) out.push(...chips)
+  return out
+}
+
+function onChipClick(entry, arrId) {
+  if (!entry.isSummary) return
+  popoverOpenFor.value = popoverOpenFor.value === arrId ? null : arrId
+}
+
+function onSelectionChange(arrId, newSet) {
+  const next = new Map(overflowSelections.value)
+  next.set(arrId, newSet)
+  overflowSelections.value = next
+}
+
+function popoverAnchorFor(arrId) {
+  const el = wrapEls.value.get(arrId)
+  const arr = props.arrays.find((a) => a.id === arrId)
+  if (!el || !arr) return { cellLeft: 0, cellWidth: 0, containerTop: 0 }
+  // 简单起见：用 wrap 中点作为 popover anchor；后续可细化到具体 cell
+  const rect = el.getBoundingClientRect()
+  return {
+    cellLeft: rect.left,
+    cellWidth: rect.width,
+    containerTop: rect.top,
+  }
 }
 </script>
 
@@ -154,68 +305,19 @@ function belowEntries(arr) {
 .ac-empty { color: var(--text-muted); font-family: var(--mono); font-size: 12px; padding: 12px; }
 .ac-group { margin-bottom: 14px; }
 .ac-group-header { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; font-family: var(--mono); font-size: 11px; }
-.ac-var {
-  color: var(--text-h);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.ac-type {
-  color: var(--text-muted);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-.ac-dims {
-  font-size: 10px;
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  padding: 1px 6px;
-  letter-spacing: 0.04em;
-}
-.ac-strip-wrap {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-  overflow-x: auto;
-  padding-top: 28px;
-  padding-bottom: 28px;
-}
-.ac-pointers {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 28px;
-  pointer-events: none;
-}
+.ac-var { color: var(--text-h); font-weight: 700; letter-spacing: 0.02em; }
+.ac-type { color: var(--text-muted); font-weight: 500; letter-spacing: 0.04em; }
+.ac-dims { font-size: 10px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); padding: 1px 6px; letter-spacing: 0.04em; }
+.ac-strip-wrap { position: relative; display: inline-block; max-width: 100%; overflow-x: auto; padding-top: 28px; padding-bottom: 28px; }
+.ac-pointers { position: absolute; left: 0; right: 0; height: 28px; pointer-events: none; }
 .ac-pointers-above { top: 0; }
 .ac-pointers-below { bottom: 0; }
-.ac-pointer {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.ac-pointer-below {
-  top: auto;
-  bottom: 0;
-  flex-direction: column;
-}
-.ac-pointer-text {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 3px;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
+.ac-pointer { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+.ac-pointer-below { top: auto; bottom: 0; }
+.ac-pointer-text { font-family: var(--mono); font-weight: 600; padding: 1px 6px; border-radius: 3px; border: 1px solid transparent; white-space: nowrap; }
+.ac-pointer-summary { pointer-events: auto; cursor: pointer; }
+.ac-pointer-summary:hover { filter: brightness(0.92); }
 .ac-pointer-triangle { flex-shrink: 0; margin-top: -1px; }
 .ac-pointer-below .ac-pointer-triangle { margin-top: 0; margin-bottom: -1px; }
-.ac-strip {
-  display: flex;
-  flex-wrap: nowrap;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-}
+.ac-strip { position: relative; display: grid; grid-auto-rows: auto; gap: 2px; }
 </style>
