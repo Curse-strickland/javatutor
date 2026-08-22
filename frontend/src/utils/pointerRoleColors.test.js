@@ -59,3 +59,15 @@ describe('neutral role (else chip fallback)', () => {
     expect(inferPointerRole('neutral')).toBeNull()
   })
 })
+
+describe('extended color palette (insert/neutral)', () => {
+  it('insert 与 root 颜色不同', () => {
+    expect(colorForRole('insert')).not.toBe(colorForRole('root'))
+  })
+  it('insert 为 magenta', () => {
+    expect(colorForRole('insert')).toBe('#d946ef')
+  })
+  it('neutral 为 amber', () => {
+    expect(colorForRole('neutral')).toBe('#f59e0b')
+  })
+})
