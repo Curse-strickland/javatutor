@@ -88,6 +88,7 @@ import {
 } from '../utils/pointerRoleColors.js'
 import { withVerticalPlacement } from '../utils/pointerPlacement.js'
 import { sortChipsForPopover } from '../utils/arrayChips.js'
+import { rangeRect } from '../utils/rangeRect.js'
 
 const PIVOT_COLOR = '#f97316'
 const ELSE_COLOR = POINTER_ROLE_COLORS.neutral
@@ -233,7 +234,9 @@ const rangeHighlight = computed(() => {
   const lo = Math.max(0, r.lo)
   const hi = Math.min(props.values.length - 1, r.hi)
   if (lo > hi) return null
-  return { left: `${lo * layout.value.cellWidth}px`, width: `${(hi - lo + 1) * layout.value.cellWidth}px` }
+  const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-strip-gap')) || 2
+  const rect = rangeRect(lo, hi, layout.value.cellWidth, gap)
+  return { left: `${rect.left}px`, width: `${rect.width}px` }
 })
 
 const sortedHighlight = computed(() => {
@@ -242,7 +245,14 @@ const sortedHighlight = computed(() => {
   const lo = Math.max(0, r.lo)
   const hi = Math.min(props.values.length - 1, r.hi)
   if (lo > hi) return null
-  return { left: `${lo * layout.value.cellWidth}px`, width: `${(hi - lo + 1) * layout.value.cellWidth}px` }
+  const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ds-strip-gap')) || 2
+  const rect = rangeRect(lo, hi, layout.value.cellWidth, gap)
+  // sorted 用 green 注入到 --range-color
+  return {
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+    '--range-color': '#10b981',
+  }
 })
 
 function labelsAt(i) { return [] }  // pointer chip 已在外层渲染，cell 不重复
@@ -342,15 +352,14 @@ const popoverAnchor = computed(() => {
   position: relative;
   display: grid;
   grid-auto-rows: auto;
-  gap: 2px;
+  gap: var(--ds-strip-gap, 2px);
 }
 .sac-range {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: color-mix(in srgb, #3b82f6 10%, transparent);
-  border-left: 1px solid color-mix(in srgb, #3b82f6 25%, transparent);
-  border-right: 1px solid color-mix(in srgb, #3b82f6 25%, transparent);
+  background: color-mix(in srgb, var(--range-color, #3b82f6) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--range-color, #3b82f6) 25%, transparent);
   border-radius: var(--ds-cell-radius);
   pointer-events: none;
   z-index: 0;
@@ -359,9 +368,8 @@ const popoverAnchor = computed(() => {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: color-mix(in srgb, #10b981 12%, transparent);
-  border-left: 1px solid color-mix(in srgb, #10b981 30%, transparent);
-  border-right: 1px solid color-mix(in srgb, #10b981 30%, transparent);
+  background: color-mix(in srgb, var(--range-color, #10b981) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--range-color, #10b981) 30%, transparent);
   border-radius: var(--ds-cell-radius);
   pointer-events: none;
   z-index: 0;
