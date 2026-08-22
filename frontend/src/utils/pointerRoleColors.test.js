@@ -51,8 +51,8 @@ describe('pointerRoleColors', () => {
 
 describe('neutral role (else chip fallback)', () => {
   it('exposes neutral role color', () => {
-    expect(POINTER_ROLE_COLORS.neutral).toBe('#9ca3af')
-    expect(colorForRole('neutral')).toBe('#9ca3af')
+    expect(POINTER_ROLE_COLORS.neutral).toBe('#f59e0b')
+    expect(colorForRole('neutral')).toBe('#f59e0b')
   })
 
   it('does not infer neutral from pointer names', () => {
