@@ -30,11 +30,14 @@ let currentDecorations = []
 let ro = null
 const loadError = ref(false)
 
-/** 字体测宽校准：容器尺寸变化或字体加载完成后调用，保证光标与字符渲染对齐 */
+/** 字体测宽校准：容器尺寸变化或字体加载完成后调用，保证光标与字符渲染对齐。
+ * 注意：remeasureFonts 是 monaco.editor 的模块级 API（清除字体测宽缓存并重测），
+ * 不是编辑器实例方法。误写成 editor.remeasureFonts() 会抛 TypeError 被 catch 吞掉，
+ * 导致重测永远不生效——字体晚加载后光标持续漂移（粘贴/插入预置代码含注释时最明显）。 */
 const recalibrate = () => {
   if (!editor) return
   editor.layout()
-  try { editor.remeasureFonts() } catch (_) { /* ignore */ }
+  try { monaco.editor.remeasureFonts() } catch (_) { /* ignore */ }
 }
 
 /** 点击「导入」按钮 → 触发隐藏的文件选择器 */
