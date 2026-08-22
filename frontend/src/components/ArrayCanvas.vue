@@ -302,5 +302,5 @@ function popoverAnchorFor(arrId) {
 .ac-pointer-summary:hover { filter: brightness(0.92); }
 .ac-pointer-triangle { flex-shrink: 0; margin-top: -1px; }
 .ac-pointer-below .ac-pointer-triangle { margin-top: 0; margin-bottom: -1px; }
-.ac-strip { position: relative; display: grid; grid-auto-rows: auto; gap: 2px; }
+.ac-strip { position: relative; display: grid; grid-auto-rows: auto; gap: var(--ds-strip-gap, 2px); }
 </style>
