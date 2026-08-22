@@ -249,7 +249,7 @@ const switchGroup = (group) => {
 const editorRef = ref(null)
 // AI 编辑建议 → 编辑器（AiTutorPanel 里的卡片组件 inject 使用）
 provide('applyAiEdits', (edits) => editorRef.value?.applyAiEdits(edits) ?? null)
-provide('undoAiEdits', () => editorRef.value?.undoAiEdits())
+provide('undoAiEdits', (token) => editorRef.value?.undoAiEdits(token) ?? false)
 const containerRef = ref(null)
 const progressRef = ref(null)
 const controlBarRef = ref(null)

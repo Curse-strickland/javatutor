@@ -42,6 +42,14 @@ describe('parseAssistantMessage', () => {
     expect(parseAssistantMessage('')).toEqual({ body: '', edits: [] })
     expect(parseAssistantMessage(null)).toEqual({ body: '', edits: [] })
   })
+
+  it('JSON 合法但 edits 为空 → 整块按正文展示（不静默丢弃）', () => {
+    const raw = '建议如下\n\n【编辑建议】\n{"edits":[]}\n\n【决策痕迹】\n{}'
+    const { body, edits } = parseAssistantMessage(raw)
+    expect(body).toContain('【编辑建议】')
+    expect(body).not.toContain('【决策痕迹】')
+    expect(edits).toEqual([])
+  })
 })
 
 describe('planEdits', () => {
@@ -70,5 +78,14 @@ describe('planEdits', () => {
     ])
     expect(a.status).toBe('ok')
     expect(b.status).toBe('conflict')
+  })
+
+  it('空 / 缺失 old_string → not-found（而非误判为 ambiguous）', () => {
+    const [a, b] = planEdits(src, [
+      { old_string: '', new_string: 'x' },
+      { new_string: 'x' },
+    ])
+    expect(a.status).toBe('not-found')
+    expect(b.status).toBe('not-found')
   })
 })

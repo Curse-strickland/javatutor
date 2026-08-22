@@ -34,6 +34,8 @@ export function parseAssistantMessage(raw) {
         old_string: e.old_string,
         new_string: e.new_string,
       }))
+    // JSON 合法但无可用 edits（如 {"edits":[]}）→ 整块按正文展示，不静默丢弃
+    if (edits.length === 0) return { body: body.trimEnd(), edits: [] }
     return { body: body.slice(0, editIdx).trimEnd(), edits }
   } catch {
     // JSON 解析失败 → 整块按正文展示
@@ -49,6 +51,9 @@ export function planEdits(source, edits) {
   const src = String(source || '')
   const accepted = []
   return (edits || []).map((edit) => {
+    if (!edit || typeof edit.old_string !== 'string' || edit.old_string.length === 0) {
+      return { ...edit, status: 'not-found' }
+    }
     const positions = []
     let idx = src.indexOf(edit.old_string)
     while (idx !== -1) {

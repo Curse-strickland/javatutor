@@ -184,7 +184,6 @@ const chatInput = ref('')
 let chatResizeObserver = null
 
 onMounted(() => {
-  if (store.activeAiTab === 'animate') store.activeAiTab = 'explain'
   // Streamed markdown may grow without a new array entry — keep pinned to bottom
   if (typeof ResizeObserver !== 'undefined') {
     chatResizeObserver = new ResizeObserver(() => scrollChatToBottom())

@@ -301,7 +301,9 @@ const setCode = (code) => {
 
 /**
  * 应用 AI 编辑建议：整批一次 executeEdits（一个 undo 单位，Ctrl+Z 可回滚）。
- * @returns {null | { applied: number, planned: Array }} 无 Monaco 实例（textarea 回退）时返回 null
+ * @returns {null | { applied: number, planned: Array, undoToken: number|null }}
+ *  无 Monaco 实例（textarea 回退）时返回 null；undoToken 为「该批编辑完成后的 model 版本号」，
+ *  供 undoAiEdits 校验该批是否仍是 undo 栈顶，避免误撤销之后的其它改动。
  */
 const applyAiEdits = (edits) => {
   if (!editor) return null
@@ -309,27 +311,39 @@ const applyAiEdits = (edits) => {
   if (!model) return null
   const planned = planEdits(model.getValue(), edits)
   const applicable = planned.filter((p) => p.status === 'ok')
-  if (applicable.length) {
-    editor.pushUndoStop()
-    editor.executeEdits(
-      'ai-edit-suggestion',
-      applicable.map((p) => {
-        const s = model.getPositionAt(p.start)
-        const e = model.getPositionAt(p.end)
-        return {
-          range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column),
-          text: p.new_string,
-        }
-      }),
-    )
-    editor.pushUndoStop()
-  }
-  return { applied: applicable.length, planned }
+  if (!applicable.length) return { applied: 0, planned, undoToken: null }
+  const versionBefore = model.getVersionId()
+  editor.pushUndoStop()
+  const results = editor.executeEdits(
+    'ai-edit-suggestion',
+    applicable.map((p) => {
+      const s = model.getPositionAt(p.start)
+      const e = model.getPositionAt(p.end)
+      return {
+        range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column),
+        text: p.new_string,
+      }
+    }),
+  )
+  editor.pushUndoStop()
+  // executeEdits 单批事务使 version 恰好 +1（pushUndoStop 不改变 version）。
+  const applied = results.filter(Boolean).length
+  return { applied, planned, undoToken: applied > 0 ? versionBefore + 1 : null }
 }
 
-/** 撤销最近一次应用的 AI 编辑（走 Monaco undo 栈） */
-const undoAiEdits = () => {
-  if (editor) editor.trigger('ai-edit-suggestion', 'undo', null)
+/**
+ * 撤销指定一次应用（undoToken 由 applyAiEdits 返回）。
+ * 仅当该批编辑仍是 undo 栈顶（此后没有用户输入或其它卡片应用，version 未再变化）时才执行，
+ * 否则返回 false，避免误弹出无关的 undo 组。
+ * @param {number|null} undoToken
+ * @returns {boolean} 是否真正执行了撤销
+ */
+const undoAiEdits = (undoToken) => {
+  if (!editor || undoToken == null) return false
+  const model = editor.getModel()
+  if (!model || model.getVersionId() !== undoToken) return false
+  editor.trigger('ai-edit-suggestion', 'undo', null)
+  return true
 }
 
 watch(() => props.readOnly, (val) => {

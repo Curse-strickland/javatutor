@@ -21,6 +21,7 @@
     <div v-else-if="status === 'applied'" class="es-actions">
       <span class="es-done">已应用 {{ result?.applied ?? 0 }} 处修改</span>
       <button class="es-btn" @click="undo">撤销</button>
+      <span v-if="undoError" class="es-error">{{ undoError }}</span>
     </div>
     <div v-else class="es-actions">
       <span class="es-dismissed">已忽略</span>
@@ -41,6 +42,7 @@ const undoAiEdits = inject('undoAiEdits', null)
 const status = ref('pending') // 'pending' | 'applied' | 'dismissed'
 const result = ref(null)
 const applyError = ref('')
+const undoError = ref('')
 
 const SKIP_LABELS = {
   'not-found': '在当前代码中找不到该片段',
@@ -66,9 +68,14 @@ function apply() {
 }
 
 function undo() {
-  undoAiEdits?.()
-  status.value = 'pending'
-  result.value = null
+  const ok = undoAiEdits?.(result.value?.undoToken) ?? false
+  if (ok) {
+    status.value = 'pending'
+    result.value = null
+    undoError.value = ''
+  } else {
+    undoError.value = '代码已改动，无法撤销'
+  }
 }
 </script>
 
