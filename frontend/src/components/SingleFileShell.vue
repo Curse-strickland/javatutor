@@ -67,14 +67,24 @@
       <div class="right-card-header">
         <span class="rc-dot" />
         <span class="panel-kicker">INSPECT</span>
-        <button class="right-tab" :class="{ active: store.rightTab === 'variables' }" @click="store.switchRightTab('variables')">变量</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'flow' }" @click="store.switchRightTab('flow')">流程</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'datastructure' }" @click="store.switchRightTab('datastructure')">数据结构</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'algorithm' }" @click="store.switchRightTab('algorithm')">算法</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'tutor' }" @click="store.switchRightTab('tutor')">问答</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'animate' }" @click="store.switchRightTab('animate')">动画</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'observe' }" @click="switchGroup('observe')">Observe</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'learn' }" @click="switchGroup('learn')">Learn</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'ask' }" @click="switchGroup('ask')">Ask</button>
         <!-- 壁纸选择器 -->
         <WallpaperSelector />
+        <div class="right-subtab-row">
+          <template v-if="rightGroup === 'observe'">
+            <button class="right-tab" :class="{ active: store.rightTab === 'datastructure' }" @click="store.switchRightTab('datastructure')">数据结构</button>
+            <button class="right-tab" :class="{ active: store.rightTab === 'flow' }" @click="store.switchRightTab('flow')">流程</button>
+            <button class="right-tab" :class="{ active: store.rightTab === 'variables' }" @click="store.switchRightTab('variables')">内存状态</button>
+          </template>
+          <template v-else-if="rightGroup === 'learn'">
+            <button class="right-tab active" @click="store.switchRightTab('algorithm')">算法库</button>
+          </template>
+          <template v-else>
+            <button class="right-tab active" @click="store.switchRightTab('tutor')">agent</button>
+          </template>
+        </div>
       </div>
       <div class="flex-1 right-card-body" :class="{ 'body-fill': store.rightTab === 'tutor' }">
         <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
@@ -93,9 +103,6 @@
         </div>
         <div v-show="store.rightTab === 'tutor'" class="right-pane right-pane-fill">
           <AiTutorPanel embedded />
-        </div>
-        <div v-show="store.rightTab === 'animate'" class="right-pane">
-          <SvgAnimatePanel />
         </div>
       </div>
     </div>
@@ -224,9 +231,21 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import TestCasePanel from './TestCasePanel.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
-import SvgAnimatePanel from './SvgAnimatePanel.vue'
 
 const store = usePlayerStore()
+// 右侧两级标签：store.rightTab 仍是唯一状态源，顶层组由它派生
+const GROUP_OF_TAB = {
+  datastructure: 'observe',
+  flow: 'observe',
+  variables: 'observe',
+  algorithm: 'learn',
+  tutor: 'ask',
+}
+const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
+const rightGroup = computed(() => GROUP_OF_TAB[store.rightTab] || 'observe')
+const switchGroup = (group) => {
+  if (rightGroup.value !== group) store.switchRightTab(GROUP_DEFAULT_TAB[group])
+}
 const editorRef = ref(null)
 const containerRef = ref(null)
 const progressRef = ref(null)
@@ -789,6 +808,13 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   color: var(--accent);
   background: transparent;
   box-shadow: inset 0 -2px 0 var(--accent);
+}
+.right-subtab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  padding-top: 8px;
 }
 
 /* Splitter */
