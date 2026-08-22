@@ -46,7 +46,13 @@
           <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
           <div v-else class="chat-bubble assistant">
             <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
-            <span v-else v-html="renderMarkdown(m.text)"></span>
+            <template v-else>
+              <span v-html="renderMarkdown(parsedMessages[i].body)"></span>
+              <EditSuggestionCard
+                v-if="parsedMessages[i].edits.length && !store.isExplaining"
+                :edits="parsedMessages[i].edits"
+              />
+            </template>
           </div>
         </div>
         <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
@@ -153,9 +159,11 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { marked } from 'marked'
 import { usePlayerStore } from '../stores/player'
+import EditSuggestionCard from './EditSuggestionCard.vue'
+import { parseAssistantMessage } from '../utils/editSuggestion'
 
 defineProps({
   /** 嵌在右侧 INSPECT 分页时铺满高度，并隐藏关闭按钮 */
@@ -163,6 +171,14 @@ defineProps({
 })
 
 const store = usePlayerStore()
+
+// assistant 消息解析：剥离【决策痕迹】/【编辑建议】块（流式中途 JSON 不完整时自动按正文展示）
+const parsedMessages = computed(() =>
+  store.chatMessages.map((m) =>
+    m.role === 'assistant' ? parseAssistantMessage(m.text) : { body: m.text, edits: [] },
+  ),
+)
+
 const chatBodyRef = ref(null)
 const chatInput = ref('')
 let chatResizeObserver = null
