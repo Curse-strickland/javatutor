@@ -23,8 +23,8 @@
         { "id": "哈希查找", "title": "哈希" },
         { "id": "二分查找", "title": "二分" },
         { "id": "边界与变体", "title": "变体" },
-        { "id": "广度优先搜索-bfs", "title": "BFS" },
-        { "id": "深度优先搜索-dfs", "title": "DFS" }
+        { "id": "广度优先搜索bfs", "title": "BFS" },
+        { "id": "深度优先搜索dfs", "title": "DFS" }
       ]
     },
     {
