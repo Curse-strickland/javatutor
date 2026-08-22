@@ -91,6 +91,7 @@ import { usePlayerStore } from '../../stores/player'
 import { extractDataStructures } from '../../utils/dataStructureExtract.js'
 import { extractSortViz } from '../../utils/sortVizExtract.js'
 import { buildHeapTreeFromArray } from '../../utils/heapTreeExtract.js'
+import { matchesPrimaryArray } from '../../utils/arrayChips.js'
 import LinkedListCanvas from '../LinkedListCanvas.vue'
 import ArrayCanvas from '../ArrayCanvas.vue'
 import TreeCanvas from '../TreeCanvas.vue'
@@ -122,7 +123,7 @@ const resultRaw = computed(() => {
 const visibleArrays = computed(() => {
   const primaryId = sortViz.value?.primaryArrayId
   if (!primaryId) return resultRaw.value.arrays
-  return resultRaw.value.arrays.filter((a) => a.id !== primaryId)
+  return resultRaw.value.arrays.filter((a) => !matchesPrimaryArray(a, primaryId))
 })
 
 const visibleResult = computed(() => ({ ...resultRaw.value, arrays: visibleArrays.value }))
