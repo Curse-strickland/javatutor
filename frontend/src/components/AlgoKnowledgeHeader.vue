@@ -179,17 +179,24 @@ watch(expanded, (isOpen) => {
   color: var(--text-muted);
   background: transparent;
   border: 1px solid var(--border);
+  border-radius: var(--ak-tag-radius);
   cursor: pointer;
-  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  box-shadow: var(--ak-tag-shadow);
+  transition: color 0.15s, border-color 0.15s, background 0.15s,
+    box-shadow 0.2s ease, transform 0.16s ease;
 }
 .ak-cat-btn:hover {
   color: var(--text-h);
   border-color: var(--line-strong, var(--border));
+  box-shadow: var(--ak-tag-shadow-hover);
+  transform: translateY(-1px);
 }
 .ak-cat-btn.active {
   color: var(--accent);
   border-color: var(--accent);
   background: var(--accent-bg);
+  box-shadow: var(--ak-tag-shadow-hover);
+  transform: translateY(-1px);
 }
 .ak-anchors {
   display: flex;
@@ -205,18 +212,24 @@ watch(expanded, (isOpen) => {
   color: var(--text-muted);
   background: var(--code-bg);
   border: 1px solid var(--border);
+  border-radius: var(--ak-tag-radius);
+  box-shadow: var(--ak-tag-shadow);
   cursor: pointer;
+  transition: color 0.15s, border-color 0.15s,
+    box-shadow 0.2s ease, transform 0.16s ease;
 }
 .ak-anchor-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
+  box-shadow: var(--ak-tag-shadow-hover);
+  transform: translateY(-1px);
 }
 .ak-content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   padding: 8px 4px;
-  font-size: 12px;
+  font-size: var(--ak-font-base);
   line-height: 1.55;
   color: var(--text-h);
 }
@@ -243,9 +256,11 @@ watch(expanded, (isOpen) => {
   margin: 12px 0 6px;
   scroll-margin-top: 8px;
 }
-.sm-md h1 { font-size: 14px; }
-.sm-md h2 { font-size: 13px; }
-.sm-md h3 { font-size: 12px; }
+.sm-md h1,
+.sm-md h2,
+.sm-md h3 {
+  font-size: var(--ak-font-base);
+}
 .sm-md p {
   margin: 6px 0;
   color: var(--text-h);
@@ -265,11 +280,13 @@ watch(expanded, (isOpen) => {
   margin: 8px 0;
   padding: 8px 10px;
   overflow-x: auto;
-  background: var(--code-bg);
+  background: var(--ak-code-bg);
   border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
+  border-radius: var(--ak-tag-radius);
+  box-shadow: var(--ak-tag-shadow);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--ak-font-mono);
   line-height: 1.45;
 }
 .sm-md .sm-code code {
@@ -279,7 +296,7 @@ watch(expanded, (isOpen) => {
   width: 100%;
   margin: 8px 0;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: var(--ak-font-mono);
 }
 .sm-md .sm-table th,
 .sm-md .sm-table td {
