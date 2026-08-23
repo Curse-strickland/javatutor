@@ -154,7 +154,7 @@ const weightLabels = computed(() => {
     const from = positions[edge.from]
     const to = positions[edge.to]
     if (!from || !to) return null
-    const text = flow ? `e=${edge.weight}` : String(edge.weight)
+    const text = flow ? `e=${edge.flow ?? 0}/${edge.weight}` : String(edge.weight)
     return {
       key: `w-${edge.from}-${edge.to}`,
       x: (from.x + to.x) / 2,
