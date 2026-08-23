@@ -119,6 +119,8 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/superpowers/plans/2026-08-15-chat-stage-streaming-and-quote-fix.md` | Coze 阶段流式 + 回答代码引用修复计划 |
 | `docs/superpowers/plans/2026-08-15-integrated-followup-plan.md` | 综合接力计划：流式验收 + 光标修复 + 耗时指标 |
 | `docs/superpowers/plans/2026-08-17-decision-trace-user-display-metrics-plan.md` | 决策痕迹用户展示与耗时指标修复计划 |
+| `docs/superpowers/specs/2026-08-23-execution-snapshot-api-design.md` | 执行快照 API 设计（后端按 `run_id` 提供执行上下文） |
+| `docs/superpowers/plans/2026-08-23-execution-snapshot-api-plan.md` | 执行快照 API TDD 实施计划 |
 | `docs/reviews/2026-08-17-integrated-followup-review.md` | 综合接力计划执行 review（latency=0 / JSON 展示 / token_cost） |
 | `docs/devlog/2026-08-15-chat-step-context-fix.md` | 单步问答 steps 链路修复开发日志 |
 | `docs/devlog/2026-08-15-chat-stage-streaming-quote-fix.md` | Coze 阶段流式 + 回答代码引用修复开发日志 |
