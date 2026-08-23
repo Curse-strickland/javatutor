@@ -109,10 +109,12 @@
   --ds-cell-border: 1px solid var(--border);
   --ds-popover-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
   --ds-strip-gap: 2px;
+  --kmp-cell: 30px; /* KMP 字符格宽 */
 
   /* 算法知识库主题（v1.0） */
   --ak-font-base: 13px;       /* 与正文统一 */
   --ak-font-mono: 12px;       /* 代码块（与正文一致，不再放大） */
+  --ak-heading: #1e40af;      /* 标题/算法名：深蓝强调 */
   --ak-code-bg: rgba(13, 158, 196, 0.06);
   --ak-tag-radius: 8px;
   --ak-tag-shadow: 0 1px 3px rgba(18, 22, 29, 0.08),

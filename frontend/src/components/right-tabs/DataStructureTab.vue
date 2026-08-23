@@ -19,7 +19,12 @@
       />
     </section>
 
-    <section v-if="sortViz" class="dst-section">
+    <section v-if="kmpViz" class="dst-section">
+      <h4 class="dst-section-h">字符串匹配</h4>
+      <KmpCanvas :viz="kmpViz" />
+    </section>
+
+    <section v-if="showSortViz" class="dst-section">
       <h4 class="dst-section-h">排序</h4>
       <MergeSortTreeCanvas
         v-if="sortViz.mode === 'merge-tree'"
@@ -90,6 +95,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '../../stores/player'
 import { extractDataStructures } from '../../utils/dataStructureExtract.js'
 import { extractSortViz } from '../../utils/sortVizExtract.js'
+import { extractKmpViz } from '../../utils/kmpVizExtract.js'
 import { buildHeapTreeFromArray } from '../../utils/heapTreeExtract.js'
 import { matchesPrimaryArray } from '../../utils/arrayChips.js'
 import LinkedListCanvas from '../LinkedListCanvas.vue'
@@ -99,6 +105,7 @@ import GraphCanvas from '../GraphCanvas.vue'
 import MergeSortTreeCanvas from '../MergeSortTreeCanvas.vue'
 import SortBarCanvas from '../SortBarCanvas.vue'
 import SortArrayCanvas from '../SortArrayCanvas.vue'
+import KmpCanvas from '../KmpCanvas.vue'
 
 const store = usePlayerStore()
 
@@ -124,11 +131,16 @@ const resultRaw = computed(() => {
 const ARRAY_FORM_MODES = new Set(['array-pointers', 'bars', 'array'])
 
 const visibleArrays = computed(() => {
-  const viz = sortViz.value
-  if (!viz || !ARRAY_FORM_MODES.has(viz.mode)) return resultRaw.value.arrays
-  const primaryId = viz.primaryArrayId
-  if (!primaryId) return resultRaw.value.arrays
-  return resultRaw.value.arrays.filter((a) => !matchesPrimaryArray(a, primaryId))
+  let arrays = resultRaw.value.arrays
+  // KMP 激活时隐藏 next[]，避免与 KMP 画布重复显示
+  if (kmpViz.value && kmpViz.value.primaryArrayId) {
+    arrays = arrays.filter((a) => !matchesPrimaryArray(a, kmpViz.value.primaryArrayId))
+  }
+  const viz = showSortViz.value
+  if (viz && ARRAY_FORM_MODES.has(viz.mode) && viz.primaryArrayId) {
+    arrays = arrays.filter((a) => !matchesPrimaryArray(a, viz.primaryArrayId))
+  }
+  return arrays
 })
 
 const visibleResult = computed(() => ({ ...resultRaw.value, arrays: visibleArrays.value }))
@@ -139,12 +151,26 @@ const sortViz = computed(() => {
   return extractSortViz(step.heap || {}, step.stackFrames || [], store.code || '')
 })
 
+const kmpViz = computed(() => {
+  if (!stepContext.value) return null
+  const { step, prev } = stepContext.value
+  return extractKmpViz(
+    step.heap || {},
+    step.stackFrames || [],
+    store.code || '',
+    prev?.stackFrames || null,
+  )
+})
+
+// KMP 的 next[] 会被误判为排序（i/j + 整数数组），激活 KMP 时抑制排序视图
+const showSortViz = computed(() => (kmpViz.value ? null : sortViz.value))
+
 const heapTree = computed(() => {
-  if (!sortViz.value || sortViz.value.mode !== 'heap') return null
+  if (!showSortViz.value || showSortViz.value.mode !== 'heap') return null
   return buildHeapTreeFromArray(
-    sortViz.value.values,
-    sortViz.value.heapSize,
-    sortViz.value.pointers,
+    showSortViz.value.values,
+    showSortViz.value.heapSize,
+    showSortViz.value.pointers,
   )
 })
 
@@ -154,11 +180,13 @@ const anyDetected = computed(() =>
   || resultRaw.value.trees.length > 0
   || resultRaw.value.graphs.length > 0
   || sortViz.value != null
+  || kmpViz.value != null
 )
 
 const badges = computed(() => [
   { key: 'll', label: '链表', count: resultRaw.value.linkedLists.length },
-  { key: 'sort', label: '排序', count: sortViz.value ? 1 : 0 },
+  { key: 'sort', label: '排序', count: showSortViz.value ? 1 : 0 },
+  { key: 'kmp', label: '字符串匹配', count: kmpViz.value ? 1 : 0 },
   { key: 'arr', label: '数组', count: resultRaw.value.arrays.length },
   { key: 'tree', label: '树', count: resultRaw.value.trees.length },
   { key: 'graph', label: '图', count: resultRaw.value.graphs.length },

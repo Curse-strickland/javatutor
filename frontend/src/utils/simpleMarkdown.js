@@ -1,7 +1,9 @@
 /**
  * Minimal markdown → HTML for algo-knowledge docs.
- * Supports: h1–h3, paragraphs, ul, blockquote, hr, tables, **bold**, ```code```.
+ * Supports: h1–h4, paragraphs, ul, blockquote, hr, tables, **bold**, [links](url), ```code```.
  */
+
+import { highlightJava } from './highlightJava.js'
 
 function escapeHtml(text) {
   return text
@@ -21,7 +23,9 @@ export function slugifyHeading(raw) {
 }
 
 function inlineFormat(text) {
-  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  return escapeHtml(text)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
 }
 
 function isTableRow(line) {
@@ -96,7 +100,7 @@ function renderTextBlock(text) {
       continue
     }
 
-    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/)
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.+)$/)
     if (headingMatch) {
       if (inList) {
         html.push('</ul>')
@@ -175,8 +179,17 @@ export function renderSimpleMarkdown(md) {
   return parts
     .map(part => {
       if (part.type === 'code') {
-        const langAttr = part.lang ? ` data-lang="${escapeHtml(part.lang)}"` : ''
-        return `<pre class="sm-code"${langAttr}><code>${escapeHtml(part.content.replace(/\n$/, ''))}</code></pre>`
+        const lang = part.lang || ''
+        const langAttr = lang ? ` data-lang="${escapeHtml(lang)}"` : ''
+        const langLabel = lang ? `<span class="sm-code-lang">${escapeHtml(lang)}</span>` : ''
+        const content = part.content.replace(/\n$/, '')
+        const inner = lang === 'java' ? highlightJava(content) : escapeHtml(content)
+        return (
+          `<div class="sm-code"${langAttr}>` +
+          `<div class="sm-code-head">${langLabel}<button type="button" class="sm-code-copy" aria-label="复制代码">复制</button></div>` +
+          `<pre class="sm-code-body"><code>${inner}</code></pre>` +
+          `</div>`
+        )
       }
       return renderTextBlock(part.content)
     })

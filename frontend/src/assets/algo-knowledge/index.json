@@ -1,6 +1,14 @@
 {
   "categories": [
     {
+      "id": "fundamentals",
+      "title": "算法基础",
+      "file": "fundamentals.md",
+      "anchors": [
+        { "id": "基础入门", "title": "基础入门" }
+      ]
+    },
+    {
       "id": "sorting",
       "title": "排序",
       "file": "sorting.md",
@@ -16,15 +24,14 @@
     },
     {
       "id": "search-and-find",
-      "title": "查找与搜索",
+      "title": "查找",
       "file": "search.md",
       "anchors": [
         { "id": "顺序查找", "title": "顺序" },
         { "id": "哈希查找", "title": "哈希" },
         { "id": "二分查找", "title": "二分" },
         { "id": "边界与变体", "title": "变体" },
-        { "id": "广度优先搜索bfs", "title": "BFS" },
-        { "id": "深度优先搜索dfs", "title": "DFS" }
+        { "id": "kmpnext-数组与字符串匹配", "title": "KMP" }
       ]
     },
     {
@@ -34,18 +41,20 @@
       "anchors": [
         { "id": "广度优先搜索-bfs", "title": "BFS" },
         { "id": "深度优先搜索-dfs", "title": "DFS" },
-        { "id": "dijkstra-最短路", "title": "Dijkstra" }
+        { "id": "dijkstra-最短路", "title": "Dijkstra" },
+        { "id": "floyd-最短路", "title": "Floyd" }
       ]
     },
     {
       "id": "tree",
-      "title": "树",
+      "title": "树（堆）",
       "file": "tree.md",
       "anchors": [
         { "id": "前序遍历", "title": "前序" },
         { "id": "中序遍历", "title": "中序" },
         { "id": "后序遍历", "title": "后序" },
-        { "id": "层序遍历", "title": "层序" }
+        { "id": "层序遍历", "title": "层序" },
+        { "id": "优先队列", "title": "优先队列" }
       ]
     },
     {
@@ -65,7 +74,10 @@
       "anchors": [
         { "id": "基本操作", "title": "基本操作" },
         { "id": "常见技巧", "title": "常见技巧" },
-        { "id": "复杂度对照", "title": "复杂度" }
+        { "id": "复杂度对照", "title": "复杂度" },
+        { "id": "约瑟夫问题", "title": "约瑟夫" },
+        { "id": "链表相交", "title": "相交" },
+        { "id": "环形链表", "title": "环形" }
       ]
     }
   ]

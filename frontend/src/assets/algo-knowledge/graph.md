@@ -1,7 +1,5 @@
 # 图上的基本算法
 
-> 通用 BFS / DFS 模板与边界条件见「查找与搜索」分类。
-
 图由顶点 `V` 与边 `E` 组成。邻接表适合稀疏图，邻接矩阵适合稠密图或 O(1) 查边。
 
 ## 广度优先搜索 BFS
@@ -21,6 +19,9 @@ while (!q.isEmpty()) {
     if (dist[v] == INF) { dist[v] = dist[u] + 1; q.add(v); }
 }
 ```
+想深入理解？
+如果你对此感兴趣，可以继续阅读这篇教程：
+> **推荐模板题解链接**：[代码随想录 · 图论基础（DFS & BFS）](https://programmercarl.com/algo/graph/depth-first-search-basics.html)
 
 ## 深度优先搜索 DFS
 
@@ -29,6 +30,10 @@ while (!q.isEmpty()) {
 - **时间**：O(V + E)
 - **用途**：连通性、环检测、拓扑排序、强连通分量（Tarjan/Kosaraju）
 - **注意**：递归深度大时用迭代 + 栈，或增大栈空间
+
+想深入理解？
+如果你对此感兴趣，可以继续阅读这篇教程：
+> **推荐模板题解链接**：[代码随想录 · 图论基础（DFS & BFS）](https://programmercarl.com/algo/graph/depth-first-search-basics.html)
 
 ## Dijkstra 最短路
 
@@ -47,6 +52,30 @@ while (!pq.isEmpty()) {
 }
 ```
 
+想深入理解？
+如果你对此感兴趣，可以继续阅读这篇教程：
+> **推荐模板题解链接**：[代码随想录 · Dijkstra 最短路](https://programmercarl.com/algo/graph/kamacoder-0047-meeting-dijkstra-heap.html)
+
+## Floyd 最短路
+
+**全源**最短路：三重循环，用每个顶点 `k` 作为中转点，尝试松弛任意两点 `i→j` 的距离。
+
+- **时间**：O(V³)
+- **空间**：O(V²)（邻接矩阵 `dist`）
+- **适用**：顶点少（一般 ≤ 500）、允许负权（无负环）的全源问题；单源用 Dijkstra 更快
+
+```java
+for (int k = 0; k < n; k++)
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+      if (dist[i][k] + dist[k][j] < dist[i][j])
+        dist[i][j] = dist[i][k] + dist[k][j];
+```
+
+想深入理解？
+如果你对此感兴趣，可以继续阅读这篇教程：
+> **推荐模板题解链接**：[洛谷 B3647 题解](https://www.luogu.com.cn/problem/solution/B3647)
+
 ---
 
-> 本文为 JavaTutor 项目原创教学摘要。延伸阅读：[oi.wiki 图论简介](https://oi.wiki/graph/)，遵循 **CC-BY-SA** 协议。
+> 本文为 JavaTutor 项目原创教学摘要。

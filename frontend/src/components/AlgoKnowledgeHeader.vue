@@ -1,30 +1,6 @@
 <template>
-  <div class="algo-knowledge" :class="{ expanded }">
-    <button
-      type="button"
-      class="ak-header"
-      :aria-expanded="expanded"
-      @click="expanded = !expanded"
-    >
-      <span class="ak-title">算法知识库</span>
-      <svg
-        class="ak-chevron"
-        :class="{ rotated: expanded }"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
-    </button>
-
-    <div v-show="expanded" class="ak-body">
+  <div class="algo-knowledge">
+    <div class="ak-body">
       <nav class="ak-cats" aria-label="知识库类别">
         <button
           v-for="cat in categories"
@@ -54,11 +30,7 @@
         </button>
       </nav>
 
-      <div ref="contentRef" class="ak-content sm-md" v-html="renderedHtml" />
-
-      <p class="ak-attribution">
-        摘要为 JavaTutor 项目原创编写；内容来源：oi.wiki 等开源平台，遵循 CC-BY-SA 协议
-      </p>
+      <div ref="contentRef" class="ak-content sm-md" v-html="renderedHtml" @click="onContentClick" />
     </div>
   </div>
 </template>
@@ -67,7 +39,9 @@
 import { computed, ref, watch, nextTick } from 'vue'
 import index from '../assets/algo-knowledge/index.json'
 import { renderSimpleMarkdown } from '../utils/simpleMarkdown.js'
+import { usePlayerStore } from '../stores/player'
 
+import fundamentalsMd from '../assets/algo-knowledge/fundamentals.md?raw'
 import sortingMd from '../assets/algo-knowledge/sorting.md?raw'
 import searchMd from '../assets/algo-knowledge/search.md?raw'
 import graphMd from '../assets/algo-knowledge/graph.md?raw'
@@ -76,6 +50,7 @@ import dpMd from '../assets/algo-knowledge/dp.md?raw'
 import linkedListMd from '../assets/algo-knowledge/linked-list.md?raw'
 
 const mdByFile = {
+  'fundamentals.md': fundamentalsMd,
   'sorting.md': sortingMd,
   'search.md': searchMd,
   'graph.md': graphMd,
@@ -85,9 +60,19 @@ const mdByFile = {
 }
 
 const categories = index.categories
-const expanded = ref(true)
 const activeCategoryId = ref(categories[0]?.id ?? '')
 const contentRef = ref(null)
+const store = usePlayerStore()
+
+// 教程弹窗跳转：外部通过 knowledgeNav 指定目标分类（+可选算法小节）时，展开并选中/定位
+watch(() => store.knowledgeNav.nonce, async (nonce) => {
+  if (!nonce) return
+  if (store.knowledgeNav.categoryId) activeCategoryId.value = store.knowledgeNav.categoryId
+  if (store.knowledgeNav.anchorId) {
+    await nextTick()
+    scrollToAnchor(store.knowledgeNav.anchorId)
+  }
+})
 
 const activeCategory = computed(() =>
   categories.find(c => c.id === activeCategoryId.value) ?? null,
@@ -113,11 +98,44 @@ function scrollToAnchor(id) {
   })
 }
 
-watch(expanded, (isOpen) => {
-  if (isOpen && !activeCategoryId.value && categories.length) {
-    activeCategoryId.value = categories[0].id
+// 代码块复制按钮：v-html 内容无法绑 Vue 事件，用事件委托在容器上统一处理
+function onContentClick(event) {
+  const btn = event.target.closest('.sm-code-copy')
+  if (!btn) return
+  const code = btn.closest('.sm-code')?.querySelector('.sm-code-body code')
+  if (!code) return
+  const text = code.textContent
+
+  const done = () => {
+    const prev = btn.textContent
+    btn.textContent = '已复制'
+    btn.classList.add('copied')
+    window.setTimeout(() => {
+      btn.textContent = prev
+      btn.classList.remove('copied')
+    }, 1400)
   }
-})
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => {})
+  } else {
+    // 非安全上下文回退
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      document.execCommand('copy')
+      done()
+    } catch {
+      /* ignore */
+    }
+    document.body.removeChild(ta)
+  }
+}
+
 </script>
 
 <style scoped>
@@ -125,41 +143,8 @@ watch(expanded, (isOpen) => {
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.algo-knowledge.expanded {
   flex: 1 1 auto;
   min-height: 0;
-}
-.ak-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 8px 10px;
-  background: var(--card-bg);
-  border: none;
-  cursor: pointer;
-  user-select: none;
-  font-family: var(--mono);
-  text-align: left;
-}
-.ak-header:hover {
-  background: var(--accent-bg);
-}
-.ak-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--text-h);
-}
-.ak-chevron {
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-.ak-chevron.rotated {
-  transform: rotate(180deg);
 }
 .ak-body {
   display: flex;
@@ -259,13 +244,34 @@ watch(expanded, (isOpen) => {
 .sm-md h3 {
   font-family: var(--mono);
   color: var(--text-h);
-  margin: 12px 0 6px;
   scroll-margin-top: 8px;
 }
-.sm-md h1,
-.sm-md h2,
+.sm-md h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 2px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-strong);
+}
+.sm-md h2 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ak-heading);
+  margin: 30px 0 8px;
+  padding-left: 8px;
+  border-left: 4px solid var(--ak-heading);
+}
 .sm-md h3 {
-  font-size: var(--ak-font-base);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 18px 0 6px;
+}
+.sm-md h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 12px 0 4px;
 }
 .sm-md p {
   margin: 6px 0;
@@ -282,22 +288,82 @@ watch(expanded, (isOpen) => {
   color: var(--accent);
   font-weight: 700;
 }
+.sm-md a {
+  color: var(--accent);
+  text-decoration: underline;
+}
 .sm-md .sm-code {
-  margin: 8px 0;
-  padding: 8px 10px;
-  overflow-x: auto;
-  background: var(--ak-code-bg);
+  position: relative;
+  margin: 10px 0;
+  background: var(--code-bg);
   border: 1px solid var(--border);
-  border-left: 2px solid var(--accent);
   border-radius: var(--ak-tag-radius);
   box-shadow: var(--ak-tag-shadow);
   font-family: var(--mono);
   font-size: var(--ak-font-mono);
-  line-height: 1.45;
+  line-height: 1.55;
+  overflow: hidden;
 }
-.sm-md .sm-code code {
+.sm-md .sm-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 3px 6px 3px 10px;
+  background: rgba(20, 20, 20, 0.04);
+  border-bottom: 1px solid var(--border);
+}
+.sm-md .sm-code-lang {
+  margin-right: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.sm-md .sm-code-copy {
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.sm-md .sm-code-copy:hover {
+  color: var(--text-h);
+  border-color: var(--border);
+  background: var(--code-bg);
+}
+.sm-md .sm-code-copy.copied {
+  color: var(--accent);
+}
+.sm-md .sm-code-body {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: pre;
+  color: #141414;
+}
+/* 覆盖全局 code 样式（style.css 里 code 是 inline-flex + padding，会打乱代码块排版） */
+.sm-md .sm-code-body code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
   white-space: pre;
 }
+/* Java token colors — mirror Monaco "cursor-light" theme (Editor.vue) */
+.sm-md .tok-comment { color: rgba(20, 20, 20, 0.6); font-style: italic; }
+.sm-md .tok-string { color: #7565CC; }
+.sm-md .tok-keyword { color: #A30034; }
+.sm-md .tok-number { color: #92156A; }
+.sm-md .tok-annotation { color: #007041; }
+.sm-md .tok-type { color: #005293; }
 .sm-md .sm-table {
   width: 100%;
   margin: 8px 0;
@@ -320,11 +386,11 @@ watch(expanded, (isOpen) => {
   border-left: 2px solid var(--accent);
   background: var(--accent-bg);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 .sm-md .sm-hr {
   border: none;
-  border-top: 1px dashed var(--border);
-  margin: 10px 0;
+  border-top: 2px solid var(--line-strong);
+  margin: 16px 0;
 }
 </style>

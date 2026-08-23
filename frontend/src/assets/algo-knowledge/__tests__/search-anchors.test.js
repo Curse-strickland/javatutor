@@ -8,8 +8,8 @@ const cat = index.categories.find(c => c.id === 'search-and-find')
 describe('search-and-find category anchors', () => {
   it('exists with expected anchors', () => {
     expect(cat).toBeTruthy()
-    expect(cat.title).toBe('查找与搜索')
-    expect(cat.anchors).toHaveLength(6)
+    expect(cat.title).toBe('查找')
+    expect(cat.anchors).toHaveLength(5)
   })
 
   it('every anchor id matches the slug of a ## heading in search.md', () => {

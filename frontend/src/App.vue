@@ -10,6 +10,8 @@
     <SingleFileShell v-if="store.mode === 'single'" />
     <MultiFileShell v-else-if="store.mode === 'multi'" />
 
+    <AlgoTutorialToast v-if="store.mode === 'single'" />
+
     <footer class="site-disclaimer" role="contentinfo">
       本网站为非官方的个人开源教学项目，与鹰角网络（Hypergryph）无关。 网站内出现的「拉普兰德」角色形象及相关视觉元素版权归鹰角网络所有；Live2D 模型作者为 @人形社畜（原画/UI）、@小布朗尼OwO（建模）。 本站承诺不进行任何商业化盈利。
     </footer>
@@ -27,6 +29,7 @@ import BootIntro from './components/BootIntro.vue'
 import ModeBar from './components/ModeBar.vue'
 import SingleFileShell from './components/SingleFileShell.vue'
 import MultiFileShell from './components/MultiFileShell.vue'
+import AlgoTutorialToast from './components/AlgoTutorialToast.vue'
 
 const showBootIntro = ref(true)
 /** intro 期间压住看板娘；主界面出来后再升起（不改版面） */
