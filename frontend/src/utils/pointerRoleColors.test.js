@@ -4,6 +4,8 @@ import {
   colorForPointerName,
   primaryRoleFromLabels,
   POINTER_ROLE_COLORS,
+  colorForRole,
+  roleStyle,
 } from './pointerRoleColors.js'
 
 describe('pointerRoleColors', () => {
@@ -45,5 +47,41 @@ describe('pointerRoleColors', () => {
   it('prefers mid when multiple labels share a cell', () => {
     expect(primaryRoleFromLabels(['left', 'mid', 'right'])).toBe('mid')
     expect(primaryRoleFromLabels(['prev', 'next'])).toBe('next')
+  })
+})
+
+describe('neutral role (else chip fallback)', () => {
+  it('exposes neutral role color', () => {
+    expect(POINTER_ROLE_COLORS.neutral).toBe('#f59e0b')
+    expect(colorForRole('neutral')).toBe('#f59e0b')
+  })
+
+  it('does not infer neutral from pointer names', () => {
+    expect(inferPointerRole('neutral')).toBeNull()
+  })
+})
+
+describe('extended color palette (insert/neutral)', () => {
+  it('insert 与 root 颜色不同', () => {
+    expect(colorForRole('insert')).not.toBe(colorForRole('root'))
+  })
+  it('insert 为 magenta', () => {
+    expect(colorForRole('insert')).toBe('#d946ef')
+  })
+  it('neutral 为 amber', () => {
+    expect(colorForRole('neutral')).toBe('#f59e0b')
+  })
+})
+
+describe('roleStyle (不透明背景 + 保留描边)', () => {
+  it('chip 背景不透明，描边保留为角色色', () => {
+    const style = roleStyle('mid')
+    expect(style.background).toBe('var(--card-bg)')
+    expect(style.borderColor).toBe(`${POINTER_ROLE_COLORS.mid}66`)
+    expect(style.color).toBe(POINTER_ROLE_COLORS.mid)
+  })
+
+  it('未知角色返回空对象', () => {
+    expect(roleStyle(null)).toEqual({})
   })
 })

@@ -305,6 +305,37 @@ describe('extractSortViz', () => {
     expect(viz.label).toBe('堆排序')
   })
 
+  it('detects heap boundary (n/end/heapSize) and exposes sortedRange for heap sort', () => {
+    const { heap, frames } = intArrayHeap([9, 4, 7, 1, 6, 2])
+    frames[0].method = 'heapSort'
+    frames[0].locals = { arr: { ref: 'arr' }, n: 4, i: 0, j: 1 }
+    const viz = extractSortViz(heap, frames, 'heapSort(int[] a)')
+    expect(viz.mode).toBe('heap')
+    expect(viz.heapSize).toBe(4)
+    expect(viz.sortedRange).toEqual({ lo: 4, hi: 5 })
+  })
+
+  it('does not expose sortedRange when n equals array length', () => {
+    const { heap, frames } = intArrayHeap([9, 4, 7, 1])
+    frames[0].method = 'heapSort'
+    frames[0].locals = { arr: { ref: 'arr' }, n: 4, i: 0 }
+    const viz = extractSortViz(heap, frames, 'heapSort(int[] a)')
+    expect(viz.heapSize).toBe(4)
+    expect(viz.sortedRange).toBeNull()
+  })
+
+  it('ignores heap-size variables for non-heap modes', () => {
+    // Binary search may also have an `end` local; mode=array-pointers must not
+    // pretend `end` is a heap boundary.
+    const { heap, frames } = intArrayHeap([1, 2, 3, 4, 5, 6, 7, 8])
+    frames[0].method = 'binarySearch'
+    frames[0].locals = { arr: { ref: 'arr' }, l: 0, r: 7, mid: 3 }
+    const viz = extractSortViz(heap, frames)
+    expect(viz.mode).toBe('array-pointers')
+    expect(viz.heapSize).toBeNull()
+    expect(viz.sortedRange).toBeNull()
+  })
+
   it('returns array mode with shell label from codeHint', () => {
     const { heap, frames } = intArrayHeap([9, 1, 5, 3])
     const viz = extractSortViz(heap, frames, 'shellSort gap 希尔排序')
@@ -325,5 +356,113 @@ describe('extractSortViz', () => {
     const viz = extractSortViz(heap, frames)
     expect(viz.mode).toBe('array-pointers')
     expect(viz.range).toEqual({ lo: 0, hi: 4 })
+  })
+
+  it('returns null pivot when quicksort enter-phase has no pivot yet', () => {
+    const { heap, frames } = intArrayHeap([3, 1, 4, 1, 5])
+    frames[0].method = 'quickSort'
+    frames[0].locals = { arr: { ref: 'arr' }, l: 0, r: 4 }
+    const viz = extractSortViz(heap, frames)
+    expect(viz.pivot).toBeNull()
+  })
+
+  it('locates pivot by explicit pivotIndex in partition', () => {
+    // Hoare partition: pivot is parked at index 0; mid-partition state.
+    const { heap, frames } = intArrayHeap([3, 1, 4, 1, 5])
+    frames[0].method = 'partition'
+    frames[0].locals = {
+      arr: { ref: 'arr' },
+      l: 0, r: 4,
+      pivot: 3, pivotIndex: 0,
+      i: 1, j: 4,
+    }
+    const viz = extractSortViz(heap, frames, 'partition')
+    expect(viz.pivot).toEqual({ value: 3, index: 0 })
+  })
+
+  it('scans pivot value when pivotIndex is absent (Lomuto-style)', () => {
+    // pivot = a[r]; r == 2 means pivot value is 4 (values[2]).
+    const { heap, frames } = intArrayHeap([2, 7, 4, 1, 9])
+    frames[0].method = 'partition'
+    frames[0].locals = {
+      arr: { ref: 'arr' },
+      l: 0, r: 4,
+      pivot: 4,
+      i: 0, j: 0,
+    }
+    const viz = extractSortViz(heap, frames, 'partition')
+    expect(viz.pivot).toEqual({ value: 4, index: 2 })
+  })
+
+  it('prefers range-edge match when pivot value appears multiple times', () => {
+    // values = [1, 5, 3, 1, 7]; pivot = 1 could match index 0 or 3.
+    // range [3,4] means partition is on the right sub-problem → expect index 3.
+    const { heap, frames } = intArrayHeap([1, 5, 3, 1, 7])
+    frames[0].method = 'partition'
+    frames[0].locals = {
+      arr: { ref: 'arr' },
+      l: 3, r: 4,
+      pivot: 1,
+    }
+    const viz = extractSortViz(heap, frames, 'partition')
+    expect(viz.pivot).toEqual({ value: 1, index: 3 })
+  })
+
+  it('returns null pivot when pivot value is not found in array', () => {
+    const { heap, frames } = intArrayHeap([2, 5, 8])
+    frames[0].method = 'partition'
+    frames[0].locals = {
+      arr: { ref: 'arr' },
+      l: 0, r: 2,
+      pivot: 99, // not present
+    }
+    const viz = extractSortViz(heap, frames, 'partition')
+    expect(viz.pivot).toBeNull()
+  })
+
+  it('reads pivot from deepest frame (partition nested in quickSort)', () => {
+    const { heap, frames } = intArrayHeap([4, 1, 3, 2])
+    frames[0] = {
+      method: 'quickSort',
+      args: {},
+      locals: { arr: { ref: 'arr' }, l: 0, r: 3 },
+    }
+    frames.push({
+      method: 'partition',
+      args: {},
+      locals: { arr: { ref: 'arr' }, l: 0, r: 3, pivot: 4 },
+    })
+    const viz = extractSortViz(heap, frames, 'quickSort')
+    expect(viz.pivot).toEqual({ value: 4, index: 0 })
+  })
+})
+
+describe('primaryArrayId', () => {
+  it('extractSortViz exposes primaryArrayId matching the chosen heap entry', () => {
+    const heap = {
+      a: {
+        id: 'arr-1',
+        type: 'int[]',
+        slots: [
+          { index: 0, value: 4 },
+          { index: 1, value: 1 },
+          { index: 2, value: 3 },
+          { index: 3, value: 2 },
+        ],
+      },
+    }
+    const frames = [{
+      method: 'mergeSort',
+      args: {},
+      locals: { arr: { ref: 'arr-1' }, left: 0, right: 3, mid: 1 },
+    }]
+    const viz = extractSortViz(heap, frames, 'mergeSort')
+    expect(viz.primaryArrayId).toBe('arr-1') // obj.id wins over heap key
+  })
+
+  it('primaryArrayId is null when no array can be picked', () => {
+    const heap = { x: { id: 'x', type: 'Integer', fields: { value: 1 } } }
+    const viz = extractSortViz(heap, [{ args: {}, locals: {} }])
+    expect(viz).toBeNull()
   })
 })

@@ -65,9 +65,10 @@ const labelStyle = computed(() => {
   const color = accentColor.value
   if (!color) return {}
   return {
-    color,
-    borderColor: `${color}4d`,
-    background: `${color}18`,
+    color: '#ffffff',
+    borderColor: color,
+    background: color,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.18)',
   }
 })
 
@@ -75,9 +76,10 @@ function labelChipStyle(label) {
   const color = colorForPointerName(label) || accentColor.value
   if (!color) return labelStyle.value
   return {
-    color,
-    borderColor: `${color}4d`,
-    background: `${color}18`,
+    color: '#ffffff',
+    borderColor: color,
+    background: color,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.18)',
   }
 }
 
@@ -105,6 +107,7 @@ function formatVal(v) {
   align-items: center;
   justify-content: center;
   transition: transform 360ms cubic-bezier(.22, .9, .27, 1);
+  z-index: 3;
   pointer-events: none;
 }
 

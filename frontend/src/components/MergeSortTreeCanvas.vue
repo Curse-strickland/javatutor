@@ -144,19 +144,21 @@ function cellPtrClass(seg, absIndex) {
   background: var(--card-bg);
   overflow-x: auto;
 }
-.mtc-level { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.mtc-level { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
 .mtc-level-tag {
   font-family: var(--mono);
   font-size: 9px;
   color: var(--text-muted);
   letter-spacing: 0.04em;
+  text-align: center;
 }
 .mtc-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 14px;
   width: 100%;
+  min-width: max-content;
 }
 .mtc-box {
   display: inline-flex;

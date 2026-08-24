@@ -1,4 +1,16 @@
 /**
+ * Resolve the layout fragment for a node. An explicit `_frag` always wins;
+ * otherwise each detached node gets its own unique (negative) fragment so a
+ * detached singleton lands on its own row rather than sharing one with other
+ * detached nodes, while every other node belongs to the main fragment 0.
+ */
+function fragOf(node, index) {
+  if (node._frag != null) return node._frag
+  if (node._detached) return -1 - index
+  return 0
+}
+
+/**
  * Compute semantic canvas positions for linked-list nodes (wraps by colsPerRow).
  *
  * @param {Array<{id:string,_cycle?:boolean}>} nodes
@@ -29,8 +41,9 @@ export function layoutLinkedList(nodes, opts = {}) {
   // Group by _frag (default 0); each fragment starts on a fresh row
   const fragOrder = []
   const fragGroups = new Map()
-  for (const node of nodes) {
-    const frag = node._frag != null ? node._frag : (node._detached ? 1 : 0)
+  for (let idx = 0; idx < nodes.length; idx++) {
+    const node = nodes[idx]
+    const frag = fragOf(node, idx)
     if (!fragGroups.has(frag)) {
       fragGroups.set(frag, [])
       fragOrder.push(frag)
@@ -135,9 +148,9 @@ export function buildLinkedListArrowPaths(nodes, positions, opts = {}) {
 
   const metaById = {}
   const fragLocal = new Map() // frag -> ids in order
-  nodes.forEach((n) => {
+  nodes.forEach((n, idx) => {
     if (n.id == null) return
-    const frag = n._frag != null ? n._frag : (n._detached ? 1 : 0)
+    const frag = fragOf(n, idx)
     if (!fragLocal.has(frag)) fragLocal.set(frag, [])
     const localIdx = fragLocal.get(frag).length
     fragLocal.get(frag).push(n.id)
