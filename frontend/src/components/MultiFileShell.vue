@@ -11,26 +11,7 @@
           <span class="legend-item"><span class="legend-arrow" style="color: #fbbf24">▶</span>当前</span>
           <span class="legend-item"><span class="legend-arrow" style="color: rgba(13,158,196,0.55)">▶</span>下一步</span>
         </span>
-        <button
-          class="upload-toggle-btn"
-          :class="{ active: uploadOpen }"
-          @click="toggleUpload"
-          title="导入文件"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-          <span class="upload-toggle-label">导入</span>
-        </button>
       </div>
-      <!-- 文件上传面板（向下滑出） -->
-      <transition name="upload-slide">
-        <div v-if="uploadOpen" class="upload-panel-wrapper">
-          <FileUploadPanel mode="multi" @load-files="onLoadFiles" />
-        </div>
-      </transition>
 
       <FileTabsBar />
 
@@ -42,7 +23,7 @@
           :read-only="false"
         />
         <div v-else class="editor-empty">
-          <p>点击「导入」添加 .java 文件</p>
+          <p>点击「+ 上传」添加 .java 文件</p>
         </div>
       </div>
     </div>
@@ -52,40 +33,41 @@
       <div class="splitter-handle" />
     </div>
 
-    <!-- 右侧：标签页卡片（与单文件一致） -->
+    <!-- 右侧：UML 标签页卡片 -->
     <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
       <div class="right-card-header">
         <span class="rc-dot" />
         <span class="panel-kicker">INSPECT</span>
-        <button class="right-tab" :class="{ active: store.rightTab === 'variables' }" @click="store.switchRightTab('variables')">变量</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'flow' }" @click="store.switchRightTab('flow')">流程</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'datastructure' }" @click="store.switchRightTab('datastructure')">数据结构</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'algorithm' }" @click="store.switchRightTab('algorithm')">算法</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'tutor' }" @click="store.switchRightTab('tutor')">问答</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'animate' }" @click="store.switchRightTab('animate')">动画</button>
-        <!-- 壁纸选择器 -->
-        <WallpaperSelector />
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'variables' }" @click="store.switchMultiRightTab('variables')">变量</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'controlflow' }" @click="store.switchMultiRightTab('controlflow')">流程</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'flow' }" @click="store.switchMultiRightTab('flow')">流程图</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'dataflow' }" @click="store.switchMultiRightTab('dataflow')">数据流</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'structure' }" @click="store.switchMultiRightTab('structure')">结构</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'class' }" @click="store.switchMultiRightTab('class')">类图</button>
+        <button class="right-tab" :class="{ active: store.multiRightTab === 'usecase' }" @click="store.switchMultiRightTab('usecase')">用例</button>
       </div>
-      <div class="flex-1 right-card-body" :class="{ 'body-fill': store.rightTab === 'tutor' }">
-        <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
-        <div v-show="store.rightTab === 'variables'" class="right-pane">
+      <div class="flex-1 right-card-body">
+        <div v-show="store.multiRightTab === 'variables'" class="right-pane">
           <MemoryPanel />
           <ConsoleOutput />
         </div>
-        <div v-show="store.rightTab === 'flow'" class="right-pane">
-          <ControlFlowPanel v-if="store.rightTab === 'flow'" :active="true" />
+        <div v-show="store.multiRightTab === 'controlflow'" class="right-pane">
+          <ControlFlowPanel v-if="store.multiRightTab === 'controlflow'" :active="true" />
         </div>
-        <div v-show="store.rightTab === 'datastructure'" class="right-pane">
-          <DataStructureTab />
+        <div v-show="store.multiRightTab === 'flow'" class="right-pane">
+          <UmlPanel kind="flow" :files="store.multiState.files" />
         </div>
-        <div v-show="store.rightTab === 'algorithm'" class="right-pane">
-          <AlgoTab @loadCode="onClassicLoad" />
+        <div v-show="store.multiRightTab === 'dataflow'" class="right-pane">
+          <UmlPanel kind="dataflow" :files="store.multiState.files" />
         </div>
-        <div v-show="store.rightTab === 'tutor'" class="right-pane right-pane-fill">
-          <AiTutorPanel embedded />
+        <div v-show="store.multiRightTab === 'structure'" class="right-pane">
+          <UmlPanel kind="structure" :files="store.multiState.files" />
         </div>
-        <div v-show="store.rightTab === 'animate'" class="right-pane">
-          <SvgAnimatePanel />
+        <div v-show="store.multiRightTab === 'class'" class="right-pane">
+          <UmlPanel kind="class" :files="store.multiState.files" />
+        </div>
+        <div v-show="store.multiRightTab === 'usecase'" class="right-pane">
+          <UmlPanel kind="usecase" :files="store.multiState.files" />
         </div>
       </div>
     </div>
@@ -100,15 +82,10 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import FileTabsBar from './FileTabsBar.vue'
-import FileUploadPanel from './FileUploadPanel.vue'
+import UmlPanel from './UmlPanel.vue'
 import MemoryPanel from './MemoryPanel.vue'
 import ConsoleOutput from './ConsoleOutput.vue'
-import AiTutorPanel from './AiTutorPanel.vue'
 import ControlFlowPanel from './ControlFlowPanel.vue'
-import WallpaperSelector from './WallpaperSelector.vue'
-import DataStructureTab from './right-tabs/DataStructureTab.vue'
-import AlgoTab from './right-tabs/AlgoTab.vue'
-import SvgAnimatePanel from './SvgAnimatePanel.vue'
 import ControlBar from './ControlBar.vue'
 
 const store = usePlayerStore()
@@ -116,7 +93,6 @@ const editorRef = ref(null)
 const containerRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)
-const uploadOpen = ref(false)
 const MIN_LEFT = 400
 const MIN_RIGHT = 350
 
@@ -150,38 +126,12 @@ function saveActiveFile() {
   }
 }
 
-function toggleUpload() {
-  uploadOpen.value = !uploadOpen.value
-}
-
 // 运行整个项目：先保存当前文件编辑内容再运行
 async function onRunProject() {
   saveActiveFile()
   const files = store.multiState.files
   if (!files.length) return
   await store.runProject()
-}
-
-// 经典算法加载：把代码作为新文件加入多文件项目（若已存在同名文件则替换内容）
-function onClassicLoad({ name, code }) {
-  store.addMultiFile({ name: name || 'Classic.java', code })
-  const idx = store.multiState.files.findIndex(f => f.name === (name || 'Classic.java'))
-  if (idx >= 0) store.setActiveMultiFile(idx)
-}
-
-// 多文件上传：批量追加文件到项目，并激活第一个新文件
-function onLoadFiles(files) {
-  if (!Array.isArray(files) || !files.length) return
-  let firstNewIdx = -1
-  files.forEach((f) => {
-    if (!f?.name) return
-    const existed = store.multiState.files.some(x => x.name === f.name)
-    store.addMultiFile({ name: f.name, code: f.code || '' })
-    if (!existed && firstNewIdx === -1) {
-      firstNewIdx = store.multiState.files.findIndex(x => x.name === f.name)
-    }
-  })
-  if (firstNewIdx >= 0) store.setActiveMultiFile(firstNewIdx)
 }
 
 /**
@@ -399,69 +349,6 @@ const onWindowResize = () => {
 .legend-arrow {
   font-size: 10px;
   line-height: 1;
-}
-
-/* Upload toggle button in editor header */
-.upload-toggle-btn {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 0;
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color 0.2s, background 0.15s, border-color 0.2s;
-  position: relative;
-  z-index: 100;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-}
-.upload-toggle-btn:hover {
-  color: var(--text-h);
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
-.upload-toggle-btn.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
-.upload-toggle-label {
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* Upload panel wrapper — slides down from header */
-.upload-panel-wrapper {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  max-height: 360px;
-  overflow-y: auto;
-  border-radius: 0;
-}
-.upload-slide-enter-active {
-  transition: max-height 0.3s cubic-bezier(.22,.9,.27,1), opacity 0.25s, padding 0.25s;
-}
-.upload-slide-leave-active {
-  transition: max-height 0.22s cubic-bezier(.22,.9,.27,1), opacity 0.2s, padding 0.2s;
-}
-.upload-slide-enter-from,
-.upload-slide-leave-to {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-.upload-slide-enter-to,
-.upload-slide-leave-from {
-  max-height: 360px;
-  opacity: 1;
 }
 
 .editor-wrap {

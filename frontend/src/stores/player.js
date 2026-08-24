@@ -53,6 +53,7 @@ export const usePlayerStore = defineStore('player', {
       activeFileIndex: 0,
       umlCache: {},          // {kind: {svg, ts, source}}
     },
+    multiRightTab: 'variables',
   }),
   getters: {
     currentVariables: (state) => {
@@ -165,8 +166,6 @@ export const usePlayerStore = defineStore('player', {
         this.maybeShowTutorialToast()
         if (data.methodName) this.methodName = data.methodName
         if (data.methodSignature) this.methodSignature = data.methodSignature
-        // 多文件：后端返回入口类源码，供流程/算法/动画/问答沿用单文件接口
-        if (data.entryCode) this.code = data.entryCode
         this.requestAnalysis()
         this.cfViewStack = []
         this.requestControlFlow()
@@ -496,6 +495,11 @@ export const usePlayerStore = defineStore('player', {
     },
 
     // --- Multi-file mode ---
+
+    switchMultiRightTab(tab) {
+      const allowed = ['variables', 'controlflow', 'flow', 'dataflow', 'structure', 'class', 'usecase']
+      if (allowed.includes(tab)) this.multiRightTab = tab
+    },
 
     setMultiFiles(files) {
       this.multiState.files = (files || []).map(f => ({

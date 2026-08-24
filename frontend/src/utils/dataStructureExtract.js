@@ -503,11 +503,7 @@ function detectMatrix(values) {
 
 function buildArrayEntry(obj, key, heap, stackFrames, values) {
   if (values.length < 1) return null
-  // 优先用栈帧变量名，其次用后端堆对象的短名 obj.name；
-  // 最后才回退到 key（key 可能是 `file#name`，需剥掉前缀避免标签泄漏文件名）
-  const sourceVar = findVarByRef(stackFrames, obj.id || key)
-    || obj.name
-    || (typeof key === 'string' ? (key.indexOf('#') >= 0 ? key.slice(key.indexOf('#') + 1) : key) : null)
+  const sourceVar = findVarByRef(stackFrames, obj.id || key) || (typeof key === 'string' ? key : null)
   const matrixInfo = detectMatrix(values)
 
   if (matrixInfo) {

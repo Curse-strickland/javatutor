@@ -2,6 +2,8 @@ package com.javatutor.controller;
 
 import com.javatutor.model.RunRequest;
 import com.javatutor.model.RunResponse;
+import com.javatutor.service.ExecutionSnapshotService;
+import com.javatutor.service.InMemoryExecutionSnapshotStore;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -18,7 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class RunControllerTest {
 
-    private final RunController controller = new RunController();
+    private final RunController controller =
+        new RunController(new ExecutionSnapshotService(new InMemoryExecutionSnapshotStore()));
 
     private static final String DIRECTED_GRAPH = "" +
         "public class DirectedGraph {\n" +
