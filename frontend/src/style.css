@@ -88,8 +88,8 @@
   --btn-bg: rgba(255, 255, 255, 0.88);
   --success: #17a34a;
 
-  --sans: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
-  --heading: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  --sans: 'Inter', 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  --heading: 'Archivo', 'Inter', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
   --mono: 'JetBrains Mono', 'Noto Sans SC', Menlo, monospace;
 
   font: 15px/1.55 var(--sans);
@@ -100,6 +100,32 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* 数据结构画布共享设计 token */
+  --ds-cell-radius: 8px;
+  --ds-cell-radius-sm: 6px;
+  --ds-cell-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --ds-cell-shadow-active: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --ds-cell-border: 1px solid var(--border);
+  --ds-popover-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  --ds-strip-gap: 2px;
+  --kmp-cell: 30px; /* KMP 字符格宽 */
+
+  /* 算法知识库主题（v1.0） */
+  --ak-font-base: 13px;       /* 与正文统一 */
+  --ak-font-mono: 12px;       /* 代码块（与正文一致，不再放大） */
+  --ak-heading: #1e40af;      /* 标题/算法名：深蓝强调 */
+  --ak-code-bg: rgba(13, 158, 196, 0.06);
+  --ak-tag-radius: 8px;
+  --ak-tag-shadow: 0 1px 3px rgba(18, 22, 29, 0.08),
+    0 4px 12px -4px rgba(18, 22, 29, 0.10);
+  --ak-tag-shadow-hover: 0 2px 6px rgba(18, 22, 29, 0.10),
+    0 8px 20px -6px rgba(18, 22, 29, 0.16);
+}
+
+@keyframes wire-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.18; }
 }
 
 /* Archive paper card */

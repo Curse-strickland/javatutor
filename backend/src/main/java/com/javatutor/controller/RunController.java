@@ -307,6 +307,7 @@ public class RunController {
         "        LinkedHashMap<String,Object> varsCopy = new LinkedHashMap<>();\n" +
         "        for (Map.Entry<String,Object> e : vars.entrySet()) {\n" +
         "            Object v = e.getValue();\n" +
+        "            maybeEmitGraph(e.getKey(), v, vars);\n" +
         "            if (v == null) { varsCopy.put(e.getKey(), null); }\n" +
         "            else if (v.getClass().isArray()) {\n" +
         "                int len = Array.getLength(v);\n" +
@@ -403,6 +404,112 @@ public class RunController {
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
         "        for (int i = 0; i < pairs.length; i += 2) { m.put((String) pairs[i], pairs[i + 1]); }\n" +
         "        return m;\n" +
+        "    }\n" +
+        "    private static boolean isAdjacencyName(String name) {\n" +
+        "        return \"adj\".equals(name) || \"graph\".equals(name) || \"edges\".equals(name) || \"neighbors\".equals(name);\n" +
+        "    }\n" +
+        "    private static boolean isCapacityName(String name) {\n" +
+        "        return \"capacity\".equals(name) || \"cap\".equals(name) || \"residual\".equals(name);\n" +
+        "    }\n" +
+        "    private static boolean isNestedCollection(Object v) {\n" +
+        "        if (!(v instanceof java.util.Collection)) return false;\n" +
+        "        for (Object elem : (java.util.Collection<?>) v) { if (elem instanceof java.util.Collection) return true; }\n" +
+        "        return false;\n" +
+        "    }\n" +
+        "    private static boolean is2DNumericArray(Object v) {\n" +
+        "        if (v == null || !v.getClass().isArray()) return false;\n" +
+        "        Class<?> comp = v.getClass().getComponentType();\n" +
+        "        if (comp == null || !comp.isArray()) return false;\n" +
+        "        return comp.getComponentType() == int.class || comp.getComponentType() == long.class || comp.getComponentType() == double.class;\n" +
+        "    }\n" +
+        "    private static void maybeEmitGraph(String name, Object v, Map<String,Object> vars) {\n" +
+        "        if (v == null) return;\n" +
+        "        if (isAdjacencyName(name) && isNestedCollection(v)) {\n" +
+        "            LinkedHashMap<String,Object> adj = adjacencyToMap((java.util.Collection<?>) v);\n" +
+        "            if (adj.isEmpty()) return;\n" +
+        "            boolean directed = !isSymmetricAdjacency(adj);\n" +
+        "            LinkedHashMap<String,Object> fields = new LinkedHashMap<>();\n" +
+        "            fields.put(\"adj\", adj);\n" +
+        "            putGraphObject(name, directed ? \"Digraph\" : \"Graph\", fields);\n" +
+        "        } else if (isCapacityName(name) && is2DNumericArray(v)) {\n" +
+        "            LinkedHashMap<String,Object> cap = matrixToMap(v);\n" +
+        "            if (cap.isEmpty()) return;\n" +
+        "            LinkedHashMap<String,Object> fields = new LinkedHashMap<>();\n" +
+        "            fields.put(\"capacity\", cap);\n" +
+        "            Object flowVar = vars.get(\"flow\");\n" +
+        "            if (is2DNumericArray(flowVar)) { LinkedHashMap<String,Object> flow = matrixToMap(flowVar); if (!flow.isEmpty()) fields.put(\"flow\", flow); }\n" +
+        "            String source = findEndpointVar(vars, \"source\", \"s\");\n" +
+        "            String sink = findEndpointVar(vars, \"sink\", \"t\");\n" +
+        "            if (source != null) fields.put(\"source\", source);\n" +
+        "            if (sink != null) fields.put(\"sink\", sink);\n" +
+        "            putGraphObject(name, \"MaxFlow\", fields);\n" +
+        "        }\n" +
+        "    }\n" +
+        "    private static void putGraphObject(String name, String type, LinkedHashMap<String,Object> fields) {\n" +
+        "        String graphKey = name + \"$graph\";\n" +
+        "        LinkedHashMap<String,Object> go = new LinkedHashMap<>();\n" +
+        "        go.put(\"type\", type);\n" +
+        "        go.put(\"id\", \"0x\" + Integer.toHexString(Math.abs(graphKey.hashCode()) & 0xFFFF).toUpperCase());\n" +
+        "        go.put(\"name\", graphKey);\n" +
+        "        go.put(\"fields\", fields);\n" +
+        "        heapObjects.put(graphKey, go);\n" +
+        "    }\n" +
+        "    private static LinkedHashMap<String,Object> adjacencyToMap(java.util.Collection<?> adj) {\n" +
+        "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
+        "        int from = 0;\n" +
+        "        for (Object row : adj) {\n" +
+        "            if (row instanceof java.util.Collection) {\n" +
+        "                java.util.List<Object> neighbors = new java.util.ArrayList<>();\n" +
+        "                for (Object to : (java.util.Collection<?>) row) { if (to == null) continue; LinkedHashMap<String,Object> entry = new LinkedHashMap<>(); entry.put(\"to\", String.valueOf(to)); neighbors.add(entry); }\n" +
+        "                map.put(String.valueOf(from), neighbors);\n" +
+        "            }\n" +
+        "            from++;\n" +
+        "        }\n" +
+        "        return map;\n" +
+        "    }\n" +
+        "    private static boolean isSymmetricAdjacency(Map<String,Object> adj) {\n" +
+        "        java.util.Set<String> edges = new java.util.HashSet<>();\n" +
+        "        int count = 0;\n" +
+        "        for (Map.Entry<String,Object> e : adj.entrySet()) {\n" +
+        "            if (!(e.getValue() instanceof java.util.List)) continue;\n" +
+        "            for (Object o : (java.util.List<?>) e.getValue()) {\n" +
+        "                if (!(o instanceof Map)) continue;\n" +
+        "                Object to = ((Map<?,?>) o).get(\"to\");\n" +
+        "                if (to == null) continue;\n" +
+        "                edges.add(e.getKey() + \"->\" + to);\n" +
+        "                count++;\n" +
+        "            }\n" +
+        "        }\n" +
+        "        if (count == 0) return false;\n" +
+        "        for (String e : edges) {\n" +
+        "            int arrow = e.indexOf(\"->\");\n" +
+        "            String u = e.substring(0, arrow);\n" +
+        "            String v = e.substring(arrow + 2);\n" +
+        "            if (!edges.contains(v + \"->\" + u)) return false;\n" +
+        "        }\n" +
+        "        return true;\n" +
+        "    }\n" +
+        "    private static LinkedHashMap<String,Object> matrixToMap(Object matrix) {\n" +
+        "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
+        "        int len = Array.getLength(matrix);\n" +
+        "        for (int i = 0; i < len; i++) {\n" +
+        "            Object row = Array.get(matrix, i);\n" +
+        "            if (row == null || !row.getClass().isArray()) continue;\n" +
+        "            LinkedHashMap<String,Object> rowMap = new LinkedHashMap<>();\n" +
+        "            int rlen = Array.getLength(row);\n" +
+        "            for (int j = 0; j < rlen; j++) {\n" +
+        "                Object val = Array.get(row, j);\n" +
+        "                if (val == null) continue;\n" +
+        "                if (val instanceof Number && ((Number) val).doubleValue() == 0.0) continue;\n" +
+        "                rowMap.put(String.valueOf(j), val);\n" +
+        "            }\n" +
+        "            map.put(String.valueOf(i), rowMap);\n" +
+        "        }\n" +
+        "        return map;\n" +
+        "    }\n" +
+        "    private static String findEndpointVar(Map<String,Object> vars, String... names) {\n" +
+        "        for (String n : names) { Object v = vars.get(n); if (v instanceof Number) return String.valueOf(((Number) v).intValue()); }\n" +
+        "        return null;\n" +
         "    }\n" +
         "    public static List<Map<String,Object>> getSteps() { return steps; }\n" +
         "}\n";

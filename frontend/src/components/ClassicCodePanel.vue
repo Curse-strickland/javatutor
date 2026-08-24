@@ -59,7 +59,197 @@ function toggleAll() {
 }
 
 const groups = [
-  // ==================== 1. 排序算法 ====================
+  // ==================== 1. 数学算法 ====================
+  {
+    label: '数学算法',
+    items: [
+      {
+        name: '最大公约数',
+        desc: 'GCD — 辗转相除法 O(log n)',
+        code: `public class GCD {
+    public static void main(String[] args) {
+        int a = 48, b = 18;
+        // 欧几里得算法：gcd(a,b) = gcd(b, a%b)
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        System.out.println("GCD = " + a);
+    }
+}`,
+      },
+      {
+        name: '判断质数',
+        desc: 'Prime Check — O(√n)',
+        code: `public class PrimeCheck {
+    public static void main(String[] args) {
+        int n = 97;
+        boolean isPrime = n > 1;
+        // 只需检查到 √n
+        for (int i = 2; i * i <= n; i++) {
+            if (n % i == 0) {
+                isPrime = false;
+                break;
+            }
+        }
+        System.out.println(n + " is prime: " + isPrime);
+    }
+}`,
+      },
+      {
+        name: '快速幂',
+        desc: 'Fast Power — O(log n)',
+        code: `public class FastPow {
+    public static void main(String[] args) {
+        double x = 2.0;
+        int n = 10;
+        double result = myPow(x, n);
+        System.out.println(x + "^" + n + " = " + result);
+    }
+
+    static double myPow(double x, int n) {
+        long N = n;
+        if (N < 0) { x = 1 / x; N = -N; }
+        double ans = 1.0;
+        // 快速幂：二分指数
+        while (N > 0) {
+            if ((N & 1) == 1) ans *= x;  // 当前位为1则乘入
+            x *= x;                        // x 翻倍
+            N >>= 1;                       // 指数右移
+        }
+        return ans;
+    }
+}`,
+      },
+      {
+        name: '埃氏筛法',
+        desc: 'Sieve of Eratosthenes — O(n log log n)',
+        code: `public class CountPrimes {
+    public static void main(String[] args) {
+        int n = 30;
+        boolean[] isPrime = new boolean[n];
+        for (int i = 2; i < n; i++) isPrime[i] = true;
+        // 埃氏筛：标记所有合数
+        for (int i = 2; i * i < n; i++) {
+            if (isPrime[i]) {
+                for (int j = i * i; j < n; j += i) {
+                    isPrime[j] = false;
+                }
+            }
+        }
+        // 输出所有质数
+        for (int i = 2; i < n; i++) {
+            if (isPrime[i]) System.out.print(i + " ");
+        }
+    }
+}`,
+      },
+    ],
+  },
+
+  // ==================== 2. 常用数据结构 ====================
+  {
+    label: '常用数据结构',
+    items: [
+      {
+        name: '前缀和',
+        desc: 'Prefix Sum — 区间和 O(1)',
+        code: `public class PrefixSum {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 3, 4, 5};
+        int n = nums.length;
+        int[] prefix = new int[n + 1];
+        // 构建前缀和数组
+        for (int i = 0; i < n; i++) {
+            prefix[i + 1] = prefix[i] + nums[i];
+        }
+        // 查询区间 [2, 4] 的和（0-indexed）
+        int sum = prefix[5] - prefix[2];
+        System.out.println("sum[2..4] = " + sum); // 3+4+5=12
+    }
+}`,
+      },
+      {
+        name: '并查集',
+        desc: 'Union Find — 近似 O(1)',
+        code: `public class UnionFind {
+    static int[] parent;
+    static int[] rank;
+
+    public static void main(String[] args) {
+        int n = 6;
+        parent = new int[n];
+        rank = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+        // 合并操作
+        union(0, 1);
+        union(1, 2);
+        union(3, 4);
+        System.out.println("0-2 connected: " + (find(0) == find(2))); // true
+        System.out.println("0-3 connected: " + (find(0) == find(3))); // false
+        union(2, 3);
+        System.out.println("0-3 connected: " + (find(0) == find(3))); // true
+    }
+
+    static int find(int x) {
+        // 路径压缩
+        if (parent[x] != x) parent[x] = find(parent[x]);
+        return parent[x];
+    }
+
+    static void union(int x, int y) {
+        int rx = find(x), ry = find(y);
+        if (rx == ry) return;
+        // 按秩合并
+        if (rank[rx] < rank[ry]) parent[rx] = ry;
+        else if (rank[rx] > rank[ry]) parent[ry] = rx;
+        else { parent[ry] = rx; rank[rx]++; }
+    }
+}`,
+      },
+      {
+        name: '栈',
+        desc: 'Stack — 后进先出 LIFO O(1)',
+        code: `public class StackDemo {
+    public static void main(String[] args) {
+        java.util.Stack<Integer> stack = new java.util.Stack<>();
+        // 入栈 push
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        // 查看栈顶 peek
+        System.out.println("top: " + stack.peek()); // 3
+        // 出栈 pop（后进先出 LIFO）
+        while (!stack.isEmpty()) {
+            System.out.print(stack.pop() + " "); // 3 2 1
+        }
+    }
+}`,
+      },
+      {
+        name: '队列',
+        desc: 'Queue — 先进先出 FIFO O(1)',
+        code: `public class QueueDemo {
+    public static void main(String[] args) {
+        java.util.Queue<Integer> queue = new java.util.LinkedList<>();
+        // 入队 offer
+        queue.offer(1);
+        queue.offer(2);
+        queue.offer(3);
+        // 查看队首 peek
+        System.out.println("front: " + queue.peek()); // 1
+        // 出队 poll（先进先出 FIFO）
+        while (!queue.isEmpty()) {
+            System.out.print(queue.poll() + " "); // 1 2 3
+        }
+    }
+}`,
+      },
+    ],
+  },
+
+  // ==================== 3. 排序算法 ====================
   {
     label: '排序算法',
     items: [
@@ -187,10 +377,280 @@ const groups = [
     }
 }`,
       },
+      {
+        name: '堆排序',
+        desc: 'Heap Sort — O(n log n)',
+        code: `public class HeapSort {
+    public static void main(String[] args) {
+        int[] arr = {9, 4, 7, 1, 6, 2, 8, 3, 5};
+        int n = arr.length;
+        // 建堆：从最后一个非叶节点向下调整（大顶堆）
+        for (int i = n / 2 - 1; i >= 0; i--) {
+            heapify(arr, n, i);
+        }
+        // 依次将堆顶（最大值）与末尾交换，并缩小堆
+        for (int end = n - 1; end > 0; end--) {
+            int t = arr[0];
+            arr[0] = arr[end];
+            arr[end] = t;
+            heapify(arr, end, 0);
+        }
+    }
+
+    static void heapify(int[] a, int n, int i) {
+        int largest = i;
+        int left = 2 * i + 1;
+        int right = 2 * i + 2;
+        // 找出父节点与左右子节点中的最大值
+        if (left < n && a[left] > a[largest]) largest = left;
+        if (right < n && a[right] > a[largest]) largest = right;
+        if (largest != i) {
+            int t = a[i];
+            a[i] = a[largest];
+            a[largest] = t;
+            heapify(a, n, largest);
+        }
+    }
+}`,
+      },
+      {
+        name: '希尔排序',
+        desc: 'Shell Sort — O(n log n)',
+        code: `public class ShellSort {
+    public static void main(String[] args) {
+        int[] arr = {9, 1, 5, 3, 7, 2, 8, 4, 6};
+        int n = arr.length;
+        // 增量序列：gap 每次减半
+        for (int gap = n / 2; gap > 0; gap /= 2) {
+            // 对每个分组做插入排序
+            for (int i = gap; i < n; i++) {
+                int key = arr[i];
+                int j = i;
+                while (j >= gap && arr[j - gap] > key) {
+                    arr[j] = arr[j - gap];
+                    j -= gap;
+                }
+                arr[j] = key;
+            }
+        }
+    }
+}`,
+      },
     ],
   },
 
-  // ==================== 2. 双指针与滑动窗口 ====================
+  // ==================== 4. 查找算法 ====================
+  {
+    label: '查找算法',
+    items: [
+      {
+        name: '顺序查找',
+        desc: 'Linear Search — O(n)',
+        code: `public class LinearSearch {
+    public static void main(String[] args) {
+        int[] arr = {3, 8, 1, 9, 4, 7};
+        int target = 9;
+        int index = -1;
+        // 从左到右逐一比对
+        for (int i = 0; i < arr.length; i++) {
+            if (arr[i] == target) {
+                index = i;
+                break;
+            }
+        }
+        System.out.println("index: " + index);
+    }
+}`,
+      },
+      {
+        name: '哈希查找',
+        desc: 'Hash Search — O(1)',
+        code: `public class HashSearch {
+    public static void main(String[] args) {
+        int[] arr = {3, 8, 1, 9, 4, 7};
+        int target = 9;
+        // 构建哈希表：值 -> 下标
+        java.util.Map<Integer, Integer> map = new java.util.HashMap<>();
+        for (int i = 0; i < arr.length; i++) {
+            map.put(arr[i], i);
+        }
+        // O(1) 查询
+        Integer index = map.get(target);
+        System.out.println("index: " + (index == null ? -1 : index));
+    }
+}`,
+      },
+      {
+        name: '二分查找',
+        desc: 'Binary Search — O(log n)',
+        code: `public class BinarySearch {
+    public static void main(String[] args) {
+        int[] arr = {2, 5, 8, 12, 16, 23, 38, 45};
+        int target = 16;
+        int left = 0, right = arr.length - 1;
+        int result = -1;
+        while (left <= right) {
+            int mid = left + (right - left) / 2;
+            if (arr[mid] == target) {
+                result = mid;
+                break;
+            } else if (arr[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        System.out.println("index: " + result);
+    }
+}`,
+      },
+      {
+        name: '搜索旋转排序数组',
+        desc: 'Search in Rotated Array — O(log n)',
+        code: `public class SearchRotated {
+    public static void main(String[] args) {
+        int[] nums = {4, 5, 6, 7, 0, 1, 2};
+        int target = 0;
+        int left = 0, right = nums.length - 1;
+        int result = -1;
+        while (left <= right) {
+            int mid = left + (right - left) / 2;
+            if (nums[mid] == target) {
+                result = mid;
+                break;
+            }
+            // 判断哪半边是有序的
+            if (nums[left] <= nums[mid]) {
+                // 左半有序
+                if (nums[left] <= target && target < nums[mid]) {
+                    right = mid - 1;
+                } else {
+                    left = mid + 1;
+                }
+            } else {
+                // 右半有序
+                if (nums[mid] < target && target <= nums[right]) {
+                    left = mid + 1;
+                } else {
+                    right = mid - 1;
+                }
+            }
+        }
+        System.out.println("index: " + result);
+    }
+}`,
+      },
+      {
+        name: '寻找峰值',
+        desc: 'Find Peak Element — O(log n)',
+        code: `public class FindPeak {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 3, 1};
+        int left = 0, right = nums.length - 1;
+        while (left < right) {
+            int mid = left + (right - left) / 2;
+            // 峰值一定在较大的那一侧
+            if (nums[mid] > nums[mid + 1]) {
+                right = mid;
+            } else {
+                left = mid + 1;
+            }
+        }
+        System.out.println("peak index: " + left);
+    }
+}`,
+      },
+      {
+        name: 'KMP字符串匹配',
+        desc: 'KMP — O(n+m)',
+        code: `public class KMP {
+    public static void main(String[] args) {
+        String text = "ababcabcabababd";
+        String pattern = "ababd";
+        int[] next = buildNext(pattern);
+        int j = 0; // pattern 指针
+        for (int i = 0; i < text.length(); i++) {
+            // 失配时根据 next 数组回退
+            while (j > 0 && text.charAt(i) != pattern.charAt(j)) {
+                j = next[j - 1];
+            }
+            if (text.charAt(i) == pattern.charAt(j)) j++;
+            if (j == pattern.length()) {
+                System.out.println("found at " + (i - j + 1));
+                j = next[j - 1];
+            }
+        }
+    }
+
+    static int[] buildNext(String p) {
+        int m = p.length();
+        int[] next = new int[m];
+        int j = 0; // 前缀末尾
+        for (int i = 1; i < m; i++) {
+            while (j > 0 && p.charAt(i) != p.charAt(j)) {
+                j = next[j - 1];
+            }
+            if (p.charAt(i) == p.charAt(j)) j++;
+            next[i] = j;
+        }
+        return next;
+    }
+}`,
+      },
+      {
+        name: '最长公共前缀',
+        desc: 'Longest Common Prefix — O(S)',
+        code: `public class LongestCommonPrefix {
+    public static void main(String[] args) {
+        String[] strs = {"flower", "flow", "flight"};
+        if (strs.length == 0) return;
+        String prefix = strs[0];
+        // 逐个比较，不断缩短前缀
+        for (int i = 1; i < strs.length; i++) {
+            while (strs[i].indexOf(prefix) != 0) {
+                prefix = prefix.substring(0, prefix.length() - 1);
+                if (prefix.isEmpty()) break;
+            }
+        }
+        System.out.println("prefix: " + prefix);
+    }
+}`,
+      },
+      {
+        name: '字符串转整数',
+        desc: 'String to Integer (atoi)',
+        code: `public class MyAtoi {
+    public static void main(String[] args) {
+        String s = "   -42 with words";
+        int i = 0, n = s.length();
+        // 跳过前导空格
+        while (i < n && s.charAt(i) == ' ') i++;
+        // 处理符号
+        int sign = 1;
+        if (i < n && (s.charAt(i) == '+' || s.charAt(i) == '-')) {
+            sign = (s.charAt(i) == '-') ? -1 : 1;
+            i++;
+        }
+        // 逐位解析数字
+        int result = 0;
+        while (i < n && s.charAt(i) >= '0' && s.charAt(i) <= '9') {
+            int digit = s.charAt(i) - '0';
+            // 溢出检查
+            if (result > (Integer.MAX_VALUE - digit) / 10) {
+                result = (sign == 1) ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+                break;
+            }
+            result = result * 10 + digit;
+            i++;
+        }
+        System.out.println("result: " + (result * sign));
+    }
+}`,
+      },
+    ],
+  },
+
+  // ==================== 5. 双指针与滑动窗口 ====================
   {
     label: '双指针与滑动窗口',
     items: [
@@ -282,94 +742,229 @@ const groups = [
     ],
   },
 
-  // ==================== 3. 二分算法 ====================
+  // ==================== 6. 链表 ====================
   {
-    label: '二分算法',
+    label: '链表',
     items: [
       {
-        name: '二分查找',
-        desc: 'Binary Search — O(log n)',
-        code: `public class BinarySearch {
+        name: '链表反转',
+        desc: 'Reverse Linked List — O(n)',
+        code: `public class ReverseList {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int v) { val = v; }
+    }
+
     public static void main(String[] args) {
-        int[] arr = {2, 5, 8, 12, 16, 23, 38, 45};
-        int target = 16;
-        int left = 0, right = arr.length - 1;
-        int result = -1;
-        while (left <= right) {
-            int mid = left + (right - left) / 2;
-            if (arr[mid] == target) {
-                result = mid;
-                break;
-            } else if (arr[mid] < target) {
-                left = mid + 1;
-            } else {
-                right = mid - 1;
-            }
+        // 构建链表 1→2→3→4→5
+        ListNode head = new ListNode(1);
+        head.next = new ListNode(2);
+        head.next.next = new ListNode(3);
+        head.next.next.next = new ListNode(4);
+        head.next.next.next.next = new ListNode(5);
+        // 迭代反转
+        ListNode prev = null;
+        ListNode curr = head;
+        while (curr != null) {
+            ListNode next = curr.next; // 暂存下一个节点
+            curr.next = prev;          // 反转指针
+            prev = curr;               // 前移
+            curr = next;               // 前移
         }
-        System.out.println("index: " + result);
+        head = prev; // 新头节点
     }
 }`,
       },
       {
-        name: '搜索旋转排序数组',
-        desc: 'Search in Rotated Array — O(log n)',
-        code: `public class SearchRotated {
+        name: '单向链表',
+        desc: 'Singly Linked List — 头插 O(1)',
+        code: `public class SinglyList {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int v) { val = v; }
+    }
+
     public static void main(String[] args) {
-        int[] nums = {4, 5, 6, 7, 0, 1, 2};
-        int target = 0;
-        int left = 0, right = nums.length - 1;
-        int result = -1;
-        while (left <= right) {
-            int mid = left + (right - left) / 2;
-            if (nums[mid] == target) {
-                result = mid;
-                break;
-            }
-            // 判断哪半边是有序的
-            if (nums[left] <= nums[mid]) {
-                // 左半有序
-                if (nums[left] <= target && target < nums[mid]) {
-                    right = mid - 1;
-                } else {
-                    left = mid + 1;
-                }
-            } else {
-                // 右半有序
-                if (nums[mid] < target && target <= nums[right]) {
-                    left = mid + 1;
-                } else {
-                    right = mid - 1;
-                }
-            }
+        ListNode head = null;
+        // 头插法：依次插入 3 → 2 → 1，最终 1→2→3
+        head = insertHead(head, 3);
+        head = insertHead(head, 2);
+        head = insertHead(head, 1);
+        // 遍历链表
+        ListNode cur = head;
+        while (cur != null) {
+            System.out.print(cur.val + " ");
+            cur = cur.next;
         }
-        System.out.println("index: " + result);
+    }
+
+    static ListNode insertHead(ListNode head, int val) {
+        ListNode node = new ListNode(val);
+        node.next = head;
+        return node;
     }
 }`,
       },
       {
-        name: '寻找峰值',
-        desc: 'Find Peak Element — O(log n)',
-        code: `public class FindPeak {
+        name: '双向链表',
+        desc: 'Doubly Linked List — 双向指针',
+        code: `public class DoublyList {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode prev;
+        ListNode(int v) { val = v; }
+    }
+
     public static void main(String[] args) {
-        int[] nums = {1, 2, 3, 1};
-        int left = 0, right = nums.length - 1;
-        while (left < right) {
-            int mid = left + (right - left) / 2;
-            // 峰值一定在较大的那一侧
-            if (nums[mid] > nums[mid + 1]) {
-                right = mid;
-            } else {
-                left = mid + 1;
+        ListNode head = null;
+        // 头插法构建 1↔2↔3
+        head = insertHead(head, 3);
+        head = insertHead(head, 2);
+        head = insertHead(head, 1);
+        // 正向遍历
+        ListNode cur = head;
+        while (cur != null) {
+            System.out.print(cur.val + " ");
+            cur = cur.next;
+        }
+    }
+
+    static ListNode insertHead(ListNode head, int val) {
+        ListNode node = new ListNode(val);
+        node.next = head;
+        if (head != null) head.prev = node; // 维护前驱指针
+        return node;
+    }
+}`,
+      },
+      {
+        name: '环形链表检测',
+        desc: 'Linked List Cycle — 快慢指针 O(n)',
+        code: `public class HasCycle {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int v) { val = v; }
+    }
+
+    public static void main(String[] args) {
+        // 构建带环链表 3→2→0→-4→2
+        ListNode head = new ListNode(3);
+        head.next = new ListNode(2);
+        head.next.next = new ListNode(0);
+        head.next.next.next = new ListNode(-4);
+        head.next.next.next.next = head.next; // 成环
+        // 快慢指针：快指针每次2步，慢指针每次1步
+        ListNode slow = head, fast = head;
+        boolean hasCycle = false;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+            if (slow == fast) {
+                hasCycle = true;
+                break;
             }
         }
-        System.out.println("peak index: " + left);
+        System.out.println("has cycle: " + hasCycle);
+    }
+}`,
+      },
+      {
+        name: '环形链表 II（找环入口）',
+        desc: 'Linked List Cycle II — 快慢指针 O(n)',
+        code: `public class DetectCycle {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int v) { val = v; }
+    }
+
+    public static void main(String[] args) {
+        // 构建带环链表 3→2→0→-4→2
+        ListNode head = new ListNode(3);
+        head.next = new ListNode(2);
+        head.next.next = new ListNode(0);
+        head.next.next.next = new ListNode(-4);
+        head.next.next.next.next = head.next; // 成环，入口为 2
+        // 快慢指针找相遇点
+        ListNode slow = head, fast = head;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+            if (slow == fast) break;
+        }
+        if (fast == null || fast.next == null) {
+            System.out.println("no cycle");
+            return;
+        }
+        // 一指针回到头，另一指针从相遇点同步前进，再次相遇即入口
+        ListNode p = head;
+        while (p != slow) {
+            p = p.next;
+            slow = slow.next;
+        }
+        System.out.println("cycle entry: " + p.val);
+    }
+}`,
+      },
+      {
+        name: '链表相交',
+        desc: 'Intersection — 双指针 O(n+m)',
+        code: `public class Intersection {
+    static class ListNode {
+        int val;
+        ListNode next;
+        ListNode(int v) { val = v; }
+    }
+
+    public static void main(String[] args) {
+        // 公共尾部：8 → 4 → 5
+        ListNode c1 = new ListNode(8);
+        c1.next = new ListNode(4);
+        c1.next.next = new ListNode(5);
+        // 链表A：4 → 1 → 8 → 4 → 5
+        ListNode headA = new ListNode(4);
+        headA.next = new ListNode(1);
+        headA.next.next = c1;
+        // 链表B：5 → 6 → 1 → 8 → 4 → 5
+        ListNode headB = new ListNode(5);
+        headB.next = new ListNode(6);
+        headB.next.next = new ListNode(1);
+        headB.next.next.next = c1;
+        // 双指针：走完自己后从另一条链头继续，相遇点即交点
+        ListNode pA = headA, pB = headB;
+        while (pA != pB) {
+            pA = (pA == null) ? headB : pA.next;
+            pB = (pB == null) ? headA : pB.next;
+        }
+        System.out.println("intersection: " + (pA == null ? "none" : pA.val));
+    }
+}`,
+      },
+      {
+        name: '约瑟夫问题',
+        desc: 'Josephus — 递推 O(n)',
+        code: `public class Josephus {
+    public static void main(String[] args) {
+        int n = 10; // 总人数
+        int m = 3;  // 报到 m 出圈
+        // 递推：f(1)=0，f(n)=(f(n-1)+m)%n（0 下标）
+        int survivor = 0;
+        for (int i = 2; i <= n; i++) {
+            survivor = (survivor + m) % i;
+        }
+        // 转回 1 下标
+        System.out.println("survivor: " + (survivor + 1));
     }
 }`,
       },
     ],
   },
 
-  // ==================== 4. 单调栈 ====================
+  // ==================== 7. 单调栈 ====================
   {
     label: '单调栈',
     items: [
@@ -419,132 +1014,160 @@ const groups = [
     ],
   },
 
-  // ==================== 5. 网格图 ====================
+  // ==================== 8. 树（堆） ====================
   {
-    label: '网格图',
+    label: '树（堆）',
     items: [
       {
-        name: '岛屿数量',
-        desc: 'Number of Islands — DFS O(mn)',
-        code: `public class NumIslands {
-    public static void main(String[] args) {
-        char[][] grid = {
-            {'1','1','0','0','0'},
-            {'1','1','0','0','0'},
-            {'0','0','1','0','0'},
-            {'0','0','0','1','1'}
-        };
-        int count = 0;
-        for (int i = 0; i < grid.length; i++) {
-            for (int j = 0; j < grid[0].length; j++) {
-                if (grid[i][j] == '1') {
-                    count++;
-                    dfs(grid, i, j); // 淹没该岛屿
-                }
-            }
-        }
-        System.out.println("islands: " + count);
+        name: '二叉树遍历',
+        desc: 'Tree Traversal — 前/中/后序',
+        code: `public class TreeTraversal {
+    static class TreeNode {
+        int val;
+        TreeNode left, right;
+        TreeNode(int v) { val = v; }
     }
 
-    static void dfs(char[][] g, int r, int c) {
-        if (r < 0 || r >= g.length || c < 0 || c >= g[0].length) return;
-        if (g[r][c] != '1') return;
-        g[r][c] = '0'; // 标记已访问
-        dfs(g, r + 1, c);
-        dfs(g, r - 1, c);
-        dfs(g, r, c + 1);
-        dfs(g, r, c - 1);
+    public static void main(String[] args) {
+        // 构建二叉树：1 → left:2, right:3
+        TreeNode root = new TreeNode(1);
+        root.left = new TreeNode(2);
+        root.right = new TreeNode(3);
+        root.left.left = new TreeNode(4);
+        root.left.right = new TreeNode(5);
+        // 前序遍历：根→左→右
+        preorder(root);
+        System.out.println();
+        // 中序遍历：左→根→右
+        inorder(root);
+        System.out.println();
+        // 后序遍历：左→右→根
+        postorder(root);
+    }
+
+    static void preorder(TreeNode node) {
+        if (node == null) return;
+        System.out.print(node.val + " ");
+        preorder(node.left);
+        preorder(node.right);
+    }
+
+    static void inorder(TreeNode node) {
+        if (node == null) return;
+        inorder(node.left);
+        System.out.print(node.val + " ");
+        inorder(node.right);
+    }
+
+    static void postorder(TreeNode node) {
+        if (node == null) return;
+        postorder(node.left);
+        postorder(node.right);
+        System.out.print(node.val + " ");
     }
 }`,
       },
       {
-        name: '网格最短路径',
-        desc: 'Shortest Path in Grid — BFS O(mn)',
-        code: `public class GridBFS {
-    public static void main(String[] args) {
-        int[][] grid = {
-            {0, 0, 0},
-            {0, 1, 0},
-            {0, 0, 0}
-        };
-        int m = grid.length, n = grid[0].length;
-        java.util.Queue<int[]> q = new java.util.LinkedList<>();
-        q.add(new int[]{0, 0}); // 起点
-        grid[0][0] = 1;         // 标记已访问和距离
-        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+        name: '层序遍历',
+        desc: 'Level Order — BFS O(n)',
+        code: `public class LevelOrder {
+    static class TreeNode {
+        int val;
+        TreeNode left, right;
+        TreeNode(int v) { val = v; }
+    }
 
+    public static void main(String[] args) {
+        // 构建二叉树：1 → left:2, right:3
+        TreeNode root = new TreeNode(1);
+        root.left = new TreeNode(2);
+        root.right = new TreeNode(3);
+        root.left.left = new TreeNode(4);
+        root.left.right = new TreeNode(5);
+        // 层序遍历：用队列逐层访问
+        java.util.Queue<TreeNode> q = new java.util.LinkedList<>();
+        q.add(root);
         while (!q.isEmpty()) {
-            int[] cur = q.poll();
-            int r = cur[0], c = cur[1];
-            if (r == m - 1 && c == n - 1) {
-                System.out.println("distance: " + (grid[r][c] - 1));
-                return;
-            }
-            for (int[] d : dirs) {
-                int nr = r + d[0], nc = c + d[1];
-                if (nr >= 0 && nr < m && nc >= 0 && nc < n && grid[nr][nc] == 0) {
-                    grid[nr][nc] = grid[r][c] + 1;
-                    q.add(new int[]{nr, nc});
-                }
-            }
+            TreeNode node = q.poll();
+            System.out.print(node.val + " ");
+            if (node.left != null) q.add(node.left);
+            if (node.right != null) q.add(node.right);
         }
     }
 }`,
       },
-    ],
-  },
-
-  // ==================== 6. 位运算 ====================
-  {
-    label: '位运算',
-    items: [
       {
-        name: '只出现一次的数字',
-        desc: 'Single Number — 异或 XOR O(n)',
-        code: `public class SingleNumber {
+        name: '最小堆-PriorityQueue',
+        desc: 'Min Heap — TopK O(n log k)',
+        code: `public class TopK {
     public static void main(String[] args) {
-        int[] nums = {4, 1, 2, 1, 2};
-        int result = 0;
-        // a ^ a = 0, a ^ 0 = a
+        int[] nums = {3, 1, 4, 1, 5, 9, 2, 6};
+        int k = 3;
+        // 大顶堆维护最小的 k 个数
+        java.util.PriorityQueue<Integer> maxHeap
+            = new java.util.PriorityQueue<>((a, b) -> b - a);
         for (int num : nums) {
-            result ^= num;
+            maxHeap.add(num);
+            if (maxHeap.size() > k) maxHeap.poll();
         }
-        System.out.println("single: " + result);
+        // 堆中即为最小的 k 个元素
+        System.out.println("top " + k + " smallest: " + maxHeap);
     }
 }`,
       },
       {
-        name: '位1的个数',
-        desc: 'Number of 1 Bits — O(k)',
-        code: `public class HammingWeight {
+        name: '优先队列',
+        desc: 'Priority Queue — 堆 O(log n)',
+        code: `public class PriorityQueueDemo {
     public static void main(String[] args) {
-        int n = 11; // 二进制 1011
-        int count = 0;
-        // n & (n-1) 消除最低位的 1
-        while (n != 0) {
-            n = n & (n - 1);
-            count++;
+        // 默认小顶堆：最小值优先出队
+        java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>();
+        pq.offer(5);
+        pq.offer(2);
+        pq.offer(8);
+        pq.offer(1);
+        // 每次 poll 出当前最小元素
+        while (!pq.isEmpty()) {
+            System.out.print(pq.poll() + " "); // 1 2 5 8
         }
-        System.out.println("1 bits: " + count);
     }
 }`,
       },
       {
-        name: '2的幂',
-        desc: 'Power of Two — 位运算 O(1)',
-        code: `public class PowerOfTwo {
+        name: '全排列',
+        desc: 'Permutations — 回溯 O(n!)',
+        code: `public class Permutations {
     public static void main(String[] args) {
-        int n = 16;
-        // 2的幂的二进制只有1个1：10000 & 01111 = 0
-        boolean isPower = (n > 0) && ((n & (n - 1)) == 0);
-        System.out.println(n + " is power of 2: " + isPower);
+        int[] nums = {1, 2, 3};
+        boolean[] used = new boolean[nums.length];
+        java.util.List<Integer> path = new java.util.ArrayList<>();
+        backtrack(nums, used, path);
+    }
+
+    static void backtrack(int[] nums, boolean[] used,
+                          java.util.List<Integer> path) {
+        // 找到一个排列
+        if (path.size() == nums.length) {
+            System.out.println(path);
+            return;
+        }
+        for (int i = 0; i < nums.length; i++) {
+            if (used[i]) continue;
+            // 做选择
+            used[i] = true;
+            path.add(nums[i]);
+            backtrack(nums, used, path);
+            // 撤销选择（回溯）
+            path.remove(path.size() - 1);
+            used[i] = false;
+        }
     }
 }`,
-      },
+      }
     ],
   },
 
-  // ==================== 7. 图论算法 ====================
+  // ==================== 9. 图论算法 ====================
   {
     label: '图论算法',
     items: [
@@ -619,10 +1242,226 @@ const groups = [
     }
 }`,
       },
+      {
+        name: 'Floyd最短路径',
+        desc: 'Floyd-Warshall — 全源最短路 O(V³)',
+        code: `public class Floyd {
+    public static void main(String[] args) {
+        int n = 4; // 节点数 0..3
+        int INF = Integer.MAX_VALUE / 2;
+        int[][] dist = {
+            {0, 3, INF, 7},
+            {8, 0, 2, INF},
+            {5, INF, 0, 1},
+            {2, INF, INF, 0}
+        };
+        // 三重循环：用每个中间点 k 松弛 i->j
+        for (int k = 0; k < n; k++) {
+            for (int i = 0; i < n; i++) {
+                for (int j = 0; j < n; j++) {
+                    if (dist[i][k] + dist[k][j] < dist[i][j]) {
+                        dist[i][j] = dist[i][k] + dist[k][j];
+                    }
+                }
+            }
+        }
+        System.out.println("dist[1][3] = " + dist[1][3]);
+    }
+}`,
+      },
+      {
+        name: '网络流',
+        desc: 'Max Flow — Edmonds-Karp O(VE²)',
+        code: `public class MaxFlow {
+    public static void main(String[] args) {
+        int n = 6; // 节点数 0..5
+        int[][] capacity = new int[n][n];
+        // 有向边：capacity[from][to] = 容量
+        capacity[0][1] = 16; capacity[0][2] = 13;
+        capacity[1][2] = 10; capacity[1][3] = 12;
+        capacity[2][1] = 4;  capacity[2][4] = 14;
+        capacity[3][2] = 9;  capacity[3][5] = 20;
+        capacity[4][3] = 7;  capacity[4][5] = 4;
+        int source = 0, sink = 5;
+        System.out.println("max flow: " + edmondsKarp(capacity, source, sink, n));
+    }
+
+    // Edmonds-Karp：BFS 找增广路径 + 更新残量网络
+    static int edmondsKarp(int[][] cap, int s, int t, int n) {
+        int[][] flow = new int[n][n];
+        int maxFlow = 0;
+        while (true) {
+            int[] parent = new int[n];
+            java.util.Arrays.fill(parent, -1);
+            parent[s] = s;
+            java.util.Queue<Integer> q = new java.util.LinkedList<>();
+            q.add(s);
+            while (!q.isEmpty() && parent[t] == -1) {
+                int u = q.poll();
+                for (int v = 0; v < n; v++) {
+                    if (parent[v] == -1 && cap[u][v] - flow[u][v] > 0) {
+                        parent[v] = u;
+                        q.add(v);
+                    }
+                }
+            }
+            if (parent[t] == -1) break; // 无增广路径，结束
+            int push = Integer.MAX_VALUE; // 瓶颈容量
+            for (int v = t; v != s; v = parent[v]) {
+                push = Math.min(push, cap[parent[v]][v] - flow[parent[v]][v]);
+            }
+            for (int v = t; v != s; v = parent[v]) {
+                flow[parent[v]][v] += push;
+                flow[v][parent[v]] -= push;
+            }
+            maxFlow += push;
+        }
+        return maxFlow;
+    }
+}`,
+      },
+      {
+        name: '有向图',
+        desc: 'Directed Graph — DFS O(V+E)',
+        code: `public class DirectedGraph {
+    public static void main(String[] args) {
+        int n = 6; // 节点数 0..5
+        java.util.List<java.util.List<Integer>> adj = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) adj.add(new java.util.ArrayList<>());
+        // 有向边：adj[from].add(to)
+        adj.get(0).add(1); adj.get(0).add(2);
+        adj.get(1).add(3);
+        adj.get(2).add(3); adj.get(2).add(4);
+        adj.get(3).add(5);
+        adj.get(4).add(5);
+        // DFS 深度优先遍历
+        boolean[] visited = new boolean[n];
+        dfs(adj, 0, visited);
+    }
+
+    static void dfs(java.util.List<java.util.List<Integer>> adj, int u, boolean[] visited) {
+        visited[u] = true;
+        System.out.print(u + " ");
+        for (int v : adj.get(u)) {
+            if (!visited[v]) dfs(adj, v, visited);
+        }
+    }
+}`,
+      },
+      {
+        name: '无向图',
+        desc: 'Undirected Graph — BFS O(V+E)',
+        code: `public class UndirectedGraph {
+    public static void main(String[] args) {
+        int n = 6; // 节点数 0..5
+        java.util.List<java.util.List<Integer>> adj = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) adj.add(new java.util.ArrayList<>());
+        // 无向边：双向添加
+        addEdge(adj, 0, 1); addEdge(adj, 0, 2);
+        addEdge(adj, 1, 3); addEdge(adj, 2, 3);
+        addEdge(adj, 3, 4); addEdge(adj, 4, 5);
+        // BFS 广度优先遍历
+        boolean[] visited = new boolean[n];
+        java.util.Queue<Integer> q = new java.util.LinkedList<>();
+        q.add(0);
+        visited[0] = true;
+        while (!q.isEmpty()) {
+            int u = q.poll();
+            System.out.print(u + " ");
+            for (int v : adj.get(u)) {
+                if (!visited[v]) {
+                    visited[v] = true;
+                    q.add(v);
+                }
+            }
+        }
+    }
+
+    static void addEdge(java.util.List<java.util.List<Integer>> adj, int u, int v) {
+        adj.get(u).add(v);
+        adj.get(v).add(u);
+    }
+}`,
+      },
     ],
   },
 
-  // ==================== 8. 动态规划 ====================
+  // ==================== 10. 网格图 ====================
+  {
+    label: '网格图',
+    items: [
+      {
+        name: '岛屿数量',
+        desc: 'Number of Islands — DFS O(mn)',
+        code: `public class NumIslands {
+    public static void main(String[] args) {
+        char[][] grid = {
+            {'1','1','0','0','0'},
+            {'1','1','0','0','0'},
+            {'0','0','1','0','0'},
+            {'0','0','0','1','1'}
+        };
+        int count = 0;
+        for (int i = 0; i < grid.length; i++) {
+            for (int j = 0; j < grid[0].length; j++) {
+                if (grid[i][j] == '1') {
+                    count++;
+                    dfs(grid, i, j); // 淹没该岛屿
+                }
+            }
+        }
+        System.out.println("islands: " + count);
+    }
+
+    static void dfs(char[][] g, int r, int c) {
+        if (r < 0 || r >= g.length || c < 0 || c >= g[0].length) return;
+        if (g[r][c] != '1') return;
+        g[r][c] = '0'; // 标记已访问
+        dfs(g, r + 1, c);
+        dfs(g, r - 1, c);
+        dfs(g, r, c + 1);
+        dfs(g, r, c - 1);
+    }
+}`,
+      },
+      {
+        name: '网格最短路径',
+        desc: 'Shortest Path in Grid — BFS O(mn)',
+        code: `public class GridBFS {
+    public static void main(String[] args) {
+        int[][] grid = {
+            {0, 0, 0},
+            {0, 1, 0},
+            {0, 0, 0}
+        };
+        int m = grid.length, n = grid[0].length;
+        java.util.Queue<int[]> q = new java.util.LinkedList<>();
+        q.add(new int[]{0, 0}); // 起点
+        grid[0][0] = 1;         // 标记已访问和距离
+        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+
+        while (!q.isEmpty()) {
+            int[] cur = q.poll();
+            int r = cur[0], c = cur[1];
+            if (r == m - 1 && c == n - 1) {
+                System.out.println("distance: " + (grid[r][c] - 1));
+                return;
+            }
+            for (int[] d : dirs) {
+                int nr = r + d[0], nc = c + d[1];
+                if (nr >= 0 && nr < m && nc >= 0 && nc < n && grid[nr][nc] == 0) {
+                    grid[nr][nc] = grid[r][c] + 1;
+                    q.add(new int[]{nr, nc});
+                }
+            }
+        }
+    }
+}`,
+      },
+    ],
+  },
+
+  // ==================== 11. 动态规划 ====================
   {
     label: '动态规划',
     items: [
@@ -753,178 +1592,7 @@ const groups = [
     ],
   },
 
-  // ==================== 9. 常用数据结构 ====================
-  {
-    label: '常用数据结构',
-    items: [
-      {
-        name: '前缀和',
-        desc: 'Prefix Sum — 区间和 O(1)',
-        code: `public class PrefixSum {
-    public static void main(String[] args) {
-        int[] nums = {1, 2, 3, 4, 5};
-        int n = nums.length;
-        int[] prefix = new int[n + 1];
-        // 构建前缀和数组
-        for (int i = 0; i < n; i++) {
-            prefix[i + 1] = prefix[i] + nums[i];
-        }
-        // 查询区间 [2, 4] 的和（0-indexed）
-        int sum = prefix[5] - prefix[2];
-        System.out.println("sum[2..4] = " + sum); // 3+4+5=12
-    }
-}`,
-      },
-      {
-        name: '并查集',
-        desc: 'Union Find — 近似 O(1)',
-        code: `public class UnionFind {
-    static int[] parent;
-    static int[] rank;
-
-    public static void main(String[] args) {
-        int n = 6;
-        parent = new int[n];
-        rank = new int[n];
-        for (int i = 0; i < n; i++) parent[i] = i;
-        // 合并操作
-        union(0, 1);
-        union(1, 2);
-        union(3, 4);
-        System.out.println("0-2 connected: " + (find(0) == find(2))); // true
-        System.out.println("0-3 connected: " + (find(0) == find(3))); // false
-        union(2, 3);
-        System.out.println("0-3 connected: " + (find(0) == find(3))); // true
-    }
-
-    static int find(int x) {
-        // 路径压缩
-        if (parent[x] != x) parent[x] = find(parent[x]);
-        return parent[x];
-    }
-
-    static void union(int x, int y) {
-        int rx = find(x), ry = find(y);
-        if (rx == ry) return;
-        // 按秩合并
-        if (rank[rx] < rank[ry]) parent[rx] = ry;
-        else if (rank[rx] > rank[ry]) parent[ry] = rx;
-        else { parent[ry] = rx; rank[rx]++; }
-    }
-}`,
-      },
-      {
-        name: '最小堆-PriorityQueue',
-        desc: 'Min Heap — TopK O(n log k)',
-        code: `public class TopK {
-    public static void main(String[] args) {
-        int[] nums = {3, 1, 4, 1, 5, 9, 2, 6};
-        int k = 3;
-        // 大顶堆维护最小的 k 个数
-        java.util.PriorityQueue<Integer> maxHeap
-            = new java.util.PriorityQueue<>((a, b) -> b - a);
-        for (int num : nums) {
-            maxHeap.add(num);
-            if (maxHeap.size() > k) maxHeap.poll();
-        }
-        // 堆中即为最小的 k 个元素
-        System.out.println("top " + k + " smallest: " + maxHeap);
-    }
-}`,
-      },
-    ],
-  },
-
-  // ==================== 10. 数学算法 ====================
-  {
-    label: '数学算法',
-    items: [
-      {
-        name: '最大公约数',
-        desc: 'GCD — 辗转相除法 O(log n)',
-        code: `public class GCD {
-    public static void main(String[] args) {
-        int a = 48, b = 18;
-        // 欧几里得算法：gcd(a,b) = gcd(b, a%b)
-        while (b != 0) {
-            int temp = b;
-            b = a % b;
-            a = temp;
-        }
-        System.out.println("GCD = " + a);
-    }
-}`,
-      },
-      {
-        name: '判断质数',
-        desc: 'Prime Check — O(√n)',
-        code: `public class PrimeCheck {
-    public static void main(String[] args) {
-        int n = 97;
-        boolean isPrime = n > 1;
-        // 只需检查到 √n
-        for (int i = 2; i * i <= n; i++) {
-            if (n % i == 0) {
-                isPrime = false;
-                break;
-            }
-        }
-        System.out.println(n + " is prime: " + isPrime);
-    }
-}`,
-      },
-      {
-        name: '快速幂',
-        desc: 'Fast Power — O(log n)',
-        code: `public class FastPow {
-    public static void main(String[] args) {
-        double x = 2.0;
-        int n = 10;
-        double result = myPow(x, n);
-        System.out.println(x + "^" + n + " = " + result);
-    }
-
-    static double myPow(double x, int n) {
-        long N = n;
-        if (N < 0) { x = 1 / x; N = -N; }
-        double ans = 1.0;
-        // 快速幂：二分指数
-        while (N > 0) {
-            if ((N & 1) == 1) ans *= x;  // 当前位为1则乘入
-            x *= x;                        // x 翻倍
-            N >>= 1;                       // 指数右移
-        }
-        return ans;
-    }
-}`,
-      },
-      {
-        name: '埃氏筛法',
-        desc: 'Sieve of Eratosthenes — O(n log log n)',
-        code: `public class CountPrimes {
-    public static void main(String[] args) {
-        int n = 30;
-        boolean[] isPrime = new boolean[n];
-        for (int i = 2; i < n; i++) isPrime[i] = true;
-        // 埃氏筛：标记所有合数
-        for (int i = 2; i * i < n; i++) {
-            if (isPrime[i]) {
-                for (int j = i * i; j < n; j += i) {
-                    isPrime[j] = false;
-                }
-            }
-        }
-        // 输出所有质数
-        for (int i = 2; i < n; i++) {
-            if (isPrime[i]) System.out.print(i + " ");
-        }
-    }
-}`,
-      },
-    ],
-  },
-
-  // ==================== 11. 贪心与思维 ====================
+  // ==================== 12. 贪心与思维 ====================
   {
     label: '贪心与思维',
     items: [
@@ -987,264 +1655,50 @@ const groups = [
     ],
   },
 
-  // ==================== 12. 链表 + 树 + 回溯 ====================
+  // ==================== 13. 位运算 ====================
   {
-    label: '链表、树与回溯',
+    label: '位运算',
     items: [
       {
-        name: '链表反转',
-        desc: 'Reverse Linked List — O(n)',
-        code: `public class ReverseList {
-    static class ListNode {
-        int val;
-        ListNode next;
-        ListNode(int v) { val = v; }
-    }
-
+        name: '只出现一次的数字',
+        desc: 'Single Number — 异或 XOR O(n)',
+        code: `public class SingleNumber {
     public static void main(String[] args) {
-        // 构建链表 1→2→3→4→5
-        ListNode head = new ListNode(1);
-        head.next = new ListNode(2);
-        head.next.next = new ListNode(3);
-        head.next.next.next = new ListNode(4);
-        head.next.next.next.next = new ListNode(5);
-        // 迭代反转
-        ListNode prev = null;
-        ListNode curr = head;
-        while (curr != null) {
-            ListNode next = curr.next; // 暂存下一个节点
-            curr.next = prev;          // 反转指针
-            prev = curr;               // 前移
-            curr = next;               // 前移
-        }
-        head = prev; // 新头节点
-    }
-}`,
-      },
-      {
-        name: '环形链表检测',
-        desc: 'Linked List Cycle — 快慢指针 O(n)',
-        code: `public class HasCycle {
-    static class ListNode {
-        int val;
-        ListNode next;
-        ListNode(int v) { val = v; }
-    }
-
-    public static void main(String[] args) {
-        // 构建带环链表 3→2→0→-4→2
-        ListNode head = new ListNode(3);
-        head.next = new ListNode(2);
-        head.next.next = new ListNode(0);
-        head.next.next.next = new ListNode(-4);
-        head.next.next.next.next = head.next; // 成环
-        // 快慢指针：快指针每次2步，慢指针每次1步
-        ListNode slow = head, fast = head;
-        boolean hasCycle = false;
-        while (fast != null && fast.next != null) {
-            slow = slow.next;
-            fast = fast.next.next;
-            if (slow == fast) {
-                hasCycle = true;
-                break;
-            }
-        }
-        System.out.println("has cycle: " + hasCycle);
-    }
-}`,
-      },
-      {
-        name: '二叉树遍历',
-        desc: 'Tree Traversal — 前/中/后序',
-        code: `public class TreeTraversal {
-    static class TreeNode {
-        int val;
-        TreeNode left, right;
-        TreeNode(int v) { val = v; }
-    }
-
-    public static void main(String[] args) {
-        // 构建二叉树：1 → left:2, right:3
-        TreeNode root = new TreeNode(1);
-        root.left = new TreeNode(2);
-        root.right = new TreeNode(3);
-        root.left.left = new TreeNode(4);
-        root.left.right = new TreeNode(5);
-        // 前序遍历：根→左→右
-        preorder(root);
-        System.out.println();
-        // 中序遍历：左→根→右
-        inorder(root);
-        System.out.println();
-        // 后序遍历：左→右→根
-        postorder(root);
-    }
-
-    static void preorder(TreeNode node) {
-        if (node == null) return;
-        System.out.print(node.val + " ");
-        preorder(node.left);
-        preorder(node.right);
-    }
-
-    static void inorder(TreeNode node) {
-        if (node == null) return;
-        inorder(node.left);
-        System.out.print(node.val + " ");
-        inorder(node.right);
-    }
-
-    static void postorder(TreeNode node) {
-        if (node == null) return;
-        postorder(node.left);
-        postorder(node.right);
-        System.out.print(node.val + " ");
-    }
-}`,
-      },
-      {
-        name: '全排列',
-        desc: 'Permutations — 回溯 O(n!)',
-        code: `public class Permutations {
-    public static void main(String[] args) {
-        int[] nums = {1, 2, 3};
-        boolean[] used = new boolean[nums.length];
-        java.util.List<Integer> path = new java.util.ArrayList<>();
-        backtrack(nums, used, path);
-    }
-
-    static void backtrack(int[] nums, boolean[] used,
-                          java.util.List<Integer> path) {
-        // 找到一个排列
-        if (path.size() == nums.length) {
-            System.out.println(path);
-            return;
-        }
-        for (int i = 0; i < nums.length; i++) {
-            if (used[i]) continue;
-            // 做选择
-            used[i] = true;
-            path.add(nums[i]);
-            backtrack(nums, used, path);
-            // 撤销选择（回溯）
-            path.remove(path.size() - 1);
-            used[i] = false;
-        }
-    }
-}`,
-      },
-      {
-        name: '子集',
-        desc: 'Subsets — 回溯 O(2ⁿ)',
-        code: `public class Subsets {
-    public static void main(String[] args) {
-        int[] nums = {1, 2, 3};
-        java.util.List<Integer> path = new java.util.ArrayList<>();
-        backtrack(nums, 0, path);
-    }
-
-    static void backtrack(int[] nums, int start,
-                          java.util.List<Integer> path) {
-        System.out.println(path);
-        for (int i = start; i < nums.length; i++) {
-            path.add(nums[i]);           // 选择
-            backtrack(nums, i + 1, path); // 递归
-            path.remove(path.size() - 1); // 回溯
-        }
-    }
-}`,
-      },
-    ],
-  },
-
-  // ==================== 13. 字符串 ====================
-  {
-    label: '字符串',
-    items: [
-      {
-        name: 'KMP字符串匹配',
-        desc: 'KMP — O(n+m)',
-        code: `public class KMP {
-    public static void main(String[] args) {
-        String text = "ababcabcabababd";
-        String pattern = "ababd";
-        int[] next = buildNext(pattern);
-        int j = 0; // pattern 指针
-        for (int i = 0; i < text.length(); i++) {
-            // 失配时根据 next 数组回退
-            while (j > 0 && text.charAt(i) != pattern.charAt(j)) {
-                j = next[j - 1];
-            }
-            if (text.charAt(i) == pattern.charAt(j)) j++;
-            if (j == pattern.length()) {
-                System.out.println("found at " + (i - j + 1));
-                j = next[j - 1];
-            }
-        }
-    }
-
-    static int[] buildNext(String p) {
-        int m = p.length();
-        int[] next = new int[m];
-        int j = 0; // 前缀末尾
-        for (int i = 1; i < m; i++) {
-            while (j > 0 && p.charAt(i) != p.charAt(j)) {
-                j = next[j - 1];
-            }
-            if (p.charAt(i) == p.charAt(j)) j++;
-            next[i] = j;
-        }
-        return next;
-    }
-}`,
-      },
-      {
-        name: '最长公共前缀',
-        desc: 'Longest Common Prefix — O(S)',
-        code: `public class LongestCommonPrefix {
-    public static void main(String[] args) {
-        String[] strs = {"flower", "flow", "flight"};
-        if (strs.length == 0) return;
-        String prefix = strs[0];
-        // 逐个比较，不断缩短前缀
-        for (int i = 1; i < strs.length; i++) {
-            while (strs[i].indexOf(prefix) != 0) {
-                prefix = prefix.substring(0, prefix.length() - 1);
-                if (prefix.isEmpty()) break;
-            }
-        }
-        System.out.println("prefix: " + prefix);
-    }
-}`,
-      },
-      {
-        name: '字符串转整数',
-        desc: 'String to Integer (atoi)',
-        code: `public class MyAtoi {
-    public static void main(String[] args) {
-        String s = "   -42 with words";
-        int i = 0, n = s.length();
-        // 跳过前导空格
-        while (i < n && s.charAt(i) == ' ') i++;
-        // 处理符号
-        int sign = 1;
-        if (i < n && (s.charAt(i) == '+' || s.charAt(i) == '-')) {
-            sign = (s.charAt(i) == '-') ? -1 : 1;
-            i++;
-        }
-        // 逐位解析数字
+        int[] nums = {4, 1, 2, 1, 2};
         int result = 0;
-        while (i < n && s.charAt(i) >= '0' && s.charAt(i) <= '9') {
-            int digit = s.charAt(i) - '0';
-            // 溢出检查
-            if (result > (Integer.MAX_VALUE - digit) / 10) {
-                result = (sign == 1) ? Integer.MAX_VALUE : Integer.MIN_VALUE;
-                break;
-            }
-            result = result * 10 + digit;
-            i++;
+        // a ^ a = 0, a ^ 0 = a
+        for (int num : nums) {
+            result ^= num;
         }
-        System.out.println("result: " + (result * sign));
+        System.out.println("single: " + result);
+    }
+}`,
+      },
+      {
+        name: '位1的个数',
+        desc: 'Number of 1 Bits — O(k)',
+        code: `public class HammingWeight {
+    public static void main(String[] args) {
+        int n = 11; // 二进制 1011
+        int count = 0;
+        // n & (n-1) 消除最低位的 1
+        while (n != 0) {
+            n = n & (n - 1);
+            count++;
+        }
+        System.out.println("1 bits: " + count);
+    }
+}`,
+      },
+      {
+        name: '2的幂',
+        desc: 'Power of Two — 位运算 O(1)',
+        code: `public class PowerOfTwo {
+    public static void main(String[] args) {
+        int n = 16;
+        // 2的幂的二进制只有1个1：10000 & 01111 = 0
+        boolean isPower = (n > 0) && ((n & (n - 1)) == 0);
+        System.out.println(n + " is power of 2: " + isPower);
     }
 }`,
       },

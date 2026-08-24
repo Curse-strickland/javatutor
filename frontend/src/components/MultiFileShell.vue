@@ -512,12 +512,6 @@ const onWindowResize = () => {
   opacity: 1;
   animation: wire-pulse 2s steps(2) infinite;
 }
-
-@keyframes wire-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.18; }
-}
-
 .right-card-body {
   padding: 12px;
   min-height: 0;

@@ -62,7 +62,7 @@ function findPrimaryIntArray(heap, stackFrames) {
       for (const [name, val] of Object.entries(bucket)) {
         if (TMP_ARRAY_PATTERN.test(name)) continue
         if (Array.isArray(val) && isNumericArray(val)) {
-          return { values: val.slice(), label: name }
+          return { values: val.slice(), label: name, id: name }
         }
       }
     }
@@ -92,7 +92,12 @@ function findPrimaryIntArray(heap, stackFrames) {
   ranked.sort((a, b) => b.score - a.score)
   if (!ranked.length) return null
   const best = ranked[0].arr
-  return { values: best.values.slice(), label: best.sourceVar || best.label || 'array' }
+  const heapKey = Object.keys(heap).find((k) => heap[k] === best || heap[k]?.id === best.id)
+  return {
+    values: best.values.slice(),
+    label: best.sourceVar || best.label || 'array',
+    id: best.id || heapKey || null,
+  }
 }
 
 /** Temp / aux buffer used by classic merge sort (`tmp` / `temp` / `aux`). */
@@ -155,6 +160,82 @@ function normalizeLoHi(pointers) {
   if (lo == null || hi == null) return null
   if (lo > hi) return { lo: hi, hi: lo }
   return { lo, hi }
+}
+
+/**
+ * Heap sort boundary: the `n` / `end` / `heapSize` of the live unsorted heap.
+ * Cells `[heapSize..length)` are the sorted tail.
+ * Returns null when no such variable exists or it is out of range.
+ */
+function findHeapSize(stackFrames, arrayLength) {
+  const HEAP_SIZE_NAMES = ['n', 'end', 'heapsize', 'heap_size', 'size', 'len']
+  for (let fi = (stackFrames || []).length - 1; fi >= 0; fi--) {
+    const frame = stackFrames[fi]
+    for (const bucket of [frame.args || {}, frame.locals || {}]) {
+      for (const name of Object.keys(bucket)) {
+        if (!HEAP_SIZE_NAMES.includes(name.toLowerCase())) continue
+        const val = bucket[name]
+        if (typeof val !== 'number' || !Number.isInteger(val)) continue
+        if (val < 0 || val > arrayLength) continue
+        return val
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Quicksort pivot detection.
+ * Locator precedence:
+ *   1. `pivotIndex` / `pivot_idx` (explicit integer index)
+ *   2. scan primary array for the first cell matching `pivot` value,
+ *      preferring matches at range edges `l`/`r` if the caller passes range.
+ * Returns null when no pivot variable exists or no cell can be located.
+ */
+function findPivot(stackFrames, values, range) {
+  if (!values || !values.length) return null
+
+  let pivotValue = null
+  let pivotIndexLoc = null
+
+  for (let fi = (stackFrames || []).length - 1; fi >= 0; fi--) {
+    const frame = stackFrames[fi]
+    for (const bucket of [frame.locals || {}, frame.args || {}]) {
+      for (const [name, val] of Object.entries(bucket)) {
+        const key = name.toLowerCase()
+        if (key === 'pivot' || key === 'pivotval' || key === 'pivot_value') {
+          if (typeof val === 'number' && Number.isFinite(val) && pivotValue == null) {
+            pivotValue = val
+          }
+        }
+        if (key === 'pivotindex' || key === 'pivot_idx' || key === 'pivotpos') {
+          if (typeof val === 'number' && Number.isInteger(val) && pivotIndexLoc == null) {
+            pivotIndexLoc = val
+          }
+        }
+      }
+    }
+  }
+
+  if (pivotIndexLoc != null && pivotIndexLoc >= 0 && pivotIndexLoc < values.length) {
+    return { value: pivotValue != null ? pivotValue : values[pivotIndexLoc], index: pivotIndexLoc }
+  }
+
+  if (pivotValue == null) return null
+
+  // Prefer edge matches inside current range so duplicate values don't
+  // light up a stale cell from a previous partition.
+  if (range && range.lo != null && range.hi != null) {
+    if (values[range.lo] === pivotValue) {
+      return { value: pivotValue, index: range.lo }
+    }
+    if (values[range.hi] === pivotValue) {
+      return { value: pivotValue, index: range.hi }
+    }
+  }
+  const idx = values.indexOf(pivotValue)
+  if (idx === -1) return null
+  return { value: pivotValue, index: idx }
 }
 
 function inferActiveIndex(mode, pointers) {
@@ -464,6 +545,11 @@ export function extractSortViz(heap, stackFrames, codeHint = '') {
 
   const range = normalizeLoHi(pointers)
   const activeIndex = inferActiveIndex(mode, pointers)
+  const pivot = findPivot(stackFrames, values, range)
+  const heapSize = mode === 'heap' ? findHeapSize(stackFrames, values.length) : null
+  const sortedRange = heapSize != null && heapSize < values.length
+    ? { lo: heapSize, hi: values.length - 1 }
+    : null
   const label = mode === 'array' && SHELL_PATTERN.test(`${methodAndHint} ${codeHint}`)
     ? '希尔：数组视图'
     : modeLabel(mode)
@@ -474,8 +560,12 @@ export function extractSortViz(heap, stackFrames, codeHint = '') {
     pointers,
     range,
     activeIndex,
+    pivot,
+    heapSize,
+    sortedRange,
     label,
     arrayLabel,
+    primaryArrayId: primary.id,
   }
 
   if (mode === 'merge-tree') {

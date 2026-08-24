@@ -555,4 +555,39 @@ describe('extractDataStructures — graph', () => {
     const { graphs } = extractDataStructures(heap, frames)
     expect(graphs).toEqual([])
   })
+
+  it('extracts max-flow container and attaches per-edge flow', () => {
+    const heap = {
+      'capacity$graph': {
+        id: '0x1234',
+        type: 'MaxFlow',
+        fields: {
+          capacity: {
+            '0': { '1': 16, '2': 13 },
+            '1': { '3': 12 },
+            '2': { '4': 14 },
+            '3': { '5': 20 },
+            '4': { '5': 4 },
+          },
+          flow: {
+            '0': { '1': 7, '2': 0 },
+            '1': { '3': 0 },
+          },
+          source: '0',
+          sink: '5',
+        },
+      },
+    }
+    const frames = [{ args: {}, locals: {} }]
+    const { graphs } = extractDataStructures(heap, frames)
+    expect(graphs).toHaveLength(1)
+    const graph = graphs[0]
+    expect(graph.kind).toBe('flow')
+    expect(graph.source).toBe('0')
+    expect(graph.sink).toBe('5')
+    const e01 = graph.edges.find((e) => e.from === '0' && e.to === '1')
+    expect(e01).toMatchObject({ weight: 16, flow: 7 })
+    const e02 = graph.edges.find((e) => e.from === '0' && e.to === '2')
+    expect(e02).toMatchObject({ weight: 13, flow: 0 })
+  })
 })

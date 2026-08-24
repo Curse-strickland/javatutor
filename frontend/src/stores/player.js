@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -35,7 +36,10 @@ export const usePlayerStore = defineStore('player', {
     methodName: '',
     methodSignature: '',
     // File upload state
-    rightTab: 'variables',
+    rightTab: 'datastructure',
+    // 算法教程提示弹窗（右下角）与知识库跳转目标
+    tutorialToast: { visible: false, categoryId: null, anchorId: null, title: '' },
+    knowledgeNav: { categoryId: null, anchorId: null, nonce: 0 },
     pendingFiles: [],
     uploadHistory: (() => {
       try { return JSON.parse(localStorage.getItem('javatutor-uploads')) || [] }
@@ -158,6 +162,7 @@ export const usePlayerStore = defineStore('player', {
         this.runId = data.runId
         this.output = data.output || ''
         this.currentStep = 0
+        this.maybeShowTutorialToast()
         if (data.methodName) this.methodName = data.methodName
         if (data.methodSignature) this.methodSignature = data.methodSignature
         // 多文件：后端返回入口类源码，供流程/算法/动画/问答沿用单文件接口
@@ -406,7 +411,7 @@ export const usePlayerStore = defineStore('player', {
     // --- File upload actions ---
 
     switchRightTab(tab) {
-      const allowed = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor', 'animate']
+      const allowed = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor']
       if (allowed.includes(tab)) this.rightTab = tab
     },
 
@@ -538,6 +543,44 @@ export const usePlayerStore = defineStore('player', {
       this.error = null
       this.output = ''
       this.runId = null
+    },
+
+    // --- 算法教程提示弹窗 ---
+
+    /** 从当前运行的所有步骤中（从末步往前）识别一个知识库目标（分类 + 可选算法小节）。 */
+    detectRunCategory() {
+      for (let i = this.steps.length - 1; i >= 0; i--) {
+        const target = detectTutorialCategory(this.steps[i], this.steps[i - 1] || null, this.code)
+        if (target) return target
+      }
+      return null
+    },
+
+    /** 运行成功后调用：识别到算法就显示右下角弹窗，否则复位。 */
+    maybeShowTutorialToast() {
+      const target = this.detectRunCategory()
+      if (target) {
+        this.tutorialToast = {
+          visible: true,
+          categoryId: target.categoryId,
+          anchorId: target.anchorId,
+          title: target.title,
+        }
+      } else {
+        this.tutorialToast = { visible: false, categoryId: null, anchorId: null, title: '' }
+      }
+    },
+
+    /** × 关闭当前提示（下次运行仍会重新出现）。 */
+    dismissTutorialToast() {
+      this.tutorialToast.visible = false
+    },
+
+    /** 点击弹窗：切到「算法库」标签并定位到对应分类/算法小节。 */
+    openTutorial(categoryId, anchorId) {
+      this.switchRightTab('algorithm')
+      this.knowledgeNav = { categoryId, anchorId, nonce: this.knowledgeNav.nonce + 1 }
+      this.tutorialToast.visible = false
     },
   }
 })

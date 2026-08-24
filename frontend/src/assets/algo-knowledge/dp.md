@@ -2,6 +2,8 @@
 
 动态规划把原问题拆成**重叠子问题**，用表格或滚动数组存子问题最优解，避免指数级重复计算。
 
+> **推荐链接**：[菜鸟教程 · 动态规划基础](https://www.runoob.com/data-structures/dsa-dynamic-programming.html)
+
 ## 核心思想
 
 1. **最优子结构**：全局最优由子问题最优组合得到
@@ -34,4 +36,4 @@ for (Item it : items)
 
 ---
 
-> 本文为 JavaTutor 项目原创教学摘要。延伸阅读：[oi.wiki 动态规划](https://oi.wiki/dp/)，遵循 **CC-BY-SA** 协议。
+> 本文为 JavaTutor 项目原创教学摘要。

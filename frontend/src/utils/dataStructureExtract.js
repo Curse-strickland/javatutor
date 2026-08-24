@@ -864,6 +864,18 @@ function parseCapacityMatrix(matrix, edgeMap, directed) {
   }
 }
 
+/** 将 fields.flow（from → to → 流量值）附加到对应边的 edge.flow。 */
+function attachFlowToEdges(edges, flow) {
+  if (!flow || typeof flow !== 'object') return
+  for (const edge of edges) {
+    const row = flow[edge.from]
+    if (!row || typeof row !== 'object') continue
+    const f = row[edge.to]
+    if (f === null || f === undefined) continue
+    edge.flow = f
+  }
+}
+
 function collectGraphNodeIds(edgeMap) {
   const ids = new Set()
   for (const edge of edgeMap.values()) {
@@ -967,6 +979,7 @@ function extractGraphs(heap, stackFrames) {
     })
 
     const edges = [...edgeMap.values()]
+    if (fields.flow) attachFlowToEdges(edges, fields.flow)
 
     graphs.push({
       id,
