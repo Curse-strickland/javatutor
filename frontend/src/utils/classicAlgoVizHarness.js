@@ -8,6 +8,7 @@
  */
 import { extractDataStructures } from './dataStructureExtract.js'
 import { extractSortViz } from './sortVizExtract.js'
+import { extractKmpViz } from './kmpVizExtract.js'
 
 export function intArrayStep(values, varName = 'arr', localsExtra = {}, method = 'main') {
   return {
@@ -95,24 +96,53 @@ export function treeStep(spec, { rootName = 'root', pointers = {} } = {}) {
   }
 }
 
+export function kmpStep({ text, pattern, next, i, j, mode = 'matching' }) {
+  const heap = {
+    next: {
+      id: 'next',
+      type: `int[${next.length}]`,
+      name: 'next',
+      length: next.length,
+      slots: next.map((v, idx) => ({ index: idx, value: v })),
+    },
+  }
+  const mainFrame = {
+    method: 'main',
+    args: {},
+    locals: { text, pattern, next: next.slice(), i, j },
+  }
+  const stackFrames = [mainFrame]
+  if (mode === 'next-build') {
+    stackFrames.push({
+      method: 'buildNext',
+      args: { p: pattern },
+      locals: { p: pattern, next: next.slice(), i, j },
+    })
+  }
+  return { heap, stackFrames }
+}
+
 /**
  * Mirror of DataStructureTab recognition pipeline.
  */
 export function recognizePresetStep(heap, stackFrames, code = '') {
   const ds = extractDataStructures(heap, stackFrames)
   const sortViz = extractSortViz(heap, stackFrames, code)
+  const kmpViz = extractKmpViz(heap, stackFrames, code)
   return {
     linkedLists: ds.linkedLists,
     arrays: ds.arrays,
     trees: ds.trees,
     graphs: ds.graphs,
     sortViz,
+    kmpViz,
     badges: {
       linkedLists: ds.linkedLists.length,
       arrays: ds.arrays.length,
       trees: ds.trees.length,
       graphs: ds.graphs.length,
       sort: sortViz ? 1 : 0,
+      kmp: kmpViz ? 1 : 0,
     },
   }
 }
@@ -307,6 +337,22 @@ export const classicVizCases = [
     },
   },
   {
+    name: 'KMP字符串匹配',
+    fingerprint: 'String text = "ababcabcabababd";',
+    build: () => kmpStep({
+      text: 'ababcabcabababd',
+      pattern: 'ababd',
+      next: [0, 0, 1, 2, 0],
+      i: 4,
+      j: 2,
+      mode: 'matching',
+    }),
+    expect: {
+      badges: { arrays: 1, linkedLists: 0, trees: 0, graphs: 0, kmp: 1 },
+      kmpMode: 'matching',
+    },
+  },
+  {
     name: '最大子数组和',
     fingerprint: 'int[] nums = {-2, 1, -3, 4, -1, 2, 1, -5, 4};',
     // No index pointers → should be array DS only, not sort viz
@@ -368,7 +414,7 @@ export const classicVizCases = [
 export function assertRecognition(result, expectSpec) {
   const {
     badges, sortMode, arrayValues, matrix, listValues, treeNodeCount,
-    mergeLevelsMin, mergePhase, pointers, treeRootOn, treeCurOn,
+    mergeLevelsMin, mergePhase, pointers, treeRootOn, treeCurOn, kmpMode,
   } = expectSpec
 
   if (badges) {
@@ -383,6 +429,17 @@ export function assertRecognition(result, expectSpec) {
     if (!result.sortViz) throw new Error(`expected sortMode=${sortMode}, got null`)
     if (result.sortViz.mode !== sortMode) {
       throw new Error(`expected sortMode=${sortMode}, got ${result.sortViz.mode}`)
+    }
+  }
+
+  if (kmpMode === null) {
+    if (result.kmpViz !== null) {
+      throw new Error(`expected no kmpViz, got mode=${result.kmpViz.mode}`)
+    }
+  } else if (kmpMode != null) {
+    if (!result.kmpViz) throw new Error(`expected kmpMode=${kmpMode}, got null`)
+    if (result.kmpViz.mode !== kmpMode) {
+      throw new Error(`expected kmpMode=${kmpMode}, got ${result.kmpViz.mode}`)
     }
   }
 

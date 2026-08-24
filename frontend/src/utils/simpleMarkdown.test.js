@@ -36,15 +36,18 @@ describe('renderSimpleMarkdown', () => {
     expect(html).toContain('<strong>重点</strong>')
     expect(html).toContain('<ul>')
     expect(html).toContain('<li>第一项</li>')
-    expect(html).toContain('<pre class="sm-code" data-lang="java"><code>int x = 1;</code></pre>')
+    expect(html).toContain('<div class="sm-code" data-lang="java">')
+    expect(html).toContain('<span class="sm-code-lang">java</span>')
+    expect(html).toContain('class="sm-code-copy"')
+    expect(html).toContain('<pre class="sm-code-body"><code><span class="tok-keyword">int</span> x = <span class="tok-number">1</span>;</code></pre>')
     expect(html).not.toContain('```java')
   })
 
   it('renders fenced java blocks when source uses CRLF (Windows)', () => {
     const md = '## 冒泡\r\n\r\n```java\r\nfor (int i = 0; i < n; i++) {}\r\n```\r\n'
     const html = renderSimpleMarkdown(md)
-    expect(html).toContain('<pre class="sm-code" data-lang="java">')
-    expect(html).toContain('for (int i = 0; i &lt; n; i++) {}')
+    expect(html).toContain('<div class="sm-code" data-lang="java">')
+    expect(html).toContain('<span class="tok-keyword">for</span> (<span class="tok-keyword">int</span> i = <span class="tok-number">0</span>; i &lt; n; i++) {}')
     expect(html).not.toContain('```java')
   })
 
