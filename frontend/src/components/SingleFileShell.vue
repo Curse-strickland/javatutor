@@ -614,8 +614,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
   background: var(--editor-header-bg);
 }
-.editor-card-header::after,
-.right-card-header::after {
+.editor-card-header::after {
   content: '';
   position: absolute;
   left: 16px;
