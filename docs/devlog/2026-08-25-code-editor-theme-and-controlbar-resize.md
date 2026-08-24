@@ -32,6 +32,10 @@
 - 拖拽调整宽度，最小宽度为原始内容宽（只能拖大不能拖小），上限不超出窗口。
 - 单文件（`SingleFileShell`）与多文件（`ControlBar`）两套运行栏同步修改。
 
+### 3. 删除 INSPECT 卡头蓝线（`SingleFileShell.vue` + `MultiFileShell.vue`）
+
+移除右侧 INSPECT 卡头底部的 88px×2px accent 下划线（`.right-card-header::after`），编辑区卡头（`.editor-card-header::after`）的下划线保留。
+
 ## 验证结果
 
 | 门槛 | 命令 | 结果 |
