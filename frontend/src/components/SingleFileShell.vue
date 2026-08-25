@@ -114,7 +114,7 @@
     ref="controlBarRef"
     class="control-bar"
     :class="{ 'has-panel': store.explainExpanded }"
-    :style="{ left: barPos.x + 'px', top: barPos.y + 'px' }"
+    :style="{ left: barPos.x + 'px', top: barPos.y + 'px', width: barWidth ? barWidth + 'px' : undefined }"
     @pointerdown.stop
   >
     <!-- AI Tutor 面板 — 从控制栏上方滑出 -->
@@ -214,6 +214,11 @@
           </transition>
         </div>
       </div>
+    </div>
+
+    <!-- 右边缘：左右拖拽调整宽度 -->
+    <div class="resize-handle" @pointerdown.prevent="startResize" title="左右拖拽调整宽度">
+      <span class="resize-grip" />
     </div>
   </div>
 </template>
@@ -325,6 +330,36 @@ const onBarUp = () => {
   barDragging.value = false
   document.body.style.userSelect = ''
   window.removeEventListener('pointermove', onBarMove)
+}
+
+// --- 运行栏宽度调整（左右拖拽，只能拖大不能拖小）---
+const barWidth = ref(null)  // null = 自适应内容宽
+const minBarWidth = ref(null)  // 原始长度作为最小宽度
+const resizing = ref(false)
+let resizeStartX = 0
+let resizeStartW = 0
+
+const startResize = (e) => {
+  resizing.value = true
+  const barEl = controlBarRef.value
+  resizeStartW = barEl ? barEl.offsetWidth : 520
+  if (minBarWidth.value == null) minBarWidth.value = resizeStartW
+  resizeStartX = e.clientX
+  document.body.style.userSelect = 'none'
+  window.addEventListener('pointermove', onResizeMove)
+  window.addEventListener('pointerup', onResizeUp, { once: true })
+}
+const onResizeMove = (e) => {
+  if (!resizing.value) return
+  const dx = e.clientX - resizeStartX
+  const maxW = window.innerWidth - 40
+  const minW = minBarWidth.value ?? 380
+  barWidth.value = Math.max(minW, Math.min(resizeStartW + dx, maxW))
+}
+const onResizeUp = () => {
+  resizing.value = false
+  document.body.style.userSelect = ''
+  window.removeEventListener('pointermove', onResizeMove)
 }
 
 // 进度条百分比
@@ -444,6 +479,9 @@ const onWindowResize = () => {
     const maxY = window.innerHeight - barEl.offsetHeight
     if (barPos.value.x > maxX) barPos.value.x = Math.max(0, maxX)
     if (barPos.value.y > maxY) barPos.value.y = Math.max(0, maxY)
+  }
+  if (barWidth.value != null) {
+    barWidth.value = Math.min(barWidth.value, window.innerWidth - 40)
   }
 }
 
@@ -576,8 +614,7 @@ watch(() => store.currentStep, (newVal, oldVal) => {
   position: relative;
   background: var(--editor-header-bg);
 }
-.editor-card-header::after,
-.right-card-header::after {
+.editor-card-header::after {
   content: '';
   position: absolute;
   left: 16px;
@@ -958,6 +995,29 @@ watch(() => store.currentStep, (newVal, oldVal) => {
 }
 .drag-handle:active {
   cursor: grabbing;
+}
+
+/* Resize handle（右边缘左右拖拽调整宽度） */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  color: var(--accent);
+  z-index: 3;
+}
+.resize-grip {
+  display: block;
+  width: 3px;
+  height: 28px;
+  background: currentColor;
+  opacity: 0.6;
+  border-radius: 0;
 }
 
 /* Button groups */

@@ -129,6 +129,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/devlog/2026-08-18-multi-file-project-run-merge.md` | 多文件项目运行分支合入 main：测试签名同步 + 合并冲突解决开发日志 |
 | `docs/devlog/2026-08-23-execution-snapshot-api.md` | 执行快照 API 开发日志（run 保存快照 + 带 token 查询 + Coze payload 瘦身） |
 | `docs/reviews/2026-08-23-execution-snapshot-api-review.md` | 执行快照 API 实现 review |
+| `docs/devlog/2026-08-25-code-editor-theme-and-controlbar-resize.md` | 代码区蓝黑配色 + 运行栏左右拖拽调宽开发日志 |
 | `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review（含整改复验） |
 | `docs/reviews/2026-08-15-javatutor-branch-audit-review.md` | 旧分支整合审查 review |
 | `docs/old/` | 归档的旧文档（`sandbox-design` 等，仅历史参考） |
