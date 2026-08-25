@@ -7,6 +7,7 @@ import com.javatutor.sandbox.SafeSecurityManager;
 import com.javatutor.model.RunRequest;
 import com.javatutor.model.RunResponse;
 import com.javatutor.model.SourceFile;
+import com.javatutor.service.ExecutionSnapshotService;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
@@ -27,6 +28,11 @@ import java.util.regex.Matcher;
 public class RunController {
     private final Instrumenter instrumenter = new Instrumenter();
     private final InMemoryCompiler compiler = new InMemoryCompiler();
+    private final ExecutionSnapshotService executionSnapshotService;
+
+    public RunController(ExecutionSnapshotService executionSnapshotService) {
+        this.executionSnapshotService = executionSnapshotService;
+    }
 
     private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
@@ -539,7 +545,9 @@ public class RunController {
             if (launcherCode != null) sources.put("Launcher", launcherCode);
 
             String entryClassName = (launcherCode != null) ? "Launcher" : className;
-            return compileAndRun(sources, entryClassName, runId, methodName, methodSignature);
+            RunResponse response = compileAndRun(sources, entryClassName, runId, methodName, methodSignature);
+            executionSnapshotService.saveRunSnapshot(response, userCode, List.of());
+            return response;
 
         } catch(Exception e){
             return failFromException(e);
@@ -580,7 +588,9 @@ public class RunController {
             if (!sources.containsKey(entryClassName))
                 return RunResponse.fail("入口类「" + entryClassName + "」不在上传的文件中");
 
-            return compileAndRun(sources, entryClassName, runId, null, null);
+            RunResponse response = compileAndRun(sources, entryClassName, runId, null, null);
+            executionSnapshotService.saveRunSnapshot(response, request.getCode() == null ? "" : request.getCode(), List.of());
+            return response;
 
         } catch(Exception e){
             return failFromException(e);

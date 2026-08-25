@@ -45,6 +45,43 @@
              && !apiToken.startsWith("${");
      }
 
+     /** 构造发给 Coze 的 agentPayload：有 runId 时走最小 envelope，否则回退旧完整 payload。 */
+     Map<String, Object> buildAgentPayload(String sourceCode,
+                                           List<Map<String, Object>> steps,
+                                           int currentStepIndex,
+                                           int currentLine,
+                                           String userQuestion,
+                                           String compileError,
+                                           String sessionId,
+                                           String intent,
+                                           List<String> algorithmTags,
+                                           String runId) {
+         Map<String, Object> agentPayload = new LinkedHashMap<>();
+         if (runId != null && !runId.isBlank()) {
+             agentPayload.put("run_id", runId);
+             agentPayload.put("session_id", sessionId != null ? sessionId : "");
+             agentPayload.put("user_question", userQuestion != null ? userQuestion : "");
+             agentPayload.put("intent", intent != null ? intent : "");
+             agentPayload.put("compile_error", compileError != null ? compileError : "");
+             return agentPayload;
+         }
+
+         agentPayload.put("source_code", sourceCode);
+         agentPayload.put("steps", steps != null ? steps : List.of());
+         agentPayload.put("current_step_index", currentStepIndex);
+         agentPayload.put("current_line", currentLine);
+         agentPayload.put("user_question", userQuestion != null ? userQuestion : "");
+         agentPayload.put("user_id", sessionId != null ? sessionId : "");
+         agentPayload.put("compile_error", compileError != null ? compileError : "");
+         if (intent != null && !intent.isBlank()) {
+             agentPayload.put("intent", intent);
+         }
+         if (algorithmTags != null && !algorithmTags.isEmpty()) {
+             agentPayload.put("algorithm_tags", algorithmTags);
+         }
+         return agentPayload;
+     }
+
      public void streamExplain(String sourceCode,
                                List<Map<String, Object>> steps,
                                int currentStepIndex,
@@ -54,6 +91,7 @@
                                String sessionId,
                                String intent,
                                List<String> algorithmTags,
+                               String runId,
                                Consumer<String> onChunk,
                                Consumer<String> onStage) throws Exception {
 
@@ -63,21 +101,18 @@
 
          long startMs = System.currentTimeMillis();
 
-         Map<String, Object> agentPayload = new LinkedHashMap<>();
-         agentPayload.put("source_code", sourceCode);
-         agentPayload.put("steps", steps != null ? steps : List.of());
-         agentPayload.put("current_step_index", currentStepIndex);
-         agentPayload.put("current_line", currentLine);
-         agentPayload.put("user_question", userQuestion != null ? userQuestion : "");
-         agentPayload.put("user_id", sessionId);
-         agentPayload.put("compile_error", compileError != null ? compileError : "");
-
-         if (intent != null && !intent.isBlank()) {
-             agentPayload.put("intent", intent);
-         }
-         if (algorithmTags != null && !algorithmTags.isEmpty()) {
-             agentPayload.put("algorithm_tags", algorithmTags);
-         }
+         Map<String, Object> agentPayload = buildAgentPayload(
+             sourceCode,
+             steps,
+             currentStepIndex,
+             currentLine,
+             userQuestion,
+             compileError,
+             sessionId,
+             intent,
+             algorithmTags,
+             runId
+         );
 
          String agentJson = objectMapper.writeValueAsString(agentPayload);
 
@@ -174,7 +209,7 @@
                                    String intent) throws Exception {
         StringBuilder sb = new StringBuilder();
         streamExplain(sourceCode, null, currentStepIndex, currentLine,
-            userQuestion, null, sessionId, intent, null, sb::append, null);
+            userQuestion, null, sessionId, intent, null, null, sb::append, null);
         return sb.toString();
      }
 
@@ -189,7 +224,7 @@
                                             List<String> algorithmTags) throws Exception {
         StringBuilder sb = new StringBuilder();
         streamExplain(sourceCode, steps, currentStepIndex, currentLine,
-            userQuestion, null, sessionId, intent, algorithmTags, sb::append, null);
+            userQuestion, null, sessionId, intent, algorithmTags, null, sb::append, null);
         return sb.toString();
      }
  }
