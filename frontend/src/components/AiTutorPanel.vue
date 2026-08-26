@@ -46,10 +46,16 @@
           <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
           <div v-else class="chat-bubble assistant">
             <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
-            <!-- 流式累积期间保持 markdown 渲染，避免未完成的【决策痕迹】JSON 闪烁；
-                 回答结束后整条消息交给 DecisionTracePanel 解析展示 -->
-            <span v-else-if="store.isExplaining" v-html="renderMarkdown(m.text)"></span>
-            <DecisionTracePanel v-else :content="m.text" />
+            <!-- 流式期间直接渲染累积 markdown，避免未完成的【决策痕迹】JSON 闪烁；
+                 结束后交给 DecisionTracePanel 解析正文+决策痕迹，并叠加编辑建议卡片 -->
+            <template v-else>
+              <DecisionTracePanel v-if="!store.isExplaining" :content="m.text" />
+              <span v-else v-html="renderMarkdown(m.text)"></span>
+              <EditSuggestionCard
+                v-if="parsedMessages[i].edits.length && !store.isExplaining"
+                :edits="parsedMessages[i].edits"
+              />
+            </template>
           </div>
         </div>
         <div v-if="store.isExplaining && store.explainStage" class="chat-stage">
@@ -160,8 +166,10 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { usePlayerStore } from '../stores/player'
+import EditSuggestionCard from './EditSuggestionCard.vue'
+import { parseAssistantMessage } from '../utils/editSuggestion'
 
 import { renderMarkdown } from '../utils/markdown.js'
 import DecisionTracePanel from './DecisionTracePanel.vue'
@@ -172,12 +180,19 @@ defineProps({
 })
 
 const store = usePlayerStore()
+
+// assistant 消息解析：剥离【决策痕迹】/【编辑建议】块（流式中途 JSON 不完整时自动按正文展示）
+const parsedMessages = computed(() =>
+  store.chatMessages.map((m) =>
+    m.role === 'assistant' ? parseAssistantMessage(m.text) : { body: m.text, edits: [] },
+  ),
+)
+
 const chatBodyRef = ref(null)
 const chatInput = ref('')
 let chatResizeObserver = null
 
 onMounted(() => {
-  if (store.activeAiTab === 'animate') store.activeAiTab = 'explain'
   // Streamed markdown may grow without a new array entry — keep pinned to bottom
   if (typeof ResizeObserver !== 'undefined') {
     chatResizeObserver = new ResizeObserver(() => scrollChatToBottom())

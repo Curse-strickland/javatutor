@@ -86,6 +86,27 @@ describe('layoutLinkedList', () => {
       y: baseY + 1 * (nodeH + gapY),
     })
   })
+
+  it('gives each detached singleton (no _frag) its own row below the wrapped main chain', () => {
+    const nodes = [
+      { id: 'A' },
+      { id: 'B' },
+      { id: 'C' },
+      { id: 'N1', _detached: true },
+      { id: 'N2', _detached: true },
+    ]
+    const { nodeH, gapY, baseY } = DEFAULTS
+
+    const result = layoutLinkedList(nodes)
+
+    // main chain (A,B,C) on one row — wraps every 3
+    expect(result.positions.A.y).toBe(baseY)
+    expect(result.positions.B.y).toBe(baseY)
+    expect(result.positions.C.y).toBe(baseY)
+    // each detached singleton gets its own row below, not sharing
+    expect(result.positions.N1.y).toBe(baseY + 1 * (nodeH + gapY))
+    expect(result.positions.N2.y).toBe(baseY + 2 * (nodeH + gapY))
+  })
 })
 
 describe('buildLinkedListArrowPaths', () => {

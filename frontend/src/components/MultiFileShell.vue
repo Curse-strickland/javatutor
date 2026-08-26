@@ -62,7 +62,6 @@
         <button class="right-tab" :class="{ active: activeTab === 'datastructure' }" @click="switchTab('datastructure')">数据结构</button>
         <button class="right-tab" :class="{ active: activeTab === 'algorithm' }" @click="switchTab('algorithm')">算法</button>
         <button class="right-tab" :class="{ active: activeTab === 'tutor' }" @click="switchTab('tutor')">问答</button>
-        <button class="right-tab" :class="{ active: activeTab === 'animate' }" @click="switchTab('animate')">动画</button>
         <button class="right-tab" :class="{ active: activeTab === 'uml-flow' }" @click="switchTab('uml-flow')">调用关系</button>
         <button class="right-tab" :class="{ active: activeTab === 'uml-dataflow' }" @click="switchTab('uml-dataflow')">数据流</button>
         <button class="right-tab" :class="{ active: activeTab === 'uml-structure' }" @click="switchTab('uml-structure')">结构</button>
@@ -88,9 +87,6 @@
         </div>
         <div v-show="activeTab === 'tutor'" class="right-pane right-pane-fill">
           <AiTutorPanel embedded />
-        </div>
-        <div v-show="activeTab === 'animate'" class="right-pane">
-          <SvgAnimatePanel />
         </div>
         <div v-show="activeTab === 'uml-flow'" class="right-pane">
           <FlowDiagramPanel />
@@ -128,7 +124,6 @@ import ControlFlowPanel from './ControlFlowPanel.vue'
 import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
-import SvgAnimatePanel from './SvgAnimatePanel.vue'
 import UmlPanel from './UmlPanel.vue'
 import FlowDiagramPanel from './FlowDiagramPanel.vue'
 import ClassDiagramPanel from './ClassDiagramPanel.vue'

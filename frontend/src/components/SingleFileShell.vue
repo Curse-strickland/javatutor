@@ -67,14 +67,24 @@
       <div class="right-card-header">
         <span class="rc-dot" />
         <span class="panel-kicker">INSPECT</span>
-        <button class="right-tab" :class="{ active: store.rightTab === 'variables' }" @click="store.switchRightTab('variables')">变量</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'flow' }" @click="store.switchRightTab('flow')">流程</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'datastructure' }" @click="store.switchRightTab('datastructure')">数据结构</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'algorithm' }" @click="store.switchRightTab('algorithm')">算法</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'tutor' }" @click="store.switchRightTab('tutor')">问答</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'animate' }" @click="store.switchRightTab('animate')">动画</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'observe' }" @click="switchGroup('observe')">Observe</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'learn' }" @click="switchGroup('learn')">Learn</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'ask' }" @click="switchGroup('ask')">Ask</button>
         <!-- 壁纸选择器 -->
         <WallpaperSelector />
+        <div class="right-subtab-row">
+          <template v-if="rightGroup === 'observe'">
+            <button class="right-tab" :class="{ active: store.rightTab === 'datastructure' }" @click="store.switchRightTab('datastructure')">数据结构</button>
+            <button class="right-tab" :class="{ active: store.rightTab === 'flow' }" @click="store.switchRightTab('flow')">流程</button>
+            <button class="right-tab" :class="{ active: store.rightTab === 'variables' }" @click="store.switchRightTab('variables')">内存状态</button>
+          </template>
+          <template v-else-if="rightGroup === 'learn'">
+            <button class="right-tab active" @click="store.switchRightTab('algorithm')">算法库</button>
+          </template>
+          <template v-else>
+            <button class="right-tab active" @click="store.switchRightTab('tutor')">agent</button>
+          </template>
+        </div>
       </div>
       <div class="flex-1 right-card-body" :class="{ 'body-fill': store.rightTab === 'tutor' }">
         <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
@@ -94,20 +104,127 @@
         <div v-show="store.rightTab === 'tutor'" class="right-pane right-pane-fill">
           <AiTutorPanel embedded />
         </div>
-        <div v-show="store.rightTab === 'animate'" class="right-pane">
-          <SvgAnimatePanel />
-        </div>
       </div>
     </div>
 
   </div>
 
-  <!-- 底部控制栏：浮动可拖动，默认位于编辑区下方居中 -->
-  <ControlBar mode="single" @run-single="runCode" />
+  <!-- 底部控制栏：浮动可拖动，默认位于编辑区底部 -->
+  <div
+    ref="controlBarRef"
+    class="control-bar"
+    :class="{ 'has-panel': store.explainExpanded }"
+    :style="{ left: barPos.x + 'px', top: barPos.y + 'px', width: barWidth ? barWidth + 'px' : undefined }"
+    @pointerdown.stop
+  >
+    <!-- AI Tutor 面板 — 从控制栏上方滑出 -->
+    <transition name="panel-slide">
+      <div v-if="store.explainExpanded" class="ai-panel-wrapper">
+        <AiTutorPanel />
+      </div>
+    </transition>
+
+    <!-- 控件行：拖动句柄 + 播放按钮 + 进度条 + 右侧按钮组 -->
+    <div class="control-bar-top">
+      <!-- 拖动手柄 -->
+      <div class="drag-handle" @pointerdown.prevent="startBarDrag" title="拖动控制栏">
+        <svg viewBox="0 0 16 24" width="10" height="16" fill="currentColor" opacity="0.4">
+          <circle cx="4" cy="4" r="1.5"/>
+          <circle cx="12" cy="4" r="1.5"/>
+          <circle cx="4" cy="12" r="1.5"/>
+          <circle cx="12" cy="12" r="1.5"/>
+          <circle cx="4" cy="20" r="1.5"/>
+          <circle cx="12" cy="20" r="1.5"/>
+        </svg>
+      </div>
+
+      <!-- 播放控制按钮组 -->
+      <div class="ctrl-btn-group">
+        <button class="ctrl-btn" @click="store.goToFirst" title="跳到第一步" :disabled="store.totalSteps === 0">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+            <path d="M5 5v14" />
+            <path d="M19 5l-10 7 10 7V5z" />
+          </svg>
+        </button>
+        <button class="ctrl-btn" @click="store.prevStep" title="上一步" :disabled="store.currentStep <= 0">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+            <path d="M15.5 5L7 12l8.5 7V5z" />
+          </svg>
+        </button>
+        <button class="ctrl-btn run-btn" @click="runCode" :disabled="store.isLoading" title="运行代码">
+          <svg v-if="!store.isLoading" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M7 4.2v15.6L19.5 12 7 4.2z" />
+          </svg>
+          <svg v-else class="spin" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75">
+            <circle cx="12" cy="12" r="8.5" stroke-dasharray="40" stroke-dashoffset="12" />
+          </svg>
+        </button>
+        <button class="ctrl-btn" @click="store.nextStep" title="下一步" :disabled="store.currentStep >= store.totalSteps - 1">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+            <path d="M8.5 5L17 12l-8.5 7V5z" />
+          </svg>
+        </button>
+        <button class="ctrl-btn" @click="store.goToLast" title="跳到最后" :disabled="store.totalSteps === 0">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+            <path d="M5 5l10 7-10 7V5z" />
+            <path d="M19 5v14" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- 进度条 -->
+      <div class="progress-wrapper" ref="progressRef">
+        <div class="progress-track" @click="onProgressClick">
+          <div class="progress-fill" :style="{ width: progressPercent + '%' }"/>
+          <div
+            class="progress-thumb"
+            :style="{ left: progressPercent + '%' }"
+            @pointerdown.stop="startProgressDrag"
+          />
+        </div>
+        <div class="progress-label">
+          {{ displayStep }}
+        </div>
+      </div>
+
+      <!-- 右侧：自动播放 + 速度 + AI -->
+      <div class="ctrl-right-group">
+        <button class="ctrl-btn" @click="toggleAutoPlay" :title="isAutoPlaying ? '暂停自动播放' : '开始自动播放'" :disabled="store.totalSteps === 0">
+          <svg v-if="isAutoPlaying" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="miter">
+            <path d="M8 5.2v13.6L18.5 12 8 5.2z" />
+          </svg>
+        </button>
+        <!-- 自定义速度选择器 -->
+        <div class="speed-picker" ref="speedPickerRef">
+          <button class="ctrl-btn speed-btn" @click="toggleSpeedMenu" title="播放速度">
+            <span class="speed-label">{{ speedLabel }}</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" :style="{ transform: speedOpen ? 'rotate(180deg)' : '', transition: 'transform 0.25s ease' }">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <transition name="speed-drop">
+            <div v-if="speedOpen" class="speed-menu">
+              <button v-for="opt in speedOptions" :key="opt.value"
+                class="speed-option" :class="{ active: speed === opt.value }"
+                @click="selectSpeed(opt.value)">{{ opt.label }}</button>
+            </div>
+          </transition>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右边缘：左右拖拽调整宽度 -->
+    <div class="resize-handle" @pointerdown.prevent="startResize" title="左右拖拽调整宽度">
+      <span class="resize-grip" />
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import MemoryPanel from './MemoryPanel.vue'
@@ -119,12 +236,28 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import TestCasePanel from './TestCasePanel.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
-import SvgAnimatePanel from './SvgAnimatePanel.vue'
-import ControlBar from './ControlBar.vue'
 
 const store = usePlayerStore()
+// 右侧两级标签：store.rightTab 仍是唯一状态源，顶层组由它派生
+const GROUP_OF_TAB = {
+  datastructure: 'observe',
+  flow: 'observe',
+  variables: 'observe',
+  algorithm: 'learn',
+  tutor: 'ask',
+}
+const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
+const rightGroup = computed(() => GROUP_OF_TAB[store.rightTab] || 'observe')
+const switchGroup = (group) => {
+  if (rightGroup.value !== group) store.switchRightTab(GROUP_DEFAULT_TAB[group])
+}
 const editorRef = ref(null)
+// AI 编辑建议 → 编辑器（AiTutorPanel 里的卡片组件 inject 使用）
+provide('applyAiEdits', (edits) => editorRef.value?.applyAiEdits(edits) ?? null)
+provide('undoAiEdits', (token) => editorRef.value?.undoAiEdits(token) ?? false)
 const containerRef = ref(null)
+const progressRef = ref(null)
+const controlBarRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)  // 默认左侧占55%，右侧45%
 const uploadOpen = ref(false)
@@ -140,15 +273,142 @@ const rightWidth = computed(() => {
   // 右侧宽度 = 总宽度 - 左侧宽度 - 分割条宽度(12px)
   return Math.max(MIN_RIGHT, containerWidth.value - leftWidth.value - 12)
 })
+const isAutoPlaying = ref(false)
+const speed = ref(1000)
+const speedOpen = ref(false)
+const speedPickerRef = ref(null)
+const speedOptions = [
+  { label: '2x', value: 500 },
+  { label: '1x', value: 1000 },
+  { label: '0.5x', value: 2000 }
+]
+const speedLabel = computed(() => speedOptions.find(o => o.value === speed.value)?.label || '1x')
 
-/** 上一次 step 的行号（灰色高亮），下一次 step 的行号（蓝色高亮） */
-const prevLine = ref(null)
-const nextLine = ref(null)
+function toggleSpeedMenu() {
+  speedOpen.value = !speedOpen.value
+  if (speedOpen.value) {
+    setTimeout(() => document.addEventListener('click', onSpeedOutside))
+  }
+}
+function selectSpeed(val) {
+  speed.value = val
+  speedOpen.value = false
+}
+function onSpeedOutside(e) {
+  if (speedPickerRef.value && !speedPickerRef.value.contains(e.target)) {
+    speedOpen.value = false
+    document.removeEventListener('click', onSpeedOutside)
+  }
+}
+
+let timer = null
+
+// 控制栏拖动
+const barPos = ref({ x: 0, y: 0 })
+const barDragging = ref(false)
+let barOffset = { x: 0, y: 0 }
+
+const startBarDrag = (e) => {
+  barDragging.value = true
+  barOffset.x = e.clientX - barPos.value.x
+  barOffset.y = e.clientY - barPos.value.y
+  document.body.style.userSelect = 'none'
+  window.addEventListener('pointermove', onBarMove)
+  window.addEventListener('pointerup', onBarUp, { once: true })
+}
+const onBarMove = (e) => {
+  if (!barDragging.value) return
+  const barEl = controlBarRef.value
+  const barW = barEl ? barEl.offsetWidth : 520
+  const barH = barEl ? barEl.offsetHeight : 56
+  const maxX = window.innerWidth - barW
+  const maxY = window.innerHeight - barH
+  barPos.value.x = Math.max(0, Math.min(e.clientX - barOffset.x, maxX))
+  barPos.value.y = Math.max(0, Math.min(e.clientY - barOffset.y, maxY))
+}
+const onBarUp = () => {
+  barDragging.value = false
+  document.body.style.userSelect = ''
+  window.removeEventListener('pointermove', onBarMove)
+}
+
+// --- 运行栏宽度调整（左右拖拽，只能拖大不能拖小）---
+const barWidth = ref(null)  // null = 自适应内容宽
+const minBarWidth = ref(null)  // 原始长度作为最小宽度
+const resizing = ref(false)
+let resizeStartX = 0
+let resizeStartW = 0
+
+const startResize = (e) => {
+  resizing.value = true
+  const barEl = controlBarRef.value
+  resizeStartW = barEl ? barEl.offsetWidth : 520
+  if (minBarWidth.value == null) minBarWidth.value = resizeStartW
+  resizeStartX = e.clientX
+  document.body.style.userSelect = 'none'
+  window.addEventListener('pointermove', onResizeMove)
+  window.addEventListener('pointerup', onResizeUp, { once: true })
+}
+const onResizeMove = (e) => {
+  if (!resizing.value) return
+  const dx = e.clientX - resizeStartX
+  const maxW = window.innerWidth - 40
+  const minW = minBarWidth.value ?? 380
+  barWidth.value = Math.max(minW, Math.min(resizeStartW + dx, maxW))
+}
+const onResizeUp = () => {
+  resizing.value = false
+  document.body.style.userSelect = ''
+  window.removeEventListener('pointermove', onResizeMove)
+}
+
+// 进度条百分比
+const progressPercent = computed(() => {
+  if (store.totalSteps <= 1) return 0
+  return (store.currentStep / (store.totalSteps - 1)) * 100
+})
+
+const displayStep = computed(() => {
+  return store.totalSteps ? `${store.currentStep + 1} / ${store.totalSteps}` : '— / —'
+})
+
+// 进度条拖动
+const isDraggingProgress = ref(false)
+
+const startProgressDrag = (e) => {
+  isDraggingProgress.value = true
+  if (isAutoPlaying.value) stopAutoPlay()
+  e.target.setPointerCapture(e.pointerId)
+  window.addEventListener('pointermove', onProgressMove)
+  window.addEventListener('pointerup', onProgressUp, { once: true })
+}
+
+const onProgressMove = (e) => {
+  if (!isDraggingProgress.value || !progressRef.value) return
+  const rect = progressRef.value.querySelector('.progress-track').getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  const step = Math.round(ratio * (store.totalSteps - 1))
+  store.goToStep(step)
+}
+
+const onProgressUp = () => {
+  isDraggingProgress.value = false
+  window.removeEventListener('pointermove', onProgressMove)
+}
+
+const onProgressClick = (e) => {
+  if (!progressRef.value || store.totalSteps === 0) return
+  const rect = progressRef.value.querySelector('.progress-track').getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  const step = Math.round(ratio * (store.totalSteps - 1))
+  store.goToStep(step)
+}
 
 const runCode = async () => {
   if (editorRef.value) editorRef.value.clearHighlights()
   const code = editorRef.value?.getCode() || ''
   await store.runCode(code)
+  if (isAutoPlaying.value) stopAutoPlay()
   // 显式高亮第一步：黄色=step0，蓝色=step1，灰色=无
   prevLine.value = null
   nextLine.value = store.totalSteps > 1 ? (store.steps[1]?.line || null) : null
@@ -186,7 +446,8 @@ const onClassicLoad = ({ name, code }) => {
   store.addUploadRecord(name, code)
 }
 
-const startDrag = () => {
+const startDrag = (e) => {
+  if (isAutoPlaying.value) stopAutoPlay()
   document.body.style.userSelect = 'none'
   document.body.style.cursor = 'col-resize'
   window.addEventListener('mousemove', onMouseMove)
@@ -211,6 +472,17 @@ const onWindowResize = () => {
   const rect = containerRef.value?.getBoundingClientRect()
   if (!rect) return
   containerWidth.value = rect.width
+  // 防止控制栏拖出窗口
+  const barEl = controlBarRef.value
+  if (barEl) {
+    const maxX = window.innerWidth - barEl.offsetWidth
+    const maxY = window.innerHeight - barEl.offsetHeight
+    if (barPos.value.x > maxX) barPos.value.x = Math.max(0, maxX)
+    if (barPos.value.y > maxY) barPos.value.y = Math.max(0, maxY)
+  }
+  if (barWidth.value != null) {
+    barWidth.value = Math.min(barWidth.value, window.innerWidth - 40)
+  }
 }
 
 onMounted(async () => {
@@ -221,14 +493,66 @@ onMounted(async () => {
     // ✅ 保持与初始值一致，使用0.55而不是0.5
     splitRatio.value = 0.55
   }
+
+  // 控制栏默认居中于编辑区底部
+  await nextTick()
+  const barEl = controlBarRef.value
+  const barW = barEl ? barEl.offsetWidth : 400
+  const mainRect = containerRef.value?.getBoundingClientRect()
+  const editorLeft = mainRect ? mainRect.left : 12
+  const editorCenter = editorLeft + leftWidth.value / 2
+  barPos.value = {
+    x: Math.max(0, Math.round(editorCenter - barW / 2)),
+    y: window.innerHeight - 80
+  }
   window.addEventListener('resize', onWindowResize)
 })
 
 onBeforeUnmount(() => {
+  stopAutoPlay()
   window.removeEventListener('resize', onWindowResize)
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
+  window.removeEventListener('pointermove', onProgressMove)
 })
+
+// --- 自动播放 ---
+
+const toggleAutoPlay = () => {
+  if (isAutoPlaying.value) stopAutoPlay()
+  else startAutoPlay()
+}
+
+const startAutoPlay = () => {
+  if (timer) clearInterval(timer)
+  timer = setInterval(() => {
+    if (store.currentStep + 1 >= store.totalSteps) {
+      stopAutoPlay()
+    } else if (store.autoExplain && store.isExplaining) {
+      // 等待 AI 解说生成完毕再进入下一步
+      return
+    } else {
+      store.nextStep()
+    }
+  }, speed.value)
+  isAutoPlaying.value = true
+}
+
+const stopAutoPlay = () => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+  isAutoPlaying.value = false
+}
+
+watch(speed, () => {
+  if (isAutoPlaying.value) startAutoPlay()
+})
+
+/** 上一次 step 的行号（灰色高亮），下一次 step 的行号（蓝色高亮） */
+const prevLine = ref(null)
+const nextLine = ref(null)
 
 watch(() => store.currentStep, async (step) => {
   prevLine.value = step > 0 ? (store.steps[step - 1]?.line || null) : null
@@ -239,6 +563,14 @@ watch(() => store.currentStep, async (step) => {
     editorRef.value.highlightLine(line, prevLine.value, nextLine.value)
   } else if (!line && editorRef.value) {
     editorRef.value.clearHighlights()
+  }
+})
+
+// 步骤切换：自动模式请求解说当前步骤（自由问答聊天）
+watch(() => store.currentStep, (newVal, oldVal) => {
+  if (newVal === oldVal) return
+  if (store.autoExplain && store.explainExpanded) {
+    store.requestExplain()
   }
 })
 
@@ -282,8 +614,7 @@ watch(() => store.currentStep, async (step) => {
   position: relative;
   background: var(--editor-header-bg);
 }
-.editor-card-header::after,
-.right-card-header::after {
+.editor-card-header::after {
   content: '';
   position: absolute;
   left: 16px;
@@ -518,6 +849,13 @@ watch(() => store.currentStep, async (step) => {
   background: transparent;
   box-shadow: inset 0 -2px 0 var(--accent);
 }
+.right-subtab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  padding-top: 8px;
+}
 
 /* Splitter */
 .splitter {
@@ -554,8 +892,350 @@ watch(() => store.currentStep, async (step) => {
   transform: scaleY(1.1);
 }
 
+/* --- Floating control bar --- */
+.control-bar {
+  position: fixed;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+  background: var(--card-bg);
+  border-radius: 0;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  width: fit-content;
+  max-width: calc(100vw - 40px);
+  min-width: 320px;
+  transition: box-shadow 0.2s;
+  /* 不可对整栏用 clip-path：会裁掉上方展开的速度菜单 / AI 面板 */
+  overflow: visible;
+}
+.control-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.control-bar:has(.drag-handle:active) {
+  box-shadow: 0 18px 40px -20px rgba(18, 22, 29, 0.45);
+}
+
+/* Control row */
+.control-bar-top {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+/* AI panel wrapper — floating above the control bar with gap */
+.ai-panel-wrapper {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  overflow: hidden;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  clip-path: none;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  padding: 10px 15px;
+  z-index: 5100;
+}
+
+/* Panel slide transition (expands upward) */
+.panel-slide-enter-active {
+  transition: max-height 0.28s cubic-bezier(.22,.9,.27,1), opacity 0.25s, padding 0.25s;
+}
+.panel-slide-leave-active {
+  transition: max-height 0.22s cubic-bezier(.22,.9,.27,1), opacity 0.2s, padding 0.2s;
+}
+.panel-slide-enter-from,
+.panel-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-width: 0;
+}
+.panel-slide-enter-to,
+.panel-slide-leave-from {
+  max-height: 400px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-slide-enter-active,
+  .panel-slide-leave-active {
+    transition: none;
+  }
+}
+
+/* Drag handle */
+.drag-handle {
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  padding: 4px 2px;
+  border-radius: 0;
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.drag-handle:hover {
+  color: var(--text-h);
+  background: var(--accent-bg);
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Resize handle（右边缘左右拖拽调整宽度） */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  color: var(--accent);
+  z-index: 3;
+}
+.resize-grip {
+  display: block;
+  width: 3px;
+  height: 28px;
+  background: currentColor;
+  opacity: 0.6;
+  border-radius: 0;
+}
+
+/* Button groups */
+.ctrl-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ctrl-right-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+/* Control buttons — Rhodes HUD */
+.ctrl-btn {
+  background: var(--btn-bg);
+  border: none;
+  padding: 7px;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-h);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: color 0.15s, transform 0.12s, box-shadow 0.15s, background 0.15s;
+}
+.ctrl-btn:hover:not(:disabled) {
+  background: var(--accent-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.ctrl-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+.ctrl-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ctrl-btn.run-btn {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 10px 22px -12px rgba(13, 158, 196, 0.65);
+  padding: 8px;
+  margin: 0 4px;
+}
+.ctrl-btn.run-btn:hover:not(:disabled) {
+  background: var(--primary-600);
+  color: #fff;
+  box-shadow: 0 12px 24px -12px rgba(13, 158, 196, 0.75);
+}
+
+/* Spin animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Progress bar */
+.progress-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 120px;
+}
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 0;
+  clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%, 0 3px);
+  position: relative;
+  cursor: pointer;
+  transition: height 0.15s;
+}
+.progress-track:hover { height: 8px; }
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 6px, rgba(13, 158, 196, 0.55) 6px 12px);
+  border-radius: 0;
+  pointer-events: none;
+  transition: width 0.08s ease-out;
+}
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: var(--btn-bg);
+  border: 2px solid var(--accent);
+  border-radius: 0;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  box-shadow: 0 2px 6px rgba(18, 22, 29, 0.18);
+  transition: transform 0.1s, box-shadow 0.15s;
+  z-index: 2;
+}
+.progress-thumb:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 2px 10px rgba(13, 158, 196, 0.35);
+}
+.progress-thumb:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.progress-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 5.5em; /* 稳定「1 / 999」宽度，避免运行后底栏变宽抖动 */
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom speed picker */
+.speed-picker {
+  position: relative;
+}
+.speed-btn {
+  gap: 4px;
+  padding: 6px 10px;
+  min-width: 62px;
+  justify-content: center;
+  background: var(--btn-bg);
+}
+.speed-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+.speed-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  z-index: 5100;
+  clip-path: none;
+  border-radius: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+.speed-option {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.15s, background 0.15s;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.speed-option:hover {
+  color: var(--text-h);
+  background: var(--accent-bg);
+}
+.speed-option.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* Speed dropdown transition */
+.speed-drop-enter-active {
+  transition: opacity 0.15s ease, transform 0.18s cubic-bezier(.22,.9,.27,1);
+}
+.speed-drop-leave-active {
+  transition: opacity 0.12s ease, transform 0.14s cubic-bezier(.22,.9,.27,1);
+}
+.speed-drop-enter-from,
+.speed-drop-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
 @media (max-width: 640px) {
   .splitter .splitter-handle { height: 28px }
   .main-area { padding: 8px; }
+  .control-bar {
+    padding: 6px 10px;
+    min-width: 0;
+    max-width: calc(100vw - 16px);
+  }
+  .control-bar.has-panel { min-width: 0; }
+  .control-bar-top { gap: 6px; }
+  .ctrl-btn { padding: 5px; }
+  .ctrl-btn.run-btn { padding: 6px; }
+  .progress-wrapper { min-width: 60px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
 }
 </style>

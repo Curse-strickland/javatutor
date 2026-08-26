@@ -290,4 +290,88 @@ class TraceEngineTest {
         return new HeapTestObj();
     }
 
+    @Test
+    void recordWithAdjacencyListShouldEmitGraphContainer() {
+        List<List<Integer>> adj = new ArrayList<>();
+        adj.add(Arrays.asList(1, 2));          // 0 -> 1, 2
+        adj.add(Arrays.asList(3));             // 1 -> 3
+        adj.add(Arrays.asList(3, 4));          // 2 -> 3, 4
+        adj.add(Arrays.asList(5));             // 3 -> 5
+        adj.add(Arrays.asList(5));             // 4 -> 5
+        adj.add(Collections.emptyList());      // 5
+        TraceEngine.record(0, 1, Map.of("adj", adj));
+
+        Map<String, Object> heap = (Map<String, Object>) TraceEngine.getSteps().get(0).get("heap");
+        Map<String, Object> graph = (Map<String, Object>) heap.get("adj$graph");
+        assertNotNull(graph, "adjacency list should emit a graph container");
+        assertEquals("Digraph", graph.get("type"));
+
+        Map<String, Object> fields = (Map<String, Object>) graph.get("fields");
+        assertNotNull(fields);
+        Map<String, Object> adjMap = (Map<String, Object>) fields.get("adj");
+        assertNotNull(adjMap);
+        List<Object> row0 = (List<Object>) adjMap.get("0");
+        assertEquals(2, row0.size());
+        assertEquals("1", ((Map<?, ?>) row0.get(0)).get("to"));
+        assertEquals("2", ((Map<?, ?>) row0.get(1)).get("to"));
+    }
+
+    @Test
+    void recordWithSymmetricAdjacencyListShouldBeUndirected() {
+        List<List<Integer>> adj = new ArrayList<>();
+        adj.add(Arrays.asList(1, 2));          // 0
+        adj.add(Arrays.asList(0, 3));          // 1
+        adj.add(Arrays.asList(0, 3));          // 2
+        adj.add(Arrays.asList(1, 2, 4));       // 3
+        adj.add(Arrays.asList(3, 5));          // 4
+        adj.add(Arrays.asList(4));             // 5
+        TraceEngine.record(0, 1, Map.of("adj", adj));
+
+        Map<String, Object> heap = (Map<String, Object>) TraceEngine.getSteps().get(0).get("heap");
+        Map<String, Object> graph = (Map<String, Object>) heap.get("adj$graph");
+        assertNotNull(graph);
+        assertEquals("Graph", graph.get("type"));
+    }
+
+    @Test
+    void recordWithCapacityMatrixShouldEmitFlowGraph() {
+        int[][] capacity = new int[6][6];
+        capacity[0][1] = 16; capacity[0][2] = 13;
+        capacity[1][3] = 12;
+        capacity[2][4] = 14;
+        capacity[3][5] = 20;
+        capacity[4][5] = 4;
+        TraceEngine.record(0, 1, Map.of("capacity", capacity, "source", 0, "sink", 5));
+
+        Map<String, Object> heap = (Map<String, Object>) TraceEngine.getSteps().get(0).get("heap");
+        Map<String, Object> graph = (Map<String, Object>) heap.get("capacity$graph");
+        assertNotNull(graph, "capacity matrix should emit a flow graph");
+        assertEquals("MaxFlow", graph.get("type"));
+
+        Map<String, Object> fields = (Map<String, Object>) graph.get("fields");
+        assertNotNull(fields);
+        Map<String, Object> cap = (Map<String, Object>) fields.get("capacity");
+        assertNotNull(cap);
+        assertEquals(16, ((Map<?, ?>) cap.get("0")).get("1"));
+        assertEquals("0", fields.get("source"));
+        assertEquals("5", fields.get("sink"));
+    }
+
+    @Test
+    void recordWithCapacityAndFlowShouldAttachFlowValues() {
+        int[][] capacity = new int[2][2];
+        capacity[0][1] = 10;
+        int[][] flow = new int[2][2];
+        flow[0][1] = 7;
+        TraceEngine.record(0, 1, TraceEngine.buildMap("capacity", capacity, "flow", flow, "source", 0, "sink", 1));
+
+        Map<String, Object> heap = (Map<String, Object>) TraceEngine.getSteps().get(0).get("heap");
+        Map<String, Object> graph = (Map<String, Object>) heap.get("capacity$graph");
+        assertNotNull(graph);
+        Map<String, Object> fields = (Map<String, Object>) graph.get("fields");
+        Map<String, Object> flowMap = (Map<String, Object>) fields.get("flow");
+        assertNotNull(flowMap, "flow matrix should be attached to the flow graph");
+        assertEquals(7, ((Map<?, ?>) flowMap.get("0")).get("1"));
+    }
+
 }

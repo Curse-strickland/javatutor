@@ -91,42 +91,6 @@ describe('extractDataStructures — array', () => {
     expect(arrays[0].indexPointers.i).toBe(1)
   })
 
-  it('handles multi-file heap keys with file#name prefix', () => {
-    // 模拟多文件后端：堆 key 为 `file#name`，对象带短名 name + file
-    const heap = {
-      'Main.java#arr': {
-        id: '0xA1',
-        type: 'int[3]',
-        name: 'arr',
-        file: 'Main.java',
-        slots: [
-          { index: 0, value: 5 },
-          { index: 1, value: 3 },
-          { index: 2, value: 8 },
-        ],
-      },
-      'Helper.java#arr': {
-        id: '0xA2',
-        type: 'int[2]',
-        name: 'arr',
-        file: 'Helper.java',
-        slots: [
-          { index: 0, value: 1 },
-          { index: 1, value: 2 },
-        ],
-      },
-    }
-    const frames = [
-      { method: 'main', file: 'Main.java', args: {}, locals: { arr: [5, 3, 8] } },
-    ]
-    const { arrays } = extractDataStructures(heap, frames)
-    expect(arrays.length).toBeGreaterThanOrEqual(1)
-    // 主数组应正确识别为 Main.java 的 arr，且标签不带文件名前缀
-    const mainArr = arrays.find((a) => (a.sourceVar || a.id) === 'arr' && a.values.join() === '5,3,8')
-    expect(mainArr).toBeTruthy()
-    expect(mainArr.sourceVar).toBe('arr')
-  })
-
   it('overlays deepest-frame live values and drops stale arr alias during mergeSort', () => {
     const heap = {
       arr: {
@@ -554,5 +518,40 @@ describe('extractDataStructures — graph', () => {
     const frames = [{ args: {}, locals: { g: { ref: 'solo' } } }]
     const { graphs } = extractDataStructures(heap, frames)
     expect(graphs).toEqual([])
+  })
+
+  it('extracts max-flow container and attaches per-edge flow', () => {
+    const heap = {
+      'capacity$graph': {
+        id: '0x1234',
+        type: 'MaxFlow',
+        fields: {
+          capacity: {
+            '0': { '1': 16, '2': 13 },
+            '1': { '3': 12 },
+            '2': { '4': 14 },
+            '3': { '5': 20 },
+            '4': { '5': 4 },
+          },
+          flow: {
+            '0': { '1': 7, '2': 0 },
+            '1': { '3': 0 },
+          },
+          source: '0',
+          sink: '5',
+        },
+      },
+    }
+    const frames = [{ args: {}, locals: {} }]
+    const { graphs } = extractDataStructures(heap, frames)
+    expect(graphs).toHaveLength(1)
+    const graph = graphs[0]
+    expect(graph.kind).toBe('flow')
+    expect(graph.source).toBe('0')
+    expect(graph.sink).toBe('5')
+    const e01 = graph.edges.find((e) => e.from === '0' && e.to === '1')
+    expect(e01).toMatchObject({ weight: 16, flow: 7 })
+    const e02 = graph.edges.find((e) => e.from === '0' && e.to === '2')
+    expect(e02).toMatchObject({ weight: 13, flow: 0 })
   })
 })

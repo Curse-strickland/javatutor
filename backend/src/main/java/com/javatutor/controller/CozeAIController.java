@@ -4,6 +4,7 @@
  import com.javatutor.model.ExplainRequest;
  import com.javatutor.service.CozeService;
  import com.javatutor.service.AnalyzeService;
+ import com.javatutor.service.ExecutionSnapshotService;
  import org.springframework.web.bind.annotation.*;
  import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -19,6 +20,7 @@
 
      private final CozeService cozeService;
      private final AnalyzeService analyzeService;
+     private final ExecutionSnapshotService executionSnapshotService;
      private final ObjectMapper objectMapper = new ObjectMapper();
 
      /**
@@ -38,9 +40,11 @@
          {"线性", "数组"},
      };
 
-     public CozeAIController(CozeService cozeService, AnalyzeService analyzeService) {
+     public CozeAIController(CozeService cozeService, AnalyzeService analyzeService,
+                             ExecutionSnapshotService executionSnapshotService) {
          this.cozeService = cozeService;
          this.analyzeService = analyzeService;
+         this.executionSnapshotService = executionSnapshotService;
      }
 
      /**
@@ -67,6 +71,8 @@
                          : "请解释当前代码";
                  }
 
+                 executionSnapshotService.updateChatSnapshot(request);
+
                  cozeService.streamExplain(
                      request.getCode(),
                      request.getSteps(),
@@ -78,6 +84,7 @@
                          ? Integer.toHexString(request.getCode().hashCode()) : null,
                      null, // no intent → route_intent handles it
                      null, // no algorithmTags for chat
+                     request.getRunId(),
                      chunk -> {
                          try { emitter.send(SseEmitter.event().name("chunk").data(chunk)); }
                          catch (Exception e) { throw new RuntimeException(e); }

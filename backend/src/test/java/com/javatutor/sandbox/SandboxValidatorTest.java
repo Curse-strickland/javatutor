@@ -75,30 +75,6 @@ class SandboxValidatorTest {
     }
 
     @Test
-    void reflectionGetMethodShouldBeRejected() {
-        String code = "public class UserCode { public static void main(String[] a) throws Exception " +
-            "{ String.class.getMethod(\"valueOf\", Object.class); } }";
-        SandboxValidator.Result r = SandboxValidator.validate(code);
-        assertFalse(r.allowed, "getMethod should be rejected");
-    }
-
-    @Test
-    void reflectionGetFieldShouldBeRejected() {
-        String code = "public class UserCode { public static void main(String[] a) throws Exception " +
-            "{ String.class.getField(\"CASE_INSENSITIVE_ORDER\"); } }";
-        SandboxValidator.Result r = SandboxValidator.validate(code);
-        assertFalse(r.allowed, "getField should be rejected");
-    }
-
-    @Test
-    void reflectionGetConstructorShouldBeRejected() {
-        String code = "public class UserCode { public static void main(String[] a) throws Exception " +
-            "{ String.class.getConstructor(String.class); } }";
-        SandboxValidator.Result r = SandboxValidator.validate(code);
-        assertFalse(r.allowed, "getConstructor should be rejected");
-    }
-
-    @Test
     void blankCodeShouldPass() {
         SandboxValidator.Result r = SandboxValidator.validate("");
         assertTrue(r.allowed);

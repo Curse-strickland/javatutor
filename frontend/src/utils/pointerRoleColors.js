@@ -12,14 +12,16 @@ export const POINTER_ROLE = {
   PREV: 'prev',
   INSERT: 'insert',
   ROOT: 'root',
+  NEUTRAL: 'neutral',
 }
 
 export const POINTER_ROLE_COLORS = {
   mid: '#eab308',
   next: '#3b82f6',
   prev: '#6b7280',
-  insert: '#ef476f',
   root: '#ef476f',
+  insert: '#d946ef',
+  neutral: '#f59e0b',
 }
 
 const MID_NAMES = /^(mid|cur|curr|current|node|key|pivot|i)$/i
@@ -92,6 +94,7 @@ export function primaryRoleFromLabels(labels) {
 
 /**
  * CSS-friendly style bits for a role-colored chip / border.
+ * 背景不透明（叠加时上层 chip 完全遮住下层，避免半透明混合模糊），保留描边。
  * @param {string|null} role
  */
 export function roleStyle(role) {
@@ -100,7 +103,7 @@ export function roleStyle(role) {
   return {
     color,
     borderColor: `${color}66`,
-    background: `${color}22`,
+    background: 'var(--card-bg)',
     fill: color,
   }
 }

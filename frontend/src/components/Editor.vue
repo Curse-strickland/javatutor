@@ -16,6 +16,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as monaco from 'monaco-editor'
+import { planEdits } from '../utils/editSuggestion'
 
 const props = defineProps({
   readOnly: { type: Boolean, default: false },
@@ -29,11 +30,14 @@ let currentDecorations = []
 let ro = null
 const loadError = ref(false)
 
-/** 字体测宽校准：容器尺寸变化或字体加载完成后调用，保证光标与字符渲染对齐 */
+/** 字体测宽校准：容器尺寸变化或字体加载完成后调用，保证光标与字符渲染对齐。
+ * 注意：remeasureFonts 是 monaco.editor 的模块级 API（清除字体测宽缓存并重测），
+ * 不是编辑器实例方法。误写成 editor.remeasureFonts() 会抛 TypeError 被 catch 吞掉，
+ * 导致重测永远不生效——字体晚加载后光标持续漂移（粘贴/插入预置代码含注释时最明显）。 */
 const recalibrate = () => {
   if (!editor) return
   editor.layout()
-  try { editor.remeasureFonts() } catch (_) { /* ignore */ }
+  try { monaco.editor.remeasureFonts() } catch (_) { /* ignore */ }
 }
 
 /** 点击「导入」按钮 → 触发隐藏的文件选择器 */
@@ -89,29 +93,29 @@ onMounted(() => {
           base: 'vs',
           inherit: true,
           rules: [
-            { token: 'comment', foreground: '14141499', fontStyle: 'italic' },
-            { token: 'comment.java', foreground: '14141499', fontStyle: 'italic' },
-            { token: 'string', foreground: '7565CC' },
-            { token: 'string.java', foreground: '7565CC' },
-            { token: 'keyword', foreground: 'A30034' },
-            { token: 'keyword.java', foreground: 'A30034' },
-            { token: 'storage', foreground: 'A30034' },
-            { token: 'number', foreground: '92156A' },
-            { token: 'number.java', foreground: '92156A' },
-            { token: 'number.float', foreground: '92156A' },
-            { token: 'number.hex', foreground: '92156A' },
-            { token: 'annotation', foreground: '007041' },
-            { token: 'annotation.java', foreground: '007041' },
-            { token: 'type', foreground: '005293' },
-            { token: 'type.identifier', foreground: '005293' },
-            { token: 'identifier', foreground: '141414' },
-            { token: 'delimiter', foreground: '141414' },
-            { token: '', foreground: '141414' },
+            { token: 'comment', foreground: '8B93A1', fontStyle: 'italic' },
+            { token: 'comment.java', foreground: '8B93A1', fontStyle: 'italic' },
+            { token: 'string', foreground: '0D7F9E' },
+            { token: 'string.java', foreground: '0D7F9E' },
+            { token: 'keyword', foreground: '0A6D8C' },
+            { token: 'keyword.java', foreground: '0A6D8C' },
+            { token: 'storage', foreground: '0A6D8C' },
+            { token: 'number', foreground: '0B6E9C' },
+            { token: 'number.java', foreground: '0B6E9C' },
+            { token: 'number.float', foreground: '0B6E9C' },
+            { token: 'number.hex', foreground: '0B6E9C' },
+            { token: 'annotation', foreground: '4D5665' },
+            { token: 'annotation.java', foreground: '4D5665' },
+            { token: 'type', foreground: '0A5C80' },
+            { token: 'type.identifier', foreground: '0A5C80' },
+            { token: 'identifier', foreground: '12161D' },
+            { token: 'delimiter', foreground: '12161D' },
+            { token: '', foreground: '12161D' },
           ],
           colors: {
             // 实际底色由 CSS --editor-bg 覆盖，便于跟卡片透明度联动
             'editor.background': '#00000000',
-            'editor.foreground': '#141414',
+            'editor.foreground': '#12161D',
             'editorGutter.background': '#00000000',
             'editor.lineHighlightBackground': '#EAEAEAB8',
             'editor.lineHighlightBorder': '#00000000',
@@ -119,8 +123,8 @@ onMounted(() => {
             'editor.inactiveSelectionBackground': '#14141414',
             'editor.selectionHighlightBackground': '#3B7E8424',
             'editorLineNumber.foreground': '#1414145C',
-            'editorLineNumber.activeForeground': '#141414BD',
-            'editorCursor.foreground': '#141414',
+            'editorLineNumber.activeForeground': '#0D9EC4',
+            'editorCursor.foreground': '#0D9EC4',
             'editorWhitespace.foreground': '#1414144D',
             'editorIndentGuide.background1': '#14141414',
             'editorIndentGuide.activeBackground1': '#14141433',
@@ -165,7 +169,7 @@ onMounted(() => {
           padding: { top: 8, left: 0 }
         })
 
-        // 延迟校准：覆盖字体在初始化后 300ms 内仍未就绪、随后才 swap 的场景
+        // 延迟校准：覆盖字体在初始化后才 swap 的场景
         setTimeout(recalibrate, 50)
         setTimeout(recalibrate, 300)
         setTimeout(recalibrate, 800)
@@ -195,11 +199,16 @@ onMounted(() => {
         document.fonts.addEventListener('loadingerror', recalibrate)
       }
 
-      // 先显式加载 Maple Mono 再初始化编辑器。若字体未就绪，Monaco 会用 fallback
-      // 字体测宽，字体加载完成后字符被重新渲染得更宽，但 Monaco 不再重测宽 → 光标累积偏左。
-      // 不再依赖 document.fonts.ready：它会被无关的 Google Fonts 拖慢/干扰时序。
+      // 先显式加载编辑器用到的字体再初始化。若字体未就绪，Monaco 会用 fallback
+      // 字体测宽；字体加载完成后字符被重新渲染得更宽，但 Monaco 不重测宽 → 光标累积偏移。
+      // 主题把注释渲染为斜体（独立的 ~20MB Italic 字面），粘贴/置入含注释的代码会触发
+      // 斜体晚加载，因此 regular + italic 两个字面都要预载。
+      // 不依赖 document.fonts.ready：它会被无关的 Web Fonts 拖慢/干扰时序。
       if (document.fonts?.load) {
-        document.fonts.load("16px 'Maple Mono'").catch(() => {}).then(initMonaco)
+        Promise.all([
+          document.fonts.load("16px 'Maple Mono'").catch(() => {}),
+          document.fonts.load("italic 16px 'Maple Mono'").catch(() => {}),
+        ]).then(initMonaco)
       } else {
         initMonaco()
       }
@@ -293,11 +302,58 @@ const setCode = (code) => {
   clearHighlights()
 }
 
+/**
+ * 应用 AI 编辑建议：整批一次 executeEdits（一个 undo 单位，Ctrl+Z 可回滚）。
+ * @returns {null | { applied: number, planned: Array, undoToken: number|null }}
+ *  无 Monaco 实例（textarea 回退）时返回 null；undoToken 为「该批编辑完成后的 model 版本号」，
+ *  供 undoAiEdits 校验该批是否仍是 undo 栈顶，避免误撤销之后的其它改动。
+ */
+const applyAiEdits = (edits) => {
+  if (!editor) return null
+  const model = editor.getModel()
+  if (!model) return null
+  const planned = planEdits(model.getValue(), edits)
+  const applicable = planned.filter((p) => p.status === 'ok')
+  if (!applicable.length) return { applied: 0, planned, undoToken: null }
+  const versionBefore = model.getVersionId()
+  editor.pushUndoStop()
+  const results = editor.executeEdits(
+    'ai-edit-suggestion',
+    applicable.map((p) => {
+      const s = model.getPositionAt(p.start)
+      const e = model.getPositionAt(p.end)
+      return {
+        range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column),
+        text: p.new_string,
+      }
+    }),
+  )
+  editor.pushUndoStop()
+  // executeEdits 单批事务使 version 恰好 +1（pushUndoStop 不改变 version）。
+  const applied = results.filter(Boolean).length
+  return { applied, planned, undoToken: applied > 0 ? versionBefore + 1 : null }
+}
+
+/**
+ * 撤销指定一次应用（undoToken 由 applyAiEdits 返回）。
+ * 仅当该批编辑仍是 undo 栈顶（此后没有用户输入或其它卡片应用，version 未再变化）时才执行，
+ * 否则返回 false，避免误弹出无关的 undo 组。
+ * @param {number|null} undoToken
+ * @returns {boolean} 是否真正执行了撤销
+ */
+const undoAiEdits = (undoToken) => {
+  if (!editor || undoToken == null) return false
+  const model = editor.getModel()
+  if (!model || model.getVersionId() !== undoToken) return false
+  editor.trigger('ai-edit-suggestion', 'undo', null)
+  return true
+}
+
 watch(() => props.readOnly, (val) => {
   if (editor) editor.updateOptions({ readOnly: val })
 })
 
-defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode })
+defineExpose({ getCode, highlightLine, clearHighlights, triggerImport, setCode, applyAiEdits, undoAiEdits })
 </script>
 
 <style>

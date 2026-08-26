@@ -7,6 +7,7 @@ import com.javatutor.sandbox.SafeSecurityManager;
 import com.javatutor.model.RunRequest;
 import com.javatutor.model.RunResponse;
 import com.javatutor.model.SourceFile;
+import com.javatutor.service.ExecutionSnapshotService;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
@@ -27,6 +28,11 @@ import java.util.regex.Matcher;
 public class RunController {
     private final Instrumenter instrumenter = new Instrumenter();
     private final InMemoryCompiler compiler = new InMemoryCompiler();
+    private final ExecutionSnapshotService executionSnapshotService;
+
+    public RunController(ExecutionSnapshotService executionSnapshotService) {
+        this.executionSnapshotService = executionSnapshotService;
+    }
 
     private static final String TRACE_ENGINE_SOURCE =
         "import java.util.*;\n" +
@@ -43,10 +49,8 @@ public class RunController {
         "    private static List<String> callStack = new ArrayList<>();\n" +
         "    private static List<LinkedHashMap<String,Object>> frameLocals = new ArrayList<>();\n" +
         "    private static List<LinkedHashMap<String,Object>> frameArgs = new ArrayList<>();\n" +
-        "    private static List<String> frameFiles = new ArrayList<>();\n" +
-        "    private static int nextStep = 0;\n" +
-        "    public static String pushFrame(String fname, String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); frameArgs.add(new LinkedHashMap<>()); frameFiles.add(fname); return name; }\n" +
-        "    public static String pushFrame(String fname, String name, Object... pairs) {\n" +
+        "    public static String pushFrame(String name) { callStack.add(name); frameLocals.add(new LinkedHashMap<>()); frameArgs.add(new LinkedHashMap<>()); return name; }\n" +
+        "    public static String pushFrame(String name, Object... pairs) {\n" +
         "        callStack.add(name);\n" +
         "        frameLocals.add(new LinkedHashMap<>());\n" +
         "        LinkedHashMap<String,Object> args = new LinkedHashMap<>();\n" +
@@ -55,7 +59,7 @@ public class RunController {
         "            Object pv = pairs[i+1];\n" +
         "            if (pv != null && isComplexObject(pv)) {\n" +
         "                String eid = findHeapIdByRef(pv);\n" +
-        "                args.put(pn, eid != null ? eid : ensureHeapObject(fname + \"#\" + pn, pv));\n" +
+        "                args.put(pn, eid != null ? eid : ensureHeapObject(pn, pv));\n" +
         "            } else if (pv != null && pv.getClass().isArray()) {\n" +
         "                args.put(pn, pn);\n" +
         "            } else if (pv != null && pv instanceof java.util.Collection) {\n" +
@@ -63,10 +67,9 @@ public class RunController {
         "            } else { args.put(pn, pv); }\n" +
         "        }\n" +
         "        frameArgs.add(args);\n" +
-        "        frameFiles.add(fname);\n" +
         "        return name;\n" +
         "    }\n" +
-        "    public static String popFrame() { if (callStack.isEmpty()) return \"???\"; frameLocals.remove(frameLocals.size()-1); frameArgs.remove(frameArgs.size()-1); frameFiles.remove(frameFiles.size()-1); return callStack.remove(callStack.size()-1); }\n" +
+        "    public static String popFrame() { if (callStack.isEmpty()) return \"???\"; frameLocals.remove(frameLocals.size()-1); frameArgs.remove(frameArgs.size()-1); return callStack.remove(callStack.size()-1); }\n" +
         "    private static List<Object> deepCopyArray(Object arr) {\n" +
         "        int len = Array.getLength(arr);\n" +
         "        if (len > 200) {\n" +
@@ -128,8 +131,7 @@ public class RunController {
         "        obj.put(\"type\", formatArrayTypeLabel(componentType, length));\n" +
         "        obj.put(\"length\", length);\n" +
         "        obj.put(\"id\", id);\n" +
-        "        obj.put(\"name\", shortName(name));\n" +
-        "        obj.put(\"file\", fileOf(name));\n" +
+        "        obj.put(\"name\", name);\n" +
         "        obj.put(\"slots\", new ArrayList<>());\n" +
         "        obj.put(\"category\", \"array\");\n" +
         "        heapObjects.put(name, obj);\n" +
@@ -145,8 +147,6 @@ public class RunController {
         "        }\n" +
         "        return raw + \"[\" + length + \"]\";\n" +
         "    }\n" +
-        "    private static String shortName(String key) { int idx = key.indexOf('#'); return idx >= 0 ? key.substring(idx + 1) : key; }\n" +
-        "    private static String fileOf(String key) { int idx = key.indexOf('#'); return idx >= 0 ? key.substring(0, idx) : \"\"; }\n" +
         "    private static String heapTypeLabel(Class<?> clazz, int length) {\n" +
         "        if (clazz == null) return \"Object[\" + length + \"]\";\n" +
         "        if (!clazz.isArray()) return clazz.getSimpleName();\n" +
@@ -173,8 +173,7 @@ public class RunController {
         "        LinkedHashMap<String,Object> heapObj = new LinkedHashMap<>();\n" +
         "        heapObj.put(\"type\", obj.getClass().getSimpleName());\n" +
         "        heapObj.put(\"id\", id);\n" +
-        "        heapObj.put(\"name\", shortName(name));\n" +
-        "        heapObj.put(\"file\", fileOf(name));\n" +
+        "        heapObj.put(\"name\", name);\n" +
         "        heapObj.put(\"fields\", new LinkedHashMap<>());\n" +
         "        heapObj.put(\"category\", categorize(obj));\n" +
         "        heapObj.put(\"_objRef\", obj);\n" +
@@ -293,14 +292,14 @@ public class RunController {
         "    }\n" +
         "    public static void record(int step, int line, String fname, Map<String,Object> vars) {\n" +
         "        if (disabled) return;\n" +
-        "        int s = nextStep++;\n" +
         "        LinkedHashMap<String,Object> record = new LinkedHashMap<>();\n" +
-        "        record.put(\"step\", s);\n" +
+        "        record.put(\"step\", step);\n" +
         "        record.put(\"line\", line);\n" +
         "        record.put(\"file\", fname);\n" +
         "        LinkedHashMap<String,Object> varsCopy = new LinkedHashMap<>();\n" +
         "        for (Map.Entry<String,Object> e : vars.entrySet()) {\n" +
         "            Object v = e.getValue();\n" +
+        "            maybeEmitGraph(e.getKey(), v, vars);\n" +
         "            if (v == null) { varsCopy.put(e.getKey(), null); }\n" +
         "            else if (v.getClass().isArray()) {\n" +
         "                int len = Array.getLength(v);\n" +
@@ -311,7 +310,7 @@ public class RunController {
         "                    for (int i = 0; i < len; i++) {\n" +
         "                        Object elem = Array.get(v, i);\n" +
         "                        if (elem != null && isComplexObject(elem)) {\n" +
-        "                            String name = fname + \"#\" + e.getKey() + \"[\" + i + \"]\";\n" +
+        "                            String name = e.getKey() + \"[\" + i + \"]\";\n" +
         "                            String elemId = ensureHeapObject(name, elem);\n" +
         "                            copy.add(elemId);\n" +
         "                            if (heapObjects.containsKey(name) && heapObjects.get(name).get(\"_objRef\") == elem) {\n" +
@@ -322,13 +321,13 @@ public class RunController {
         "                        } else { copy.add(elem); }\n" +
         "                    }\n" +
         "                    varsCopy.put(e.getKey(), copy);\n" +
-        "                    updateHeapSlots(fname + \"#\" + e.getKey(), copy, v.getClass());\n" +
+        "                    updateHeapSlots(e.getKey(), copy, v.getClass());\n" +
         "                }\n" +
         "            } else if (isComplexObject(v)) {\n" +
-        "                String id = ensureHeapObject(fname + \"#\" + e.getKey(), v);\n" +
+        "                String id = ensureHeapObject(e.getKey(), v);\n" +
         "                varsCopy.put(e.getKey(), id);\n" +
-        "                if (heapObjects.containsKey(fname + \"#\" + e.getKey())) {\n" +
-        "                    updateHeapFields(fname + \"#\" + e.getKey(), v);\n" +
+        "                if (heapObjects.containsKey(e.getKey())) {\n" +
+        "                    updateHeapFields(e.getKey(), v);\n" +
         "                } else {\n" +
         "                    String existingName = findHeapNameByRef(v);\n" +
         "                    if (existingName != null) {\n" +
@@ -337,7 +336,7 @@ public class RunController {
         "                }\n" +
         "            } else if (v instanceof java.util.Collection<?>) {\n" +
         "                java.util.Collection<?> coll = (java.util.Collection<?>) v;\n" +
-        "                ensureHeapEntry(fname + \"#\" + e.getKey(), v);\n" +
+        "                ensureHeapEntry(e.getKey(), v);\n" +
         "                int size = coll.size();\n" +
         "                int displaySize = size > 200 ? 200 : size;\n" +
         "                List<Object> copy = new ArrayList<>(displaySize + (size > 200 ? 1 : 0));\n" +
@@ -345,7 +344,7 @@ public class RunController {
         "                for (Object elem : coll) { if (count >= displaySize) break; copy.add(elem); count++; }\n" +
         "                if (size > 200) copy.add(\"...(共\" + size + \"个元素)\");\n" +
         "                varsCopy.put(e.getKey(), copy);\n" +
-        "                updateHeapSlots(fname + \"#\" + e.getKey(), copy, v.getClass());\n" +
+        "                updateHeapSlots(e.getKey(), copy, v.getClass());\n" +
         "            } else if (v instanceof java.util.Map<?,?>) {\n" +
         "                java.util.Map<?,?> map = (java.util.Map<?,?>) v;\n" +
         "                int size = map.size();\n" +
@@ -370,7 +369,6 @@ public class RunController {
         "        for (int i = 0; i < callStack.size(); i++) {\n" +
         "            LinkedHashMap<String,Object> frame = new LinkedHashMap<>();\n" +
         "            frame.put(\"method\", callStack.get(i));\n" +
-        "            frame.put(\"file\", frameFiles.get(i));\n" +
         "            frame.put(\"locals\", new LinkedHashMap<>(frameLocals.get(i)));\n" +
         "            frame.put(\"args\", new LinkedHashMap<>(frameArgs.get(i)));\n" +
         "            stackFrames.add(frame);\n" +
@@ -391,12 +389,118 @@ public class RunController {
         "        return cond;\n" +
         "    }\n" +
         "    public static void setOutputStream(ByteArrayOutputStream out) { capturedOutput = out; lastOutputPos = 0; }\n" +
-        "    public static void reset() { steps.clear(); heapObjects.clear(); callStack.clear(); frameLocals.clear(); frameArgs.clear(); frameFiles.clear(); nextStep = 0; disabled = false; lastOutputPos = 0; }\n" +
+        "    public static void reset() { steps.clear(); heapObjects.clear(); callStack.clear(); frameLocals.clear(); frameArgs.clear(); disabled = false; lastOutputPos = 0; }\n" +
         "    public static void disable() { disabled = true; }\n" +
         "    public static Map<String,Object> buildMap(Object... pairs) {\n" +
         "        LinkedHashMap<String,Object> m = new LinkedHashMap<>();\n" +
         "        for (int i = 0; i < pairs.length; i += 2) { m.put((String) pairs[i], pairs[i + 1]); }\n" +
         "        return m;\n" +
+        "    }\n" +
+        "    private static boolean isAdjacencyName(String name) {\n" +
+        "        return \"adj\".equals(name) || \"graph\".equals(name) || \"edges\".equals(name) || \"neighbors\".equals(name);\n" +
+        "    }\n" +
+        "    private static boolean isCapacityName(String name) {\n" +
+        "        return \"capacity\".equals(name) || \"cap\".equals(name) || \"residual\".equals(name);\n" +
+        "    }\n" +
+        "    private static boolean isNestedCollection(Object v) {\n" +
+        "        if (!(v instanceof java.util.Collection)) return false;\n" +
+        "        for (Object elem : (java.util.Collection<?>) v) { if (elem instanceof java.util.Collection) return true; }\n" +
+        "        return false;\n" +
+        "    }\n" +
+        "    private static boolean is2DNumericArray(Object v) {\n" +
+        "        if (v == null || !v.getClass().isArray()) return false;\n" +
+        "        Class<?> comp = v.getClass().getComponentType();\n" +
+        "        if (comp == null || !comp.isArray()) return false;\n" +
+        "        return comp.getComponentType() == int.class || comp.getComponentType() == long.class || comp.getComponentType() == double.class;\n" +
+        "    }\n" +
+        "    private static void maybeEmitGraph(String name, Object v, Map<String,Object> vars) {\n" +
+        "        if (v == null) return;\n" +
+        "        if (isAdjacencyName(name) && isNestedCollection(v)) {\n" +
+        "            LinkedHashMap<String,Object> adj = adjacencyToMap((java.util.Collection<?>) v);\n" +
+        "            if (adj.isEmpty()) return;\n" +
+        "            boolean directed = !isSymmetricAdjacency(adj);\n" +
+        "            LinkedHashMap<String,Object> fields = new LinkedHashMap<>();\n" +
+        "            fields.put(\"adj\", adj);\n" +
+        "            putGraphObject(name, directed ? \"Digraph\" : \"Graph\", fields);\n" +
+        "        } else if (isCapacityName(name) && is2DNumericArray(v)) {\n" +
+        "            LinkedHashMap<String,Object> cap = matrixToMap(v);\n" +
+        "            if (cap.isEmpty()) return;\n" +
+        "            LinkedHashMap<String,Object> fields = new LinkedHashMap<>();\n" +
+        "            fields.put(\"capacity\", cap);\n" +
+        "            Object flowVar = vars.get(\"flow\");\n" +
+        "            if (is2DNumericArray(flowVar)) { LinkedHashMap<String,Object> flow = matrixToMap(flowVar); if (!flow.isEmpty()) fields.put(\"flow\", flow); }\n" +
+        "            String source = findEndpointVar(vars, \"source\", \"s\");\n" +
+        "            String sink = findEndpointVar(vars, \"sink\", \"t\");\n" +
+        "            if (source != null) fields.put(\"source\", source);\n" +
+        "            if (sink != null) fields.put(\"sink\", sink);\n" +
+        "            putGraphObject(name, \"MaxFlow\", fields);\n" +
+        "        }\n" +
+        "    }\n" +
+        "    private static void putGraphObject(String name, String type, LinkedHashMap<String,Object> fields) {\n" +
+        "        String graphKey = name + \"$graph\";\n" +
+        "        LinkedHashMap<String,Object> go = new LinkedHashMap<>();\n" +
+        "        go.put(\"type\", type);\n" +
+        "        go.put(\"id\", \"0x\" + Integer.toHexString(Math.abs(graphKey.hashCode()) & 0xFFFF).toUpperCase());\n" +
+        "        go.put(\"name\", graphKey);\n" +
+        "        go.put(\"fields\", fields);\n" +
+        "        heapObjects.put(graphKey, go);\n" +
+        "    }\n" +
+        "    private static LinkedHashMap<String,Object> adjacencyToMap(java.util.Collection<?> adj) {\n" +
+        "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
+        "        int from = 0;\n" +
+        "        for (Object row : adj) {\n" +
+        "            if (row instanceof java.util.Collection) {\n" +
+        "                java.util.List<Object> neighbors = new java.util.ArrayList<>();\n" +
+        "                for (Object to : (java.util.Collection<?>) row) { if (to == null) continue; LinkedHashMap<String,Object> entry = new LinkedHashMap<>(); entry.put(\"to\", String.valueOf(to)); neighbors.add(entry); }\n" +
+        "                map.put(String.valueOf(from), neighbors);\n" +
+        "            }\n" +
+        "            from++;\n" +
+        "        }\n" +
+        "        return map;\n" +
+        "    }\n" +
+        "    private static boolean isSymmetricAdjacency(Map<String,Object> adj) {\n" +
+        "        java.util.Set<String> edges = new java.util.HashSet<>();\n" +
+        "        int count = 0;\n" +
+        "        for (Map.Entry<String,Object> e : adj.entrySet()) {\n" +
+        "            if (!(e.getValue() instanceof java.util.List)) continue;\n" +
+        "            for (Object o : (java.util.List<?>) e.getValue()) {\n" +
+        "                if (!(o instanceof Map)) continue;\n" +
+        "                Object to = ((Map<?,?>) o).get(\"to\");\n" +
+        "                if (to == null) continue;\n" +
+        "                edges.add(e.getKey() + \"->\" + to);\n" +
+        "                count++;\n" +
+        "            }\n" +
+        "        }\n" +
+        "        if (count == 0) return false;\n" +
+        "        for (String e : edges) {\n" +
+        "            int arrow = e.indexOf(\"->\");\n" +
+        "            String u = e.substring(0, arrow);\n" +
+        "            String v = e.substring(arrow + 2);\n" +
+        "            if (!edges.contains(v + \"->\" + u)) return false;\n" +
+        "        }\n" +
+        "        return true;\n" +
+        "    }\n" +
+        "    private static LinkedHashMap<String,Object> matrixToMap(Object matrix) {\n" +
+        "        LinkedHashMap<String,Object> map = new LinkedHashMap<>();\n" +
+        "        int len = Array.getLength(matrix);\n" +
+        "        for (int i = 0; i < len; i++) {\n" +
+        "            Object row = Array.get(matrix, i);\n" +
+        "            if (row == null || !row.getClass().isArray()) continue;\n" +
+        "            LinkedHashMap<String,Object> rowMap = new LinkedHashMap<>();\n" +
+        "            int rlen = Array.getLength(row);\n" +
+        "            for (int j = 0; j < rlen; j++) {\n" +
+        "                Object val = Array.get(row, j);\n" +
+        "                if (val == null) continue;\n" +
+        "                if (val instanceof Number && ((Number) val).doubleValue() == 0.0) continue;\n" +
+        "                rowMap.put(String.valueOf(j), val);\n" +
+        "            }\n" +
+        "            map.put(String.valueOf(i), rowMap);\n" +
+        "        }\n" +
+        "        return map;\n" +
+        "    }\n" +
+        "    private static String findEndpointVar(Map<String,Object> vars, String... names) {\n" +
+        "        for (String n : names) { Object v = vars.get(n); if (v instanceof Number) return String.valueOf(((Number) v).intValue()); }\n" +
+        "        return null;\n" +
         "    }\n" +
         "    public static List<Map<String,Object>> getSteps() { return steps; }\n" +
         "}\n";
@@ -441,7 +545,9 @@ public class RunController {
             if (launcherCode != null) sources.put("Launcher", launcherCode);
 
             String entryClassName = (launcherCode != null) ? "Launcher" : className;
-            return compileAndRun(sources, entryClassName, runId, methodName, methodSignature);
+            RunResponse response = compileAndRun(sources, entryClassName, runId, methodName, methodSignature);
+            executionSnapshotService.saveRunSnapshot(response, userCode, List.of());
+            return response;
 
         } catch(Exception e){
             return failFromException(e);
@@ -460,7 +566,6 @@ public class RunController {
             sources.put("TraceEngine", TRACE_ENGINE_SOURCE);
 
             String detectedEntry = null;
-            Map<String,String> nameToCode = new LinkedHashMap<>();
             for (SourceFile file : files) {
                 String name = file.getName();
                 String code = file.getCode();
@@ -472,7 +577,6 @@ public class RunController {
                 String instrumentedCode = instrumenter.instrument(code, name);
                 instrumentedCode = removePackageDeclaration(instrumentedCode);
                 sources.put(className, instrumentedCode);
-                nameToCode.put(className, code);
 
                 if (detectedEntry == null && hasMainMethod(code)) detectedEntry = className;
             }
@@ -485,9 +589,7 @@ public class RunController {
                 return RunResponse.fail("入口类「" + entryClassName + "」不在上传的文件中");
 
             RunResponse response = compileAndRun(sources, entryClassName, runId, null, null);
-            // 附带入口类源码，供前端「流程/算法/动画/问答」沿用单文件接口
-            response.setEntryClass(entryClassName);
-            response.setEntryCode(nameToCode.get(entryClassName));
+            executionSnapshotService.saveRunSnapshot(response, request.getCode() == null ? "" : request.getCode(), List.of());
             return response;
 
         } catch(Exception e){
