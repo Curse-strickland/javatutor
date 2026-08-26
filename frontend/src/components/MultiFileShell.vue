@@ -52,40 +52,60 @@
       <div class="splitter-handle" />
     </div>
 
-    <!-- 右侧：标签页卡片（与单文件一致） -->
+    <!-- 右侧：标签页卡片（与单文件一致 + UML 架构图） -->
     <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
       <div class="right-card-header">
         <span class="rc-dot" />
         <span class="panel-kicker">INSPECT</span>
-        <button class="right-tab" :class="{ active: store.rightTab === 'variables' }" @click="store.switchRightTab('variables')">变量</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'flow' }" @click="store.switchRightTab('flow')">流程</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'datastructure' }" @click="store.switchRightTab('datastructure')">数据结构</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'algorithm' }" @click="store.switchRightTab('algorithm')">算法</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'tutor' }" @click="store.switchRightTab('tutor')">问答</button>
-        <button class="right-tab" :class="{ active: store.rightTab === 'animate' }" @click="store.switchRightTab('animate')">动画</button>
+        <button class="right-tab" :class="{ active: activeTab === 'variables' }" @click="switchTab('variables')">变量</button>
+        <button class="right-tab" :class="{ active: activeTab === 'flow' }" @click="switchTab('flow')">流程</button>
+        <button class="right-tab" :class="{ active: activeTab === 'datastructure' }" @click="switchTab('datastructure')">数据结构</button>
+        <button class="right-tab" :class="{ active: activeTab === 'algorithm' }" @click="switchTab('algorithm')">算法</button>
+        <button class="right-tab" :class="{ active: activeTab === 'tutor' }" @click="switchTab('tutor')">问答</button>
+        <button class="right-tab" :class="{ active: activeTab === 'animate' }" @click="switchTab('animate')">动画</button>
+        <button class="right-tab" :class="{ active: activeTab === 'uml-flow' }" @click="switchTab('uml-flow')">调用关系</button>
+        <button class="right-tab" :class="{ active: activeTab === 'uml-dataflow' }" @click="switchTab('uml-dataflow')">数据流</button>
+        <button class="right-tab" :class="{ active: activeTab === 'uml-structure' }" @click="switchTab('uml-structure')">结构</button>
+        <button class="right-tab" :class="{ active: activeTab === 'uml-class' }" @click="switchTab('uml-class')">类图</button>
+        <button class="right-tab" :class="{ active: activeTab === 'uml-usecase' }" @click="switchTab('uml-usecase')">用例</button>
         <!-- 壁纸选择器 -->
         <WallpaperSelector />
       </div>
-      <div class="flex-1 right-card-body" :class="{ 'body-fill': store.rightTab === 'tutor' }">
+      <div class="flex-1 right-card-body" :class="{ 'body-fill': activeTab === 'tutor' }">
         <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
-        <div v-show="store.rightTab === 'variables'" class="right-pane">
+        <div v-show="activeTab === 'variables'" class="right-pane">
           <MemoryPanel />
           <ConsoleOutput />
         </div>
-        <div v-show="store.rightTab === 'flow'" class="right-pane">
-          <ControlFlowPanel v-if="store.rightTab === 'flow'" :active="true" />
+        <div v-show="activeTab === 'flow'" class="right-pane">
+          <ControlFlowPanel v-if="activeTab === 'flow'" :active="true" />
         </div>
-        <div v-show="store.rightTab === 'datastructure'" class="right-pane">
+        <div v-show="activeTab === 'datastructure'" class="right-pane">
           <DataStructureTab />
         </div>
-        <div v-show="store.rightTab === 'algorithm'" class="right-pane">
+        <div v-show="activeTab === 'algorithm'" class="right-pane">
           <AlgoTab @loadCode="onClassicLoad" />
         </div>
-        <div v-show="store.rightTab === 'tutor'" class="right-pane right-pane-fill">
+        <div v-show="activeTab === 'tutor'" class="right-pane right-pane-fill">
           <AiTutorPanel embedded />
         </div>
-        <div v-show="store.rightTab === 'animate'" class="right-pane">
+        <div v-show="activeTab === 'animate'" class="right-pane">
           <SvgAnimatePanel />
+        </div>
+        <div v-show="activeTab === 'uml-flow'" class="right-pane">
+          <FlowDiagramPanel />
+        </div>
+        <div v-show="activeTab === 'uml-dataflow'" class="right-pane">
+          <UmlPanel kind="dataflow" :files="store.multiState.files" />
+        </div>
+        <div v-show="activeTab === 'uml-structure'" class="right-pane">
+          <StructureDiagramPanel />
+        </div>
+        <div v-show="activeTab === 'uml-class'" class="right-pane">
+          <ClassDiagramPanel />
+        </div>
+        <div v-show="activeTab === 'uml-usecase'" class="right-pane">
+          <UmlPanel kind="usecase" :files="store.multiState.files" />
         </div>
       </div>
     </div>
@@ -109,6 +129,10 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
 import SvgAnimatePanel from './SvgAnimatePanel.vue'
+import UmlPanel from './UmlPanel.vue'
+import FlowDiagramPanel from './FlowDiagramPanel.vue'
+import ClassDiagramPanel from './ClassDiagramPanel.vue'
+import StructureDiagramPanel from './StructureDiagramPanel.vue'
 import ControlBar from './ControlBar.vue'
 
 const store = usePlayerStore()
@@ -117,6 +141,9 @@ const containerRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)
 const uploadOpen = ref(false)
+// UML 栏目：null 表示未选中 UML（显示基础 6 栏），否则为 flow/dataflow/structure/class/usecase
+const activeUmlKind = ref(null)
+const activeTab = computed(() => activeUmlKind.value ? `uml-${activeUmlKind.value}` : store.rightTab)
 const MIN_LEFT = 400
 const MIN_RIGHT = 350
 
@@ -152,6 +179,16 @@ function saveActiveFile() {
 
 function toggleUpload() {
   uploadOpen.value = !uploadOpen.value
+}
+
+// 切换右侧栏目：基础 6 栏复用 store.rightTab；UML 5 栏用组件内 activeUmlKind
+function switchTab(tab) {
+  if (tab.startsWith('uml-')) {
+    activeUmlKind.value = tab.slice('uml-'.length)
+  } else {
+    activeUmlKind.value = null
+    store.switchRightTab(tab)
+  }
 }
 
 // 运行整个项目：先保存当前文件编辑内容再运行
