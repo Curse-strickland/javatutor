@@ -52,56 +52,59 @@
       <div class="splitter-handle" />
     </div>
 
-    <!-- 右侧：标签页卡片（与单文件一致 + UML 架构图） -->
+    <!-- 右侧：标签页卡片（与单文件一致的两级结构 + 多文件独有 UML） -->
     <div :style="{ width: rightWidth + 'px', minWidth: MIN_RIGHT + 'px' }" class="right-card card flex flex-col">
       <div class="right-card-header">
         <span class="rc-dot" />
         <span class="panel-kicker">INSPECT</span>
-        <button class="right-tab" :class="{ active: activeTab === 'variables' }" @click="switchTab('variables')">变量</button>
-        <button class="right-tab" :class="{ active: activeTab === 'flow' }" @click="switchTab('flow')">流程</button>
-        <button class="right-tab" :class="{ active: activeTab === 'datastructure' }" @click="switchTab('datastructure')">数据结构</button>
-        <button class="right-tab" :class="{ active: activeTab === 'algorithm' }" @click="switchTab('algorithm')">算法</button>
-        <button class="right-tab" :class="{ active: activeTab === 'tutor' }" @click="switchTab('tutor')">问答</button>
-        <button class="right-tab" :class="{ active: activeTab === 'uml-flow' }" @click="switchTab('uml-flow')">调用关系</button>
-        <button class="right-tab" :class="{ active: activeTab === 'uml-dataflow' }" @click="switchTab('uml-dataflow')">数据流</button>
-        <button class="right-tab" :class="{ active: activeTab === 'uml-structure' }" @click="switchTab('uml-structure')">结构</button>
-        <button class="right-tab" :class="{ active: activeTab === 'uml-class' }" @click="switchTab('uml-class')">类图</button>
-        <button class="right-tab" :class="{ active: activeTab === 'uml-usecase' }" @click="switchTab('uml-usecase')">用例</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'observe' }" @click="switchGroup('observe')">Observe</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'learn' }" @click="switchGroup('learn')">Learn</button>
+        <button class="right-tab" :class="{ active: rightGroup === 'ask' }" @click="switchGroup('ask')">Ask</button>
         <!-- 壁纸选择器 -->
         <WallpaperSelector />
+        <div class="right-subtab-row">
+          <template v-if="rightGroup === 'observe'">
+            <button class="right-tab" :class="{ active: multiTab === 'datastructure' }" @click="switchTab('datastructure')">数据结构</button>
+            <button class="right-tab" :class="{ active: multiTab === 'flow' }" @click="switchTab('flow')">流程</button>
+            <button class="right-tab" :class="{ active: multiTab === 'variables' }" @click="switchTab('variables')">内存状态</button>
+            <button class="right-tab" :class="{ active: multiTab === 'callgraph' }" @click="switchTab('callgraph')">调用关系</button>
+            <button class="right-tab" :class="{ active: multiTab === 'classdiagram' }" @click="switchTab('classdiagram')">类图</button>
+            <button class="right-tab" :class="{ active: multiTab === 'structure' }" @click="switchTab('structure')">结构</button>
+          </template>
+          <template v-else-if="rightGroup === 'learn'">
+            <button class="right-tab active" @click="switchTab('algorithm')">算法库</button>
+          </template>
+          <template v-else>
+            <button class="right-tab active" @click="switchTab('tutor')">agent</button>
+          </template>
+        </div>
       </div>
-      <div class="flex-1 right-card-body" :class="{ 'body-fill': activeTab === 'tutor' }">
+      <div class="flex-1 right-card-body" :class="{ 'body-fill': multiTab === 'tutor' }">
         <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
-        <div v-show="activeTab === 'variables'" class="right-pane">
+        <div v-show="multiTab === 'variables'" class="right-pane">
           <MemoryPanel />
           <ConsoleOutput />
         </div>
-        <div v-show="activeTab === 'flow'" class="right-pane">
-          <ControlFlowPanel v-if="activeTab === 'flow'" :active="true" />
+        <div v-show="multiTab === 'flow'" class="right-pane">
+          <ControlFlowPanel v-if="multiTab === 'flow'" :active="true" />
         </div>
-        <div v-show="activeTab === 'datastructure'" class="right-pane">
+        <div v-show="multiTab === 'datastructure'" class="right-pane">
           <DataStructureTab />
         </div>
-        <div v-show="activeTab === 'algorithm'" class="right-pane">
+        <div v-show="multiTab === 'algorithm'" class="right-pane">
           <AlgoTab @loadCode="onClassicLoad" />
         </div>
-        <div v-show="activeTab === 'tutor'" class="right-pane right-pane-fill">
+        <div v-show="multiTab === 'tutor'" class="right-pane right-pane-fill">
           <AiTutorPanel embedded />
         </div>
-        <div v-show="activeTab === 'uml-flow'" class="right-pane">
+        <div v-show="multiTab === 'callgraph'" class="right-pane">
           <FlowDiagramPanel />
         </div>
-        <div v-show="activeTab === 'uml-dataflow'" class="right-pane">
-          <UmlPanel kind="dataflow" :files="store.multiState.files" />
-        </div>
-        <div v-show="activeTab === 'uml-structure'" class="right-pane">
-          <StructureDiagramPanel />
-        </div>
-        <div v-show="activeTab === 'uml-class'" class="right-pane">
+        <div v-show="multiTab === 'classdiagram'" class="right-pane">
           <ClassDiagramPanel />
         </div>
-        <div v-show="activeTab === 'uml-usecase'" class="right-pane">
-          <UmlPanel kind="usecase" :files="store.multiState.files" />
+        <div v-show="multiTab === 'structure'" class="right-pane">
+          <StructureDiagramPanel />
         </div>
       </div>
     </div>
@@ -124,7 +127,6 @@ import ControlFlowPanel from './ControlFlowPanel.vue'
 import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
-import UmlPanel from './UmlPanel.vue'
 import FlowDiagramPanel from './FlowDiagramPanel.vue'
 import ClassDiagramPanel from './ClassDiagramPanel.vue'
 import StructureDiagramPanel from './StructureDiagramPanel.vue'
@@ -136,9 +138,27 @@ const containerRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)
 const uploadOpen = ref(false)
-// UML 栏目：null 表示未选中 UML（显示基础 6 栏），否则为 flow/dataflow/structure/class/usecase
-const activeUmlKind = ref(null)
-const activeTab = computed(() => activeUmlKind.value ? `uml-${activeUmlKind.value}` : store.rightTab)
+// 多文件右侧 tab：本地状态，独立于单文件的 store.rightTab
+const multiTab = ref('datastructure')
+// 顶层分组：observe / learn / ask
+const GROUP_OF_TAB = {
+  datastructure: 'observe',
+  flow: 'observe',
+  variables: 'observe',
+  callgraph: 'observe',
+  classdiagram: 'observe',
+  structure: 'observe',
+  algorithm: 'learn',
+  tutor: 'ask',
+}
+const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
+const rightGroup = computed(() => GROUP_OF_TAB[multiTab.value] || 'observe')
+const switchGroup = (group) => {
+  if (rightGroup.value !== group) multiTab.value = GROUP_DEFAULT_TAB[group]
+}
+function switchTab(tab) {
+  multiTab.value = tab
+}
 const MIN_LEFT = 400
 const MIN_RIGHT = 350
 
@@ -174,16 +194,6 @@ function saveActiveFile() {
 
 function toggleUpload() {
   uploadOpen.value = !uploadOpen.value
-}
-
-// 切换右侧栏目：基础 6 栏复用 store.rightTab；UML 5 栏用组件内 activeUmlKind
-function switchTab(tab) {
-  if (tab.startsWith('uml-')) {
-    activeUmlKind.value = tab.slice('uml-'.length)
-  } else {
-    activeUmlKind.value = null
-    store.switchRightTab(tab)
-  }
 }
 
 // 运行整个项目：先保存当前文件编辑内容再运行
@@ -583,6 +593,13 @@ const onWindowResize = () => {
   color: var(--accent);
   background: transparent;
   box-shadow: inset 0 -2px 0 var(--accent);
+}
+.right-subtab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  padding-top: 8px;
 }
 
 .splitter {
