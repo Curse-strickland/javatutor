@@ -52,6 +52,9 @@ export const usePlayerStore = defineStore('player', {
       files: [],             // [{name, code}]
       activeFileIndex: 0,
       umlCache: {},          // {kind: {svg, ts, source}}
+      projectAnalysis: null, // { entry, flow, classDiagram, structure, errors }
+      isAnalyzingProject: false,
+      projectAnalysisError: null,
     },
     multiRightTab: 'variables',
   }),
@@ -538,6 +541,33 @@ export const usePlayerStore = defineStore('player', {
       this.multiState.umlCache = {
         ...this.multiState.umlCache,
         [kind]: entry,
+      }
+    },
+
+    /** 项目静态分析：POST /api/project/analyze 生成流程图/类图/结构图 */
+    async analyzeProject() {
+      const files = this.multiState.files
+      if (!files.length) return
+      this.multiState.isAnalyzingProject = true
+      this.multiState.projectAnalysisError = null
+      try {
+        const res = await fetch('/api/project/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: files.map(f => ({ path: f.name, code: f.code })),
+          }),
+        })
+        const data = await res.json()
+        if (data.success === false) {
+          this.multiState.projectAnalysisError = data.error || '分析失败'
+        } else {
+          this.multiState.projectAnalysis = data
+        }
+      } catch (e) {
+        this.multiState.projectAnalysisError = e.message || '分析请求失败'
+      } finally {
+        this.multiState.isAnalyzingProject = false
       }
     },
 
