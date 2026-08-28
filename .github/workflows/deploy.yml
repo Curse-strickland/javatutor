@@ -128,11 +128,17 @@ jobs:
 
           # ── 传输完成后在服务器上执行的命令 ────────────────
           SCRIPT_AFTER: |
-            # 写入 Coze token 到环境文件（若 GitHub Secrets 已配置）
-            if [ -n "${{ secrets.COZE_API_TOKEN }}" ]; then
-              sudo mkdir -p /opt/javatutor/config
-              echo "COZE_API_TOKEN=${{ secrets.COZE_API_TOKEN }}" | sudo tee /opt/javatutor/config/coze.env > /dev/null
-            fi
+            # 写入 Coze / Agent token 到环境文件（若 GitHub Secrets 已配置）
+            sudo mkdir -p /opt/javatutor/config
+            {
+              if [ -n "${{ secrets.COZE_API_TOKEN }}" ]; then
+                echo "COZE_API_TOKEN=${{ secrets.COZE_API_TOKEN }}"
+              fi
+              # 执行上下文接口的共享 token：与 Coze 侧 JAVATUTOR_AGENT_TOKEN 必须一致
+              if [ -n "${{ secrets.JAVATUTOR_AGENT_TOKEN }}" ]; then
+                echo "JAVATUTOR_AGENT_TOKEN=${{ secrets.JAVATUTOR_AGENT_TOKEN }}"
+              fi
+            } | sudo tee /opt/javatutor/config/coze.env > /dev/null
             sudo systemctl restart javatutor
             sudo systemctl reload nginx
           # 环境文件 /opt/javatutor/config/coze.env 由 systemd 服务 javatutor.service 通过
