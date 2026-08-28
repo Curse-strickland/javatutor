@@ -46,10 +46,14 @@
           <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
           <div v-else class="chat-bubble assistant">
             <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
-            <!-- 流式期间直接渲染累积 markdown，避免未完成的【决策痕迹】JSON 闪烁；
-                 结束后交给 DecisionTracePanel 解析正文+决策痕迹，并叠加编辑建议卡片 -->
+            <!-- 仅在「当前正在生成的那条（最后一条）」用裸 markdown 流式展示；
+                 其余已完成消息始终交给 DecisionTracePanel 解析，避免历史消息的
+                 决策痕迹在生成期间退化成裸 JSON（bug: 思考中历史痕迹显示异常） -->
             <template v-else>
-              <DecisionTracePanel v-if="!store.isExplaining" :content="m.text" />
+              <DecisionTracePanel
+                v-if="i !== store.chatMessages.length - 1 || !store.isExplaining"
+                :content="m.text"
+              />
               <span v-else v-html="renderMarkdown(m.text)"></span>
               <EditSuggestionCard
                 v-if="parsedMessages[i].edits.length && !store.isExplaining"
