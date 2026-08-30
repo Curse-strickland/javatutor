@@ -61,19 +61,28 @@ function formatTokens(usage) {
   if (!usage || typeof usage !== 'object') return ''
   const p = usage.prompt_tokens
   const c = usage.completion_tokens
-  if (typeof p === 'number' && typeof c === 'number') return `Prompt ${p} / 生成 ${c}`
-  if (typeof p === 'number') return `Prompt ${p}`
-  if (typeof c === 'number') return `生成 ${c}`
+  const est = usage.estimated === true ? '（估）' : ''
+  if (typeof p === 'number' && typeof c === 'number') return `Prompt ${p} / 生成 ${c}${est}`
+  if (typeof p === 'number') return `Prompt ${p}${est}`
+  if (typeof c === 'number') return `生成 ${c}${est}`
   return ''
 }
 
 /**
  * 把决策痕迹转换为用户可读的执行过程摘要。
- * 只输出意图、工具调用、评审/修订状态与耗时/Token 统计，不暴露原始 JSON。
+ * 只输出意图、工具调用、评审/修订状态、降级提示与耗时/Token 统计，不暴露原始 JSON。
  * 无 trace 或字段缺失时返回空值，不抛错。
  */
 export function traceSummary(trace) {
-  const empty = { intentLabel: '', toolLines: [], toolEmptyText: '', reviseText: '', latencyText: '', tokenText: '' }
+  const empty = {
+    intentLabel: '',
+    toolLines: [],
+    toolEmptyText: '',
+    reviseText: '',
+    qualityWarnings: [],
+    latencyText: '',
+    tokenText: '',
+  }
   if (!trace || typeof trace !== 'object') return empty
   const intentLabel = trace.intent
     ? `意图识别：${INTENT_LABELS[trace.intent] || INTENT_LABELS.other}（${trace.intent}）`
@@ -85,12 +94,37 @@ export function traceSummary(trace) {
     ? '未调用工具'
     : ''
   let reviseText = ''
-  if (trace.critic_passed === false && trace.revised === true) {
-    reviseText = '评审未通过，已修订'
+  if (trace.critic_passed === false) {
+    reviseText = trace.revised === true ? '评审未通过，已修订' : '评审未通过（未修订）'
   }
+  const qualityWarnings = []
+  if (trace.rag_degraded === true) qualityWarnings.push('知识库检索不可用，已用通用知识回答')
+  if (trace.critic_skipped === true) qualityWarnings.push('评审已跳过')
+  if (trace.revise_skipped === true) qualityWarnings.push('修订已跳过')
+  if (typeof trace.fallback_reason === 'string' && trace.fallback_reason) {
+    qualityWarnings.push(`降级：${trace.fallback_reason}`)
+  }
+  if (trace.compaction_mode === 'windowed') qualityWarnings.push('上下文过长，已窗口化压缩')
+  else if (trace.compaction_mode === 'truncated') qualityWarnings.push('上下文过长，压缩失败已截断')
   const latencyText = typeof trace.latency_ms === 'number' && trace.latency_ms > 0
     ? `耗时 ${formatLatency(trace.latency_ms)}`
     : ''
   const tokenText = formatTokens(trace.token_usage)
-  return { intentLabel, toolLines, toolEmptyText, reviseText, latencyText, tokenText }
+  return { intentLabel, toolLines, toolEmptyText, reviseText, qualityWarnings, latencyText, tokenText }
+}
+
+/** 开发者模式用的结构化观测行（run_id / 上下文拉取结果）。 */
+export function traceDebugLines(trace) {
+  if (!trace || typeof trace !== 'object') return []
+  const lines = []
+  if (typeof trace.run_id === 'string' && trace.run_id) lines.push(`run_id: ${trace.run_id}`)
+  if (trace.fetch_context_failed === true) {
+    lines.push(`上下文拉取失败：${trace.fetch_context_error || '未知原因'}`)
+  } else if (trace.fetch_context_failed === false) {
+    const latency = typeof trace.fetch_context_latency_ms === 'number'
+      ? `${trace.fetch_context_latency_ms}ms`
+      : 'ok'
+    lines.push(`上下文拉取：${latency}`)
+  }
+  return lines
 }
