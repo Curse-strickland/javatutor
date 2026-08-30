@@ -45,7 +45,7 @@
              && !apiToken.startsWith("${");
      }
 
-     /** 构造发给 Coze 的 agentPayload：有 runId 时走最小 envelope，否则回退旧完整 payload。 */
+     /** 构造发给 Coze 的 agentPayload：有 runId 时也携带完整执行数据（方案 A），否则回退旧完整 payload。 */
      Map<String, Object> buildAgentPayload(String sourceCode,
                                            List<Map<String, Object>> steps,
                                            int currentStepIndex,
@@ -55,7 +55,9 @@
                                            String sessionId,
                                            String intent,
                                            List<String> algorithmTags,
-                                           String runId) {
+                                           String runId,
+                                           List<Map<String, String>> files,
+                                           String entryFile) {
          Map<String, Object> agentPayload = new LinkedHashMap<>();
          if (runId != null && !runId.isBlank()) {
              agentPayload.put("run_id", runId);
@@ -63,6 +65,15 @@
              agentPayload.put("user_question", userQuestion != null ? userQuestion : "");
              agentPayload.put("intent", intent != null ? intent : "");
              agentPayload.put("compile_error", compileError != null ? compileError : "");
+             // 方案 A：即便带 runId 也携带完整执行数据，使 Coze 侧读取工具优先从 state 取，不依赖后端快照
+             agentPayload.put("source_code", sourceCode);
+             agentPayload.put("steps", steps != null ? steps : List.of());
+             agentPayload.put("current_step_index", currentStepIndex);
+             agentPayload.put("current_line", currentLine);
+             if (algorithmTags != null && !algorithmTags.isEmpty()) {
+                 agentPayload.put("algorithm_tags", algorithmTags);
+             }
+             addFiles(agentPayload, files, entryFile);
              return agentPayload;
          }
 
@@ -79,7 +90,18 @@
          if (algorithmTags != null && !algorithmTags.isEmpty()) {
              agentPayload.put("algorithm_tags", algorithmTags);
          }
+         addFiles(agentPayload, files, entryFile);
          return agentPayload;
+     }
+
+     /** 可选携带项目文件与主入口（多文件）。 */
+     private void addFiles(Map<String, Object> agentPayload, List<Map<String, String>> files, String entryFile) {
+         if (files != null && !files.isEmpty()) {
+             agentPayload.put("files", files);
+         }
+         if (entryFile != null && !entryFile.isBlank()) {
+             agentPayload.put("entry_file", entryFile);
+         }
      }
 
      public void streamExplain(String sourceCode,
@@ -93,7 +115,9 @@
                                List<String> algorithmTags,
                                String runId,
                                Consumer<String> onChunk,
-                               Consumer<String> onStage) throws Exception {
+                               Consumer<String> onStage,
+                               List<Map<String, String>> files,
+                               String entryFile) throws Exception {
 
          if (!isEnabled()) {
              throw new IllegalStateException("Coze is disabled.");
@@ -111,7 +135,9 @@
              sessionId,
              intent,
              algorithmTags,
-             runId
+             runId,
+             files,
+             entryFile
          );
 
          String agentJson = objectMapper.writeValueAsString(agentPayload);
@@ -209,7 +235,7 @@
                                    String intent) throws Exception {
         StringBuilder sb = new StringBuilder();
         streamExplain(sourceCode, null, currentStepIndex, currentLine,
-            userQuestion, null, sessionId, intent, null, null, sb::append, null);
+            userQuestion, null, sessionId, intent, null, null, sb::append, null, null, null);
         return sb.toString();
      }
 
@@ -224,7 +250,7 @@
                                             List<String> algorithmTags) throws Exception {
         StringBuilder sb = new StringBuilder();
         streamExplain(sourceCode, steps, currentStepIndex, currentLine,
-            userQuestion, null, sessionId, intent, algorithmTags, null, sb::append, null);
+            userQuestion, null, sessionId, intent, algorithmTags, null, sb::append, null, null, null);
         return sb.toString();
      }
  }

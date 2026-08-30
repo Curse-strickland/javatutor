@@ -219,6 +219,7 @@ export const usePlayerStore = defineStore('player', {
         const stepSnapshots = (this.steps || []).map(s => ({
           step: s.step,
           line: s.line,
+          file: s.file || '',              // 多文件项目时确定当前步归属
           variables: s.variables || {},
           heap: s.heap || {},
           stackFrames: s.stackFrames || [],
@@ -235,6 +236,8 @@ export const usePlayerStore = defineStore('player', {
             currentLine: this.currentLine,
             steps: stepSnapshots,
             variables: { ...this.currentVariables, _explainTopic: q },
+            files: this.multiState.files.map(f => ({ name: f.name, code: f.code })),   // 全部文件
+            entryFile: this.multiState.entryFile || '',                                // 主入口（可选）
           }),
           signal: this.explainAbortController.signal
         })
