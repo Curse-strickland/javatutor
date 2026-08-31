@@ -19,9 +19,22 @@
       </button>
       <span v-if="!store.multiState.files.length" class="file-tabs-empty">暂无文件</span>
     </div>
-    <button class="file-upload-btn" @click="openPicker" title="上传 .java 文件">
-      + 上传
-    </button>
+    <template v-if="confirmingClear">
+      <span class="clear-confirm-text">清空全部文件?</span>
+      <button class="file-upload-btn clear-confirm-yes" @click="confirmClear">确认</button>
+      <button class="file-upload-btn" @click="confirmingClear = false">取消</button>
+    </template>
+    <template v-else>
+      <button
+        class="file-upload-btn clear-btn"
+        :disabled="!store.multiState.files.length"
+        @click="confirmingClear = true"
+        title="清空所有文件"
+      >清空</button>
+      <button class="file-upload-btn" @click="openPicker" title="上传 .java 文件">
+        + 上传
+      </button>
+    </template>
     <input
       ref="inputRef"
       type="file"
@@ -39,6 +52,12 @@ import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
 const inputRef = ref(null)
+const confirmingClear = ref(false)
+
+function confirmClear() {
+  store.clearMultiFiles()
+  confirmingClear.value = false
+}
 
 function openPicker() {
   inputRef.value?.click()
@@ -151,5 +170,27 @@ function onFilesPicked(event) {
 .file-upload-btn:hover {
   background: var(--accent-bg);
   border-color: var(--accent);
+}
+.file-upload-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.file-upload-btn.clear-btn:hover:not(:disabled) {
+  background: rgba(239, 71, 111, 0.08);
+  border-color: var(--danger, #ef476f);
+  color: var(--danger, #ef476f);
+}
+.clear-confirm-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.clear-confirm-yes {
+  color: var(--danger, #ef476f);
+  border-color: var(--danger, #ef476f);
+}
+.clear-confirm-yes:hover {
+  background: rgba(239, 71, 111, 0.08);
 }
 </style>
