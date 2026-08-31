@@ -64,6 +64,21 @@ describe('traceSummary', () => {
     ])
   })
 
+  it('annotates step_facts result status on the tool line', () => {
+    const trace = {
+      tool_calls: [
+        { tool: 'step_facts', args: { step_index: 6, line: 0 },
+          result: JSON.stringify({ error: 'step_index 6 不在可用范围', steps_count: 6 }) },
+        { tool: 'step_facts', args: { step_index: 0 },
+          result: JSON.stringify({ error: '', evidence: { variables: { x: 1 } }, diff: [] }) },
+      ],
+    }
+    expect(traceSummary(trace).toolLines).toEqual([
+      '调用 step_facts：查询第 7 步，行 0 → 越界（共 6 步）',
+      '调用 step_facts：查询第 1 步 → 已获取证据',
+    ])
+  })
+
   it('shows revise text only when critic failed and revised', () => {
     expect(traceSummary({ critic_passed: false, revised: true }).reviseText).toBe('评审未通过，已修订')
     expect(traceSummary({ critic_passed: false, revised: false }).reviseText).toBe('')

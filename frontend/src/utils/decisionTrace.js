@@ -44,7 +44,21 @@ function formatToolCall(tc) {
     const bits = []
     if (typeof args.step_index === 'number') bits.push(`第 ${args.step_index + 1} 步`)
     if (typeof args.line === 'number') bits.push(`行 ${args.line}`)
-    return bits.length ? `调用 ${tool}：查询${bits.join('，')}` : `调用 ${tool}`
+    // 附加 tool_calls.result 摘要：越界(共N步)/已获取证据，便于诊断 step_facts
+    let status = ''
+    if (tc.result) {
+      try {
+        const r = JSON.parse(tc.result)
+        if (r.error && String(r.error).trim()) {
+          const count = typeof r.steps_count === 'number' ? `（共 ${r.steps_count} 步）` : ''
+          status = ` → 越界${count}`
+        } else {
+          status = ' → 已获取证据'
+        }
+      } catch { /* 忽略 result 解析失败 */ }
+    }
+    const base = bits.length ? `调用 ${tool}：查询${bits.join('，')}` : `调用 ${tool}`
+    return base + status
   }
   const scalars = Object.entries(args)
     .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))
