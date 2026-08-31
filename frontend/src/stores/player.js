@@ -532,6 +532,11 @@ export const usePlayerStore = defineStore('player', {
       }
     },
 
+    clearMultiFiles() {
+      this.multiState.files = []
+      this.multiState.activeFileIndex = 0
+    },
+
     setActiveMultiFile(index) {
       if (index < 0 || index >= this.multiState.files.length) return
       this.multiState.activeFileIndex = index
