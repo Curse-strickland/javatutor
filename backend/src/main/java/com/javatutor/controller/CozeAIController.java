@@ -92,7 +92,9 @@
                      stage -> {
                          try { emitter.send(SseEmitter.event().name("stage").data(stage)); }
                          catch (Exception e) { throw new RuntimeException(e); }
-                     }
+                     },
+                     request.getFiles(),
+                     request.getEntryFile()
                  );
                  emitter.complete();
              } catch (Exception e) {
