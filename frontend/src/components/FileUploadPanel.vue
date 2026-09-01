@@ -26,8 +26,8 @@
       </div>
     </div>
 
-    <!-- 本次导入的待选文件（已读取未加载） -->
-    <div v-if="store.pendingFiles.length" class="pending-section">
+    <!-- 本次导入的待选文件（已读取未加载）—— 仅单文件模式使用 -->
+    <div v-if="mode === 'single' && store.pendingFiles.length" class="pending-section">
       <div class="pending-label">已导入 ({{ store.pendingFiles.length }} 个文件，点击加载)</div>
       <div class="history-list">
         <div
@@ -60,7 +60,7 @@
         <div
           v-for="record in store.uploadHistory" :key="record.name"
           class="history-item"
-          @click="$emit('loadCode', record)"
+          @click="onHistoryClick(record)"
         >
           <div class="history-item-left">
             <div class="history-name">{{ record.name }}</div>
@@ -89,12 +89,17 @@
 import { ref } from 'vue'
 import { usePlayerStore } from '../stores/player'
 
+const props = defineProps({
+  /** 'single' 单文件（加载到编辑器）/ 'multi' 多文件（追加到项目文件列表） */
+  mode: { type: String, default: 'single' },
+})
+
 const store = usePlayerStore()
 const fileInputRef = ref(null)
 const folderInputRef = ref(null)
 const isDragover = ref(false)
 
-const emit = defineEmits(['loadCode'])
+const emit = defineEmits(['loadCode', 'loadFiles'])
 
 function openFilePicker() {
   fileInputRef.value?.click()
@@ -104,11 +109,15 @@ function openFolderPicker() {
   folderInputRef.value?.click()
 }
 
-// --- 文件选择（单文件自动加载，多文件全部待选） ---
+// --- 文件选择（单文件自动加载，多文件全部追加） ---
 function onFilePicked(event) {
   const files = Array.from(event.target.files || [])
   event.target.value = ''
   if (!files.length) return
+  if (props.mode === 'multi') {
+    readBatch(files, false)
+    return
+  }
   readBatch(files, files.length === 1)
 }
 
@@ -156,7 +165,7 @@ function onDrop(event) {
   }
   // 普通文件拖拽：全部通过 dataTransfer.files 处理
   const files = Array.from(event.dataTransfer?.files || []).filter(f => f.name.endsWith('.java'))
-  if (files.length) readBatch(files, files.length === 1)
+  if (files.length) readBatch(files, props.mode === 'multi' ? false : files.length === 1)
 }
 
 // 仅遍历一级子文件，不递归子目录（设计要求：文件夹内不含子文件夹）
@@ -200,6 +209,11 @@ function readBatch(files, autoLoadFirst = true) {
 
 function finishBatch(results, autoLoadFirst) {
   if (!results.length) return
+  // 多文件模式：直接把所有文件 emit 出去追加到项目
+  if (props.mode === 'multi') {
+    emit('loadFiles', results)
+    return
+  }
   // 去重：排除已在待加载列表中的同名文件
   const existingNames = new Set(store.pendingFiles.map(p => p.name))
   const newFiles = results.filter(r => !existingNames.has(r.name))
@@ -219,6 +233,14 @@ function removePending(name) {
 function loadPending(pf) {
   emit('loadCode', pf)
   store.pendingFiles = store.pendingFiles.filter(p => p.name !== pf.name)
+}
+
+function onHistoryClick(record) {
+  if (props.mode === 'multi') {
+    emit('loadFiles', [record])
+  } else {
+    emit('loadCode', record)
+  }
 }
 
 function relativeTime(timestamp) {

@@ -74,24 +74,28 @@ function toMermaid() {
   return lines.join('\n')
 }
 
-// 把后端成员串（如 "+ name: String"）转成 mermaid 成员声明
+// 把后端成员串（如 "- name: String"）转成 mermaid 成员声明
+// mermaid classDiagram 用 +/-/#/~ 前缀表示可见性
 function toMermaidMember(member, isField) {
   let s = String(member || '').trim()
-  // 移除可见性符号
-  const vis = s.charAt(0)
-  if (vis === '+' || vis === '-' || vis === '#' || vis === '~') s = s.slice(1).trim()
+  let vis = ''
+  const ch = s.charAt(0)
+  if (ch === '+' || ch === '-' || ch === '#' || ch === '~') {
+    vis = ch + ' '
+    s = s.slice(1).trim()
+  }
   if (isField) {
     // "name: String" → "String name"
     const idx = s.indexOf(':')
     if (idx >= 0) {
       const name = s.slice(0, idx).trim()
       const type = s.slice(idx + 1).trim()
-      return type + ' ' + name
+      return vis + type + ' ' + name
     }
-    return s
+    return vis + s
   }
   // "run(int): int" → "run(int) int"
-  return s.replace(/\)\s*:/, ') ')
+  return vis + s.replace(/\)\s*:/, ') ')
 }
 
 // mermaid classDiagram 的 id 不能含点号，做安全替换

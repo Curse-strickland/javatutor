@@ -206,12 +206,14 @@ async function onRunProject() {
 
 // 经典算法加载：把代码作为新文件加入多文件项目（若已存在同名文件则替换内容）
 function onClassicLoad({ name, code }) {
-  store.addMultiFile({ name: name || 'Classic.java', code })
-  const idx = store.multiState.files.findIndex(f => f.name === (name || 'Classic.java'))
+  const fname = name || 'Classic.java'
+  store.addMultiFile({ name: fname, code })
+  store.addUploadRecord(fname, code)
+  const idx = store.multiState.files.findIndex(f => f.name === fname)
   if (idx >= 0) store.setActiveMultiFile(idx)
 }
 
-// 多文件上传：批量追加文件到项目，并激活第一个新文件
+// 多文件上传：批量追加文件到项目，并激活第一个新文件；同时同步到加载记录
 function onLoadFiles(files) {
   if (!Array.isArray(files) || !files.length) return
   let firstNewIdx = -1
@@ -219,6 +221,8 @@ function onLoadFiles(files) {
     if (!f?.name) return
     const existed = store.multiState.files.some(x => x.name === f.name)
     store.addMultiFile({ name: f.name, code: f.code || '' })
+    // 同步到加载记录（localStorage 持久化）
+    store.addUploadRecord(f.name, f.code || '')
     if (!existed && firstNewIdx === -1) {
       firstNewIdx = store.multiState.files.findIndex(x => x.name === f.name)
     }

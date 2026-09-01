@@ -31,18 +31,7 @@
         @click="confirmingClear = true"
         title="清空所有文件"
       >清空</button>
-      <button class="file-upload-btn" @click="openPicker" title="上传 .java 文件">
-        + 上传
-      </button>
     </template>
-    <input
-      ref="inputRef"
-      type="file"
-      accept=".java"
-      multiple
-      style="display: none"
-      @change="onFilesPicked"
-    />
   </div>
 </template>
 
@@ -51,38 +40,11 @@ import { ref } from 'vue'
 import { usePlayerStore } from '../stores/player'
 
 const store = usePlayerStore()
-const inputRef = ref(null)
 const confirmingClear = ref(false)
 
 function confirmClear() {
   store.clearMultiFiles()
   confirmingClear.value = false
-}
-
-function openPicker() {
-  inputRef.value?.click()
-}
-
-function onFilesPicked(event) {
-  const files = Array.from(event.target.files || [])
-  event.target.value = ''
-  if (!files.length) return
-
-  let loaded = 0
-  files.forEach((file) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const code = e.target?.result
-      if (typeof code === 'string') {
-        store.addMultiFile({ name: file.name, code })
-        if (store.multiState.files.length === 1) {
-          store.setActiveMultiFile(0)
-        }
-      }
-      loaded++
-    }
-    reader.readAsText(file)
-  })
 }
 </script>
 

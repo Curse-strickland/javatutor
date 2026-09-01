@@ -5,21 +5,27 @@
         {{ store.multiState.isAnalyzingProject ? '分析中…' : '重新分析' }}
       </button>
       <span v-if="store.multiState.projectAnalysisError" class="fd-error">{{ store.multiState.projectAnalysisError }}</span>
+      <div class="zoom-group">
+        <button class="fd-btn zoom-btn" title="缩小" @click="zoomOut">−</button>
+        <span class="zoom-label">{{ Math.round(zoomLevel * 100) }}%</span>
+        <button class="fd-btn zoom-btn" title="放大" @click="zoomIn">+</button>
+        <button class="fd-btn zoom-btn" title="重置缩放" @click="resetZoom">重置</button>
+      </div>
     </div>
 
-    <div class="fd-body">
+    <div class="fd-body" @wheel="onWheel">
       <div v-if="!analysis" class="fd-state">请点击「重新分析」生成调用关系图</div>
       <div v-else-if="!callGraphClasses.length" class="fd-state">未找到可解析的类</div>
       <div v-else>
         <div v-if="renderError" class="fd-state fd-error-text">{{ renderError }}</div>
-        <div ref="mermaidRef" class="fd-mermaid" v-html="svgContent"></div>
+        <div ref="mermaidRef" class="fd-mermaid" :style="{ zoom: zoomLevel }" v-html="svgContent"></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import mermaid from 'mermaid'
 
@@ -30,8 +36,28 @@ const analysis = computed(() => store.multiState.projectAnalysis)
 const mermaidRef = ref(null)
 const svgContent = ref('')
 const renderError = ref('')
+const zoomLevel = ref(1)
+const ZOOM_MIN = 0.25
+const ZOOM_MAX = 3.0
+const ZOOM_STEP = 0.15
 
 let renderId = 0
+
+function zoomIn() {
+  zoomLevel.value = Math.min(ZOOM_MAX, zoomLevel.value + ZOOM_STEP)
+}
+function zoomOut() {
+  zoomLevel.value = Math.max(ZOOM_MIN, zoomLevel.value - ZOOM_STEP)
+}
+function resetZoom() {
+  zoomLevel.value = 1
+}
+function onWheel(e) {
+  if (!e.ctrlKey) return
+  e.preventDefault()
+  const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+  zoomLevel.value = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel.value + delta))
+}
 
 const callGraphClasses = computed(() => analysis.value?.callGraph?.classes || [])
 
@@ -122,12 +148,28 @@ async function render() {
     if (seq !== renderId) return
     svgContent.value = svg
     document.getElementById('d' + id)?.remove()
+    await nextTick()
+    fixSvgWidth()
   } catch (e) {
     if (seq === renderId) {
       svgContent.value = ''
       renderError.value = e?.message || '渲染失败'
     }
   }
+}
+
+// mermaid svg 默认 width="100%" + viewBox，zoom 放大时 width:100% 会反向收缩。
+// 改为固定像素宽度（取 viewBox 宽度），让 zoom 能正确放大。
+function fixSvgWidth() {
+  const svgEl = mermaidRef.value?.querySelector('svg')
+  if (!svgEl) return
+  const vb = svgEl.getAttribute('viewBox')
+  if (!vb) return
+  const vbW = parseFloat(vb.split(/\s+/)[2])
+  if (!vbW || isNaN(vbW)) return
+  svgEl.style.maxWidth = 'none'
+  svgEl.setAttribute('width', String(vbW))
+  svgEl.style.width = vbW + 'px'
 }
 
 watch(() => callGraphClasses.value, () => { render() }, { immediate: true })
@@ -150,8 +192,17 @@ onMounted(() => {
 }
 .fd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .fd-error { font-family: var(--mono); font-size: 10.5px; color: var(--danger, #ef476f); }
+.zoom-group { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.zoom-btn { padding: 3px 8px; }
+.zoom-label {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-muted);
+  min-width: 38px; text-align: center;
+}
 .fd-body { flex: 1; min-height: 0; overflow: auto; }
 .fd-state { font-family: var(--mono); font-size: 12px; color: var(--text-muted); padding: 20px; text-align: center; }
 .fd-error-text { color: var(--danger, #ef476f); }
-.fd-mermaid { min-height: 200px; }
+/* 容器宽度由 SVG 内容决定，避免块级撑满导致 zoom 放大时 width:100% 反向收缩 */
+.fd-mermaid { min-height: 200px; width: fit-content; }
+/* SVG 实际宽度由 render 后的 fixSvgWidth 设为固定像素，这里仅移除内联 max-width 限制 */
+.fd-mermaid :deep(svg) { max-width: none !important; }
 </style>
