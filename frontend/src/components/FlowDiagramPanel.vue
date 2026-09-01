@@ -127,15 +127,20 @@ function toMermaid() {
   return lines.join('\n')
 }
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  themeVariables: {
-    primaryColor: '#0a84ff', primaryTextColor: '#f0f4f4', primaryBorderColor: '#1a5fb4',
-    lineColor: '#444', secondaryColor: '#37373f', tertiaryColor: '#37373f', fontSize: '13px',
-  },
-  flowchart: { htmlLabels: true, curve: 'basis' },
-})
+// mermaid.initialize 是全局单例，各面板主题不同（流程/调用关系用深色+白字，
+// 类图/结构图用浅色+黑字）。每次渲染前重新初始化，避免主题互相污染。
+function initMermaid() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    themeVariables: {
+      primaryColor: '#0a84ff', primaryTextColor: '#f0f4f4', primaryBorderColor: '#1a5fb4',
+      lineColor: '#444', secondaryColor: '#37373f', tertiaryColor: '#37373f', fontSize: '13px',
+    },
+    flowchart: { htmlLabels: true, curve: 'basis' },
+  })
+}
+initMermaid()
 
 async function render() {
   const text = toMermaid()
@@ -143,6 +148,7 @@ async function render() {
   const seq = ++renderId
   renderError.value = ''
   try {
+    initMermaid() // 每次渲染前重置主题，避免被其他面板污染
     const id = 'fd-' + seq
     const { svg } = await mermaid.render(id, text)
     if (seq !== renderId) return

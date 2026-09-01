@@ -92,13 +92,32 @@ function toMermaid() {
   return lines.join('\n')
 }
 
-mermaid.initialize({ startOnLoad: false, theme: 'default', themeVariables: { fontSize: '13px' } })
+// mermaid.initialize 是全局单例，其他面板（流程图/调用关系）会设置白色文字，
+// 若切到结构图时不重置主题，浅色背景 + 白字会导致文字不可见。
+// 这里用明确的浅色主题 + 深色文字。
+function initMermaid() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    themeVariables: {
+      fontSize: '13px',
+      primaryColor: '#ffffff',
+      primaryTextColor: '#1f2937',
+      primaryBorderColor: '#94a3b8',
+      lineColor: '#475569',
+      secondaryColor: '#f8fafc',
+      tertiaryColor: '#f1f5f9',
+    },
+  })
+}
+initMermaid()
 
 async function render() {
   const text = toMermaid()
   if (!packages.value.length) { svgContent.value = ''; return }
   const seq = ++renderId
   try {
+    initMermaid() // 每次渲染前重置主题，避免被其他面板污染
     const id = 'sd-' + seq
     const { svg } = await mermaid.render(id, text)
     if (seq !== renderId) return
