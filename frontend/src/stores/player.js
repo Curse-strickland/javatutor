@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
+import { http } from '../utils/http.js'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -109,7 +110,7 @@ export const usePlayerStore = defineStore('player', {
           body.mode = 'test'
           body.testCases = this.testCases
         }
-        const res = await fetch('/api/run', {
+        const res = await http('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
@@ -145,7 +146,7 @@ export const usePlayerStore = defineStore('player', {
         this.explainAbortController = null
       }
       try {
-        const res = await fetch('/api/run/project', {
+        const res = await http('/api/run/project', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ files })
@@ -224,7 +225,7 @@ export const usePlayerStore = defineStore('player', {
           stackFrames: s.stackFrames || [],
           output: s.output
         }))
-        const response = await fetch('/api/ai/chat', {
+        const response = await http('/api/ai/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -334,7 +335,7 @@ export const usePlayerStore = defineStore('player', {
       this.analysisError = null
       try {
         // 复杂度/算法标签由服务器侧 Coze 智能体自助提供，无需用户 API key
-        const res = await fetch('/api/ai/analyze', {
+        const res = await http('/api/ai/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: this.code })
@@ -369,7 +370,7 @@ export const usePlayerStore = defineStore('player', {
           ...(this.analysisData?.algorithms || []).map(a => a.name),
           ...(this.analysisData?.dataStructures || []).map(d => d.name)
         ]
-        const res = await fetch('/api/ai/animate', {
+        const res = await http('/api/ai/animate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -420,7 +421,7 @@ export const usePlayerStore = defineStore('player', {
     async requestControlFlow() {
       if (!this.code) return
       try {
-        const res = await fetch('/api/controlflow', {
+        const res = await http('/api/controlflow', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: this.code })
@@ -551,7 +552,7 @@ export const usePlayerStore = defineStore('player', {
       this.multiState.isAnalyzingProject = true
       this.multiState.projectAnalysisError = null
       try {
-        const res = await fetch('/api/project/analyze', {
+        const res = await http('/api/project/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
