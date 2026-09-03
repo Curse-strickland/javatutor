@@ -30,6 +30,7 @@ scp "$DEPLOY_DIR/backend/javatutor-backend-0.1.0.jar" "$SERVER:$REMOTE_DIR/"
 scp "$DEPLOY_DIR/backend/start.sh" "$SERVER:$REMOTE_DIR/"
 scp "$DEPLOY_DIR/backend/stop.sh" "$SERVER:$REMOTE_DIR/"
 scp "$DEPLOY_DIR/backend/application-prod.properties" "$SERVER:$REMOTE_DIR/"
+scp "$DEPLOY_DIR/backend/logs.sh" "$SERVER:$REMOTE_DIR/"
 echo "      ✓ 后端已推送至 $REMOTE_DIR"
 
 # ---- 2. 推送前端静态文件 ----
