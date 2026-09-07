@@ -44,6 +44,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
 
+    /** MDC 的 key，对应 logback 格式里的 %X{requestId}；业务代码（如 GlobalExceptionHandler）可复用。 */
+    public static final String MDC_KEY = "requestId";
+
     private static final Logger requestLog = LoggerFactory.getLogger("REQUEST");
     private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -75,7 +78,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
         long start = System.nanoTime();
         String requestId = resolveRequestId(request);
-        MDC.put("requestId", requestId);
+        MDC.put(MDC_KEY, requestId);
 
         ContentCachingRequestWrapper reqWrapper = new ContentCachingRequestWrapper(request);
         TeeResponseWrapper respWrapper = new TeeResponseWrapper(response, maxBodyChars);
@@ -101,7 +104,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             logAccess(requestId, reqWrapper, respWrapper, start, e);
             throw e;
         } finally {
-            MDC.remove("requestId");
+            MDC.remove(MDC_KEY);
         }
     }
 
