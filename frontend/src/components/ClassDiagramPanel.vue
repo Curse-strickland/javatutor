@@ -74,24 +74,28 @@ function toMermaid() {
   return lines.join('\n')
 }
 
-// 把后端成员串（如 "+ name: String"）转成 mermaid 成员声明
+// 把后端成员串（如 "- name: String"）转成 mermaid 成员声明
+// mermaid classDiagram 用 +/-/#/~ 前缀表示可见性
 function toMermaidMember(member, isField) {
   let s = String(member || '').trim()
-  // 移除可见性符号
-  const vis = s.charAt(0)
-  if (vis === '+' || vis === '-' || vis === '#' || vis === '~') s = s.slice(1).trim()
+  let vis = ''
+  const ch = s.charAt(0)
+  if (ch === '+' || ch === '-' || ch === '#' || ch === '~') {
+    vis = ch + ' '
+    s = s.slice(1).trim()
+  }
   if (isField) {
     // "name: String" → "String name"
     const idx = s.indexOf(':')
     if (idx >= 0) {
       const name = s.slice(0, idx).trim()
       const type = s.slice(idx + 1).trim()
-      return type + ' ' + name
+      return vis + type + ' ' + name
     }
-    return s
+    return vis + s
   }
   // "run(int): int" → "run(int) int"
-  return s.replace(/\)\s*:/, ') ')
+  return vis + s.replace(/\)\s*:/, ') ')
 }
 
 // mermaid classDiagram 的 id 不能含点号，做安全替换
@@ -99,13 +103,33 @@ function mermaidId(id) {
   return 'C' + String(id || '').replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
-mermaid.initialize({ startOnLoad: false, theme: 'default', themeVariables: { fontSize: '14px' } })
+// mermaid.initialize 是全局单例，其他面板（流程图/调用关系）会设置白色文字，
+// 若切到类图时不重置主题，浅色背景 + 白字会导致文字不可见。
+// 这里用明确的浅色主题 + 深色文字。
+function initMermaid() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    themeVariables: {
+      fontSize: '14px',
+      // 类图浅色卡片，强制深色文字
+      primaryColor: '#ffffff',
+      primaryTextColor: '#1f2937',
+      primaryBorderColor: '#94a3b8',
+      lineColor: '#475569',
+      secondaryColor: '#f8fafc',
+      tertiaryColor: '#f1f5f9',
+    },
+  })
+}
+initMermaid()
 
 async function render() {
   const text = toMermaid()
   if (!classes.value.length) { svgContent.value = ''; return }
   const seq = ++renderId
   try {
+    initMermaid() // 每次渲染前重置主题，避免被其他面板污染
     const id = 'cd-' + seq
     const { svg } = await mermaid.render(id, text)
     if (seq !== renderId) return
