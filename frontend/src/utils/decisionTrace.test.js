@@ -23,6 +23,20 @@ describe('splitDecisionTrace', () => {
     expect(result.trace).toBeNull()
   })
 
+  it('剥掉正文末尾的【编辑建议】/【视角导航】块，避免裸 JSON 渲染', () => {
+    const text = '正文\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n\n【决策痕迹】\n{"intent":"debug"}'
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文')
+    expect(result.trace.intent).toBe('debug')
+  })
+
+  it('无【决策痕迹】时也剥掉正文末尾的结构化块，避免裸 JSON 渲染', () => {
+    const text = '正文\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}'
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文')
+    expect(result.trace).toBeNull()
+  })
+
   it('extracts source labels', () => {
     const trace = { sources: [{ source: '知识库: HashMap' }, { source: '知识库: Arrays.sort' }] }
     expect(sourceLabels(trace)).toEqual(['知识库: HashMap', '知识库: Arrays.sort'])

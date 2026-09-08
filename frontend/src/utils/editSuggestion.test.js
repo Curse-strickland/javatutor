@@ -39,8 +39,8 @@ describe('parseAssistantMessage', () => {
   })
 
   it('空输入安全', () => {
-    expect(parseAssistantMessage('')).toEqual({ body: '', edits: [] })
-    expect(parseAssistantMessage(null)).toEqual({ body: '', edits: [] })
+    expect(parseAssistantMessage('')).toEqual({ body: '', edits: [], nav: { views: [] } })
+    expect(parseAssistantMessage(null)).toEqual({ body: '', edits: [], nav: { views: [] } })
   })
 
   it('JSON 合法但 edits 为空 → 整块按正文展示（不静默丢弃）', () => {
@@ -49,6 +49,44 @@ describe('parseAssistantMessage', () => {
     expect(body).toContain('【编辑建议】')
     expect(body).not.toContain('【决策痕迹】')
     expect(edits).toEqual([])
+  })
+
+  it('解析视角导航块', () => {
+    const raw = '如下\n\n【视角导航】\n{"views":[{"panel":"tutor","sub":"analysis","label":"分析"}]}\n\n【决策痕迹】\n{}'
+    const { body, edits, nav } = parseAssistantMessage(raw)
+    expect(body).toBe('如下')
+    expect(edits).toEqual([])
+    expect(nav.views).toHaveLength(1)
+    expect(nav.views[0]).toMatchObject({ panel: 'tutor', sub: 'analysis', label: '分析' })
+  })
+
+  it('导航块 JSON 损坏 → 整块按正文展示', () => {
+    const raw = '如下\n\n【视角导航】\n{not json}\n\n【决策痕迹】\n{}'
+    const { body, nav } = parseAssistantMessage(raw)
+    expect(body).toContain('【视角导航】')
+    expect(nav.views).toEqual([])
+  })
+
+  it('导航无有效 views（空数组）→ 整块按正文展示', () => {
+    const raw = '如下\n\n【视角导航】\n{"views":[]}\n\n【决策痕迹】\n{}'
+    const { body, nav } = parseAssistantMessage(raw)
+    expect(body).toContain('【视角导航】')
+    expect(nav.views).toEqual([])
+  })
+
+  it('最多保留 3 个 view，过滤缺 panel 项', () => {
+    const raw = '如下\n\n【视角导航】\n{"views":[{"panel":"flow"},{"panel":"variables"},{"panel":"tutor","sub":"explain"},{"panel":"datastructure"},{"label":"x"}]}\n\n【决策痕迹】\n{}'
+    const { nav } = parseAssistantMessage(raw)
+    expect(nav.views).toHaveLength(3)
+  })
+
+  it('编辑建议 + 视角导航同时存在 → 都解析且正文干净', () => {
+    const raw = '建议如下\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n\n【决策痕迹】\n{}'
+    const { body, edits, nav } = parseAssistantMessage(raw)
+    expect(body).toBe('建议如下')
+    expect(edits).toHaveLength(1)
+    expect(nav.views).toHaveLength(1)
+    expect(nav.views[0].panel).toBe('variables')
   })
 })
 

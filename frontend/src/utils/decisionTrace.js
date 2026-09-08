@@ -3,17 +3,21 @@
  *
  * 契约：回答末尾用单独一行 `【决策痕迹】` 分隔，下一行为 JSON。
  * 解析规则：按最后一个 `\n【决策痕迹】\n` 切分；JSON 解析失败时整段按正文展示。
+ * 正文末尾的【编辑建议】/【视角导航】结构化块会被一并剥掉，避免裸 JSON 渲染进 markdown。
  */
+
+import { parseAssistantMessage } from './editSuggestion.js'
 
 export function splitDecisionTrace(text) {
   if (typeof text !== 'string') return { body: text, trace: null }
   const marker = '\n【决策痕迹】\n'
   const idx = text.lastIndexOf(marker)
-  if (idx < 0) return { body: text, trace: null }
+  if (idx < 0) return { body: parseAssistantMessage(text).body, trace: null }
   const body = text.slice(0, idx).trimEnd()
   const raw = text.slice(idx + marker.length).trim()
   try {
-    return { body, trace: JSON.parse(raw) }
+    const trace = JSON.parse(raw)
+    return { body: parseAssistantMessage(body).body, trace }
   } catch {
     return { body: text, trace: null }
   }

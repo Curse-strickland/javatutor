@@ -56,7 +56,7 @@ export const usePlayerStore = defineStore('player', {
       isAnalyzingProject: false,
       projectAnalysisError: null,
     },
-    multiRightTab: 'variables',
+    multiTab: 'datastructure',
   }),
   getters: {
     currentVariables: (state) => {
@@ -502,9 +502,20 @@ export const usePlayerStore = defineStore('player', {
 
     // --- Multi-file mode ---
 
-    switchMultiRightTab(tab) {
-      const allowed = ['variables', 'controlflow', 'flow', 'dataflow', 'structure', 'class', 'usecase']
-      if (allowed.includes(tab)) this.multiRightTab = tab
+    switchMultiTab(tab) {
+      const allowed = ['variables', 'flow', 'datastructure', 'callgraph', 'classdiagram', 'structure', 'algorithm', 'tutor']
+      if (allowed.includes(tab)) this.multiTab = tab
+    },
+
+    /** 视角导航：agent 输出的【视角导航】卡片点击回调，切到对应面板。 */
+    navigateTo(panel, sub) {
+      // sub 仅当 panel 为 tutor 时有效，且只能是 analysis/explain，避免非法值让 agent 面板两层 tab 都不命中而空白
+      if (panel === 'tutor' && ['analysis', 'explain'].includes(sub)) this.activeAiTab = sub
+      if (this.mode === 'multi') {
+        this.switchMultiTab(panel)
+      } else {
+        this.switchRightTab(panel)
+      }
     },
 
     setMultiFiles(files) {
