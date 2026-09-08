@@ -127,6 +127,7 @@ import ControlFlowPanel from './ControlFlowPanel.vue'
 import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
+import { allowedPanels, groupOfPanel, defaultPanelOfGroup } from '../constants/uiPanelManifest.js'
 import FlowDiagramPanel from './FlowDiagramPanel.vue'
 import ClassDiagramPanel from './ClassDiagramPanel.vue'
 import StructureDiagramPanel from './StructureDiagramPanel.vue'
@@ -139,18 +140,13 @@ const containerWidth = ref(0)
 const splitRatio = ref(0.55)
 const uploadOpen = ref(false)
 // 多文件右侧 tab：已提升到 store（store.multiTab），供视角导航 navigateTo 与面板选择共用
-// 顶层分组：observe / learn / ask
-const GROUP_OF_TAB = {
-  datastructure: 'observe',
-  flow: 'observe',
-  variables: 'observe',
-  callgraph: 'observe',
-  classdiagram: 'observe',
-  structure: 'observe',
-  algorithm: 'learn',
-  tutor: 'ask',
-}
-const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
+// 顶层分组：observe / learn / ask（改面板先改 ui-panel-manifest.json）
+const GROUP_OF_TAB = Object.fromEntries(
+  allowedPanels('multi').map((id) => [id, groupOfPanel(id)]),
+)
+const GROUP_DEFAULT_TAB = Object.fromEntries(
+  ['observe', 'learn', 'ask'].map((g) => [g, defaultPanelOfGroup(g)]),
+)
 const rightGroup = computed(() => GROUP_OF_TAB[store.multiTab] || 'observe')
 const switchGroup = (group) => {
   if (rightGroup.value !== group) store.switchMultiTab(GROUP_DEFAULT_TAB[group])

@@ -5,6 +5,18 @@ const TRACE_MARK = '\n【决策痕迹】'
 const EDIT_MARK = '\n【编辑建议】'
 const NAV_MARK = '\n【视角导航】'
 const STRUCT_MARKS = [EDIT_MARK, NAV_MARK]
+const ALGO_SUB_TABS = ['knowledge', 'template']
+
+// 归一化【视角导航】的 algo 精确定位字段（panel='algorithm' 时使用）。
+// 只保留合法 subTab 与字符串 categoryId/anchorId；空对象返回 undefined，避免 nav.views 塞进无意义项。
+function normalizeAlgo(algo) {
+  if (!algo || typeof algo !== 'object') return undefined
+  const out = {}
+  if (ALGO_SUB_TABS.includes(algo.subTab)) out.subTab = algo.subTab
+  if (typeof algo.categoryId === 'string' && algo.categoryId) out.categoryId = algo.categoryId
+  if (typeof algo.anchorId === 'string' && algo.anchorId) out.anchorId = algo.anchorId
+  return Object.keys(out).length ? out : undefined
+}
 
 // 剥掉 body（已去掉【决策痕迹】）末尾的结构化指令块。为兼容既有语义：
 // 从「最后一块」开始：只剥「解析成功且产出 ≥1 个可用项」的块；可用项为空的块按正文保留并停止。
@@ -33,6 +45,7 @@ function extractStructBlocks(body) {
           .map((v) => ({
             panel: v.panel,
             sub: typeof v.sub === 'string' ? v.sub : undefined,
+            algo: normalizeAlgo(v.algo),
             label: typeof v.label === 'string' && v.label ? v.label : '',
           }))
         if (views.length) { nav.views = views; usable = true }

@@ -80,6 +80,20 @@ describe('parseAssistantMessage', () => {
     expect(nav.views).toHaveLength(3)
   })
 
+  it('解析视角导航块的 algo 精确定位字段', () => {
+    const raw = '如下\n\n【视角导航】\n{"views":[{"panel":"algorithm","label":"树算法知识","algo":{"subTab":"knowledge","categoryId":"tree","anchorId":"归并排序"}}]}\n\n【决策痕迹】\n{}'
+    const { nav } = parseAssistantMessage(raw)
+    expect(nav.views).toHaveLength(1)
+    expect(nav.views[0].algo).toMatchObject({ subTab: 'knowledge', categoryId: 'tree', anchorId: '归并排序' })
+  })
+
+  it('导航 algo 非法 subTab 被过滤，仅保留合法字段', () => {
+    const raw = '如下\n\n【视角导航】\n{"views":[{"panel":"algorithm","algo":{"subTab":"bogus","categoryId":"tree"}}]}\n\n【决策痕迹】\n{}'
+    const { nav } = parseAssistantMessage(raw)
+    expect(nav.views[0].algo.subTab).toBeUndefined()
+    expect(nav.views[0].algo.categoryId).toBe('tree')
+  })
+
   it('编辑建议 + 视角导航同时存在 → 都解析且正文干净', () => {
     const raw = '建议如下\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n\n【决策痕迹】\n{}'
     const { body, edits, nav } = parseAssistantMessage(raw)

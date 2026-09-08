@@ -104,4 +104,27 @@ describe('player store rightTab', () => {
     expect(s.activeAiTab).toBe('explain')
     expect(s.rightTab).toBe('tutor')
   })
+
+  it('navigateTo 算法库带 algo.subTab=template 切算法模板子页', () => {
+    const s = usePlayerStore()
+    s.navigateTo('algorithm', null, { subTab: 'template' })
+    expect(s.rightTab).toBe('algorithm')
+    expect(s.algoSubTab).toBe('template')
+  })
+
+  it('navigateTo 算法库带 algo.categoryId 走 openTutorial（知识页定位）', () => {
+    const s = usePlayerStore()
+    s.navigateTo('algorithm', null, { subTab: 'knowledge', categoryId: 'tree', anchorId: '归并排序' })
+    expect(s.rightTab).toBe('algorithm')
+    expect(s.algoSubTab).toBe('knowledge')
+    expect(s.knowledgeNav.categoryId).toBe('tree')
+    expect(s.knowledgeNav.anchorId).toBe('归并排序')
+  })
+
+  it('navigateTo 忽略 algo（仅当 panel=algorithm 才生效）', () => {
+    const s = usePlayerStore()
+    s.navigateTo('variables', null, { subTab: 'template' })
+    expect(s.algoSubTab).toBe('knowledge') // 未被改
+    expect(s.rightTab).toBe('variables')
+  })
 })

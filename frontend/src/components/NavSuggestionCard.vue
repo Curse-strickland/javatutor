@@ -12,6 +12,7 @@
 <script setup>
 import { computed } from 'vue'
 import { usePlayerStore } from '../stores/player'
+import { allowedPanels, panelById } from '../constants/uiPanelManifest.js'
 
 const props = defineProps({
   views: { type: Array, default: () => [] },
@@ -19,18 +20,12 @@ const props = defineProps({
 const store = usePlayerStore()
 
 // 按当前模式裁剪 panel，避免 agent 违规发出多文件 panel（如单文件模式下的 callgraph）时出现「点开无反应」的死按钮
-const SINGLE = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor']
-const MULTI = ['variables', 'flow', 'datastructure', 'callgraph', 'classdiagram', 'structure', 'algorithm', 'tutor']
 const visible = computed(() =>
-  (props.views || []).filter((v) => (store.mode === 'multi' ? MULTI : SINGLE).includes(v.panel))
+  (props.views || []).filter((v) => allowedPanels(store.mode).includes(v.panel))
 )
 
-const PANEL_LABELS = {
-  variables: '内存状态', flow: '流程', datastructure: '数据结构', algorithm: '算法库',
-  tutor: 'agent', callgraph: '调用关系', classdiagram: '类图', structure: '结构',
-}
-function label(v) { return v.label || PANEL_LABELS[v.panel] || v.panel }
-function go(v) { store.navigateTo(v.panel, v.sub) }
+function label(v) { return v.label || panelById(v.panel)?.name || v.panel }
+function go(v) { store.navigateTo(v.panel, v.sub, v.algo) }
 </script>
 
 <style scoped>

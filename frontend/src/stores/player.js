@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
+import { allowedPanels, algoSubTabs } from '../constants/uiPanelManifest.js'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -30,6 +31,8 @@ export const usePlayerStore = defineStore('player', {
     controlFlowData: null,
     cfViewStack: [],
     activeAiTab: 'explain',
+    // 算法库子页（knowledge=算法知识 / template=算法模板），供 navigateTo 的 algo.subTab 精确定位
+    algoSubTab: 'knowledge',
     // 测试模式
     testMode: false,
     testCases: [],
@@ -416,8 +419,7 @@ export const usePlayerStore = defineStore('player', {
     // --- File upload actions ---
 
     switchRightTab(tab) {
-      const allowed = ['variables', 'flow', 'datastructure', 'algorithm', 'tutor']
-      if (allowed.includes(tab)) this.rightTab = tab
+      if (allowedPanels('single').includes(tab)) this.rightTab = tab
     },
 
     async requestControlFlow() {
@@ -503,18 +505,24 @@ export const usePlayerStore = defineStore('player', {
     // --- Multi-file mode ---
 
     switchMultiTab(tab) {
-      const allowed = ['variables', 'flow', 'datastructure', 'callgraph', 'classdiagram', 'structure', 'algorithm', 'tutor']
-      if (allowed.includes(tab)) this.multiTab = tab
+      if (allowedPanels('multi').includes(tab)) this.multiTab = tab
     },
 
-    /** 视角导航：agent 输出的【视角导航】卡片点击回调，切到对应面板。 */
-    navigateTo(panel, sub) {
+    /** 视角导航：agent 输出的【视角导航】卡片点击回调，切到对应面板（含算法库精确定位）。 */
+    navigateTo(panel, sub, algo) {
       // sub 仅当 panel 为 tutor 时有效，且只能是 analysis/explain，避免非法值让 agent 面板两层 tab 都不命中而空白
       if (panel === 'tutor' && ['analysis', 'explain'].includes(sub)) this.activeAiTab = sub
       if (this.mode === 'multi') {
         this.switchMultiTab(panel)
       } else {
         this.switchRightTab(panel)
+      }
+      // 算法库精确定位：algo 仅当 panel 为 algorithm 时生效。
+      // 注意：若同时带 categoryId（知识定位），openTutorial 会把 algoSubTab 重置回 knowledge；
+      // 这是预期行为——categoryId 归属「算法知识」子页，「算法模板」页不带 categoryId。
+      if (panel === 'algorithm' && algo && typeof algo === 'object') {
+        if (algoSubTabs().includes(algo.subTab)) this.algoSubTab = algo.subTab
+        if (algo.categoryId) this.openTutorial(algo.categoryId, algo.anchorId ?? null)
       }
     },
 
@@ -632,6 +640,7 @@ export const usePlayerStore = defineStore('player', {
     /** 点击弹窗：切到「算法库」标签并定位到对应分类/算法小节。 */
     openTutorial(categoryId, anchorId) {
       this.switchRightTab('algorithm')
+      this.algoSubTab = 'knowledge'
       this.knowledgeNav = { categoryId, anchorId, nonce: this.knowledgeNav.nonce + 1 }
       this.tutorialToast.visible = false
     },
