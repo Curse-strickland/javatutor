@@ -5,6 +5,15 @@
         {{ store.multiState.isAnalyzingProject ? '分析中…' : '重新分析' }}
       </button>
       <span v-if="store.multiState.projectAnalysisError" class="sd-error">{{ store.multiState.projectAnalysisError }}</span>
+      <div v-if="packages.length" class="sd-legend">
+        <span class="sd-legend-item" title="箭头指向被依赖的类 / 包">
+          <svg class="sd-legend-ic" width="36" height="12" viewBox="0 0 36 12" aria-hidden="true">
+            <line x1="0" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="1.5" />
+            <polygon points="26,2 34,6 26,10" fill="currentColor" stroke="currentColor" />
+          </svg>
+          <span>依赖（箭头指向被依赖方）</span>
+        </span>
+      </div>
       <div class="zoom-group">
         <button class="sd-btn zoom-btn" title="缩小" @click="zoomOut">−</button>
         <span class="zoom-label">{{ Math.round(zoomLevel * 100) }}%</span>
@@ -50,7 +59,6 @@ function resetZoom() {
   zoomLevel.value = 1
 }
 function onWheel(e) {
-  if (!e.ctrlKey) return
   e.preventDefault()
   const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
   zoomLevel.value = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel.value + delta))
@@ -107,6 +115,11 @@ function initMermaid() {
       lineColor: '#475569',
       secondaryColor: '#f8fafc',
       tertiaryColor: '#f1f5f9',
+      mainBkg: '#ffffff',
+      nodeBkg: '#ffffff',
+      nodeBorder: '#94a3b8',
+      clusterBkg: '#f8fafc',
+      clusterBorder: '#cbd5e1',
     },
   })
 }
@@ -151,7 +164,7 @@ defineExpose({})
 
 <style scoped>
 .sd-panel { display: flex; flex-direction: column; height: 100%; gap: 10px; }
-.sd-toolbar { display: flex; align-items: center; gap: 10px; }
+.sd-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sd-btn {
   padding: 5px 12px; border: 1px solid var(--line-strong); background: transparent;
   color: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 700;
@@ -160,6 +173,9 @@ defineExpose({})
 }
 .sd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .sd-error { font-family: var(--mono); font-size: 10.5px; color: var(--danger, #ef476f); }
+.sd-legend { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--text-muted); }
+.sd-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.sd-legend-ic { color: #475569; flex: none; }
 .zoom-group { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .zoom-btn { padding: 3px 8px; }
 .zoom-label {
