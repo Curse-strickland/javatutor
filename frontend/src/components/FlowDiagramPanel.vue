@@ -5,6 +5,15 @@
         {{ store.multiState.isAnalyzingProject ? '分析中…' : '重新分析' }}
       </button>
       <span v-if="store.multiState.projectAnalysisError" class="fd-error">{{ store.multiState.projectAnalysisError }}</span>
+      <div v-if="callGraphClasses.length" class="fd-legend">
+        <span class="fd-legend-item" title="箭头指向被调用的方法">
+          <svg class="fd-legend-ic" width="36" height="12" viewBox="0 0 36 12" aria-hidden="true">
+            <line x1="0" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="1.5" />
+            <polygon points="26,2 34,6 26,10" fill="currentColor" stroke="currentColor" />
+          </svg>
+          <span>调用（箭头指向被调用方法）</span>
+        </span>
+      </div>
       <div class="zoom-group">
         <button class="fd-btn zoom-btn" title="缩小" @click="zoomOut">−</button>
         <span class="zoom-label">{{ Math.round(zoomLevel * 100) }}%</span>
@@ -53,7 +62,6 @@ function resetZoom() {
   zoomLevel.value = 1
 }
 function onWheel(e) {
-  if (!e.ctrlKey) return
   e.preventDefault()
   const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
   zoomLevel.value = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel.value + delta))
@@ -134,8 +142,18 @@ function initMermaid() {
     startOnLoad: false,
     theme: 'default',
     themeVariables: {
-      primaryColor: '#0a84ff', primaryTextColor: '#f0f4f4', primaryBorderColor: '#1a5fb4',
-      lineColor: '#444', secondaryColor: '#37373f', tertiaryColor: '#37373f', fontSize: '13px',
+      fontSize: '13px',
+      primaryColor: '#ffffff',
+      primaryTextColor: '#1f2937',
+      primaryBorderColor: '#94a3b8',
+      lineColor: '#475569',
+      secondaryColor: '#f8fafc',
+      tertiaryColor: '#f1f5f9',
+      mainBkg: '#ffffff',
+      nodeBkg: '#ffffff',
+      nodeBorder: '#94a3b8',
+      clusterBkg: '#f8fafc',
+      clusterBorder: '#cbd5e1',
     },
     flowchart: { htmlLabels: true, curve: 'basis' },
   })
@@ -189,7 +207,7 @@ onMounted(() => {
 
 <style scoped>
 .fd-panel { display: flex; flex-direction: column; height: 100%; gap: 10px; }
-.fd-toolbar { display: flex; align-items: center; gap: 10px; }
+.fd-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .fd-btn {
   padding: 5px 12px; border: 1px solid var(--line-strong); background: transparent;
   color: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 700;
@@ -198,6 +216,9 @@ onMounted(() => {
 }
 .fd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .fd-error { font-family: var(--mono); font-size: 10.5px; color: var(--danger, #ef476f); }
+.fd-legend { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--text-muted); }
+.fd-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.fd-legend-ic { color: #475569; flex: none; }
 .zoom-group { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .zoom-btn { padding: 3px 8px; }
 .zoom-label {

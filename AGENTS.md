@@ -133,6 +133,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/devlog/2026-08-30-execution-context-envelope-token.md` | 执行上下文 envelope 恢复开发日志（runId 分支携带完整执行数据） |
 | `docs/plan/2026-08-30-multifile-envelope-plan.md` | 多文件 envelope（后端）+ 前端发 files 计划 |
 | `docs/devlog/2026-08-30-multifile-envelope.md` | 多文件 envelope 开发日志（buildAgentPayload 携带 files + 前端发 files） |
+| `docs/devlog/2026-09-09-class-diagram-relation-legend.md` | 多文件可视化图例与类型标识（类图关系/可见性图例 + 接口枚举区分 + 结构图/调用图箭头图例） |
 | `docs/devlog/2026-08-25-code-editor-theme-and-controlbar-resize.md` | 代码区蓝黑配色 + 运行栏左右拖拽调宽开发日志 |
 | `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review（含整改复验） |
 | `docs/reviews/2026-08-15-javatutor-branch-audit-review.md` | 旧分支整合审查 review |
