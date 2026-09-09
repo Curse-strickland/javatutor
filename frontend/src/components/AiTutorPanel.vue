@@ -59,6 +59,10 @@
                 v-if="parsedMessages[i].edits.length && !store.isExplaining"
                 :edits="parsedMessages[i].edits"
               />
+              <NavSuggestionCard
+                v-if="parsedMessages[i].nav.views.length && !store.isExplaining"
+                :views="parsedMessages[i].nav.views"
+              />
             </template>
           </div>
         </div>
@@ -109,38 +113,28 @@
       </div>
     </div>
 
-    <!-- Tab: 复杂度分析 -->
-    <div v-if="store.activeAiTab === 'complexity'" class="ai-body">
+    <!-- Tab: 分析（复杂度卡片 + 算法/数据结构标签组合并） -->
+    <div v-if="store.activeAiTab === 'analysis'" class="ai-body">
       <div v-if="store.isAnalyzing" class="ai-loading">
         <span class="ai-loading-dot" />分析中…
       </div>
       <div v-else-if="store.analysisError" class="ai-error">{{ store.analysisError }}</div>
-      <div v-else-if="store.analysisData?.complexity" class="complexity-view">
-        <div class="complexity-row">
-          <div class="complexity-card">
-            <div class="complexity-label">时间复杂度</div>
-            <div class="complexity-value">{{ store.analysisData.complexity.time }}</div>
-            <div class="complexity-desc">{{ store.analysisData.complexity.timeExplanation }}</div>
-          </div>
-          <div class="complexity-card">
-            <div class="complexity-label">空间复杂度</div>
-            <div class="complexity-value">{{ store.analysisData.complexity.space }}</div>
-            <div class="complexity-desc">{{ store.analysisData.complexity.spaceExplanation }}</div>
+      <template v-else-if="store.analysisData?.complexity || store.analysisData?.algorithms || store.analysisData?.dataStructures">
+        <div v-if="store.analysisData?.complexity" class="complexity-view">
+          <div class="complexity-row">
+            <div class="complexity-card">
+              <div class="complexity-label">时间复杂度</div>
+              <div class="complexity-value">{{ store.analysisData.complexity.time }}</div>
+              <div class="complexity-desc">{{ store.analysisData.complexity.timeExplanation }}</div>
+            </div>
+            <div class="complexity-card">
+              <div class="complexity-label">空间复杂度</div>
+              <div class="complexity-value">{{ store.analysisData.complexity.space }}</div>
+              <div class="complexity-desc">{{ store.analysisData.complexity.spaceExplanation }}</div>
+            </div>
           </div>
         </div>
-      </div>
-      <div v-else-if="store.analysisError" class="ai-error">{{ store.analysisError }}</div>
-      <div v-else class="ai-hint">运行代码后自动分析。</div>
-    </div>
-
-    <!-- Tab: 算法标签 -->
-    <div v-if="store.activeAiTab === 'algorithm'" class="ai-body">
-      <div v-if="store.isAnalyzing" class="ai-loading">
-        <span class="ai-loading-dot" />分析中…
-      </div>
-      <div v-else-if="store.analysisError" class="ai-error">{{ store.analysisError }}</div>
-      <template v-else-if="store.analysisData?.algorithms || store.analysisData?.dataStructures">
-        <div v-if="store.analysisData.algorithms?.length" class="tag-group">
+        <div v-if="store.analysisData?.algorithms?.length" class="tag-group">
           <div class="tag-group-label">算法</div>
           <div class="tag-row">
             <button
@@ -151,7 +145,7 @@
             >{{ algo.name }}</button>
           </div>
         </div>
-        <div v-if="store.analysisData.dataStructures?.length" class="tag-group">
+        <div v-if="store.analysisData?.dataStructures?.length" class="tag-group">
           <div class="tag-group-label">数据结构</div>
           <div class="tag-row">
             <button
@@ -173,6 +167,7 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import EditSuggestionCard from './EditSuggestionCard.vue'
+import NavSuggestionCard from './NavSuggestionCard.vue'
 import { parseAssistantMessage } from '../utils/editSuggestion'
 
 import { renderMarkdown } from '../utils/markdown.js'
@@ -188,7 +183,7 @@ const store = usePlayerStore()
 // assistant 消息解析：剥离【决策痕迹】/【编辑建议】块（流式中途 JSON 不完整时自动按正文展示）
 const parsedMessages = computed(() =>
   store.chatMessages.map((m) =>
-    m.role === 'assistant' ? parseAssistantMessage(m.text) : { body: m.text, edits: [] },
+    m.role === 'assistant' ? parseAssistantMessage(m.text) : { body: m.text, edits: [], nav: { views: [] } },
   ),
 )
 
@@ -230,8 +225,7 @@ async function pinChatToBottom() {
 
 const tabs = [
   { id: 'explain', label: '解说' },
-  { id: 'complexity', label: '复杂度' },
-  { id: 'algorithm', label: '算法' },
+  { id: 'analysis', label: '分析' },
 ]
 
 // Markdown 渲染见 utils/markdown.js（marked + 自定义 renderer 防 XSS，与 DecisionTracePanel 共用）

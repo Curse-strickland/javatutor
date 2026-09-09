@@ -1,0 +1,67 @@
+{
+  "version": "1.0.0",
+  "modes": ["single", "multi"],
+  "groups": {
+    "observe": ["datastructure", "flow", "variables", "callgraph", "classdiagram", "structure"],
+    "learn": ["algorithm"],
+    "ask": ["tutor"]
+  },
+  "panels": {
+    "variables": {
+      "name": "内存状态",
+      "group": "observe",
+      "content": "栈区 + 堆区（调用栈、局部变量、堆对象）",
+      "navHints": ["内存状态", "变量", "栈", "堆", "内存监控", "局部变量"]
+    },
+    "flow": {
+      "name": "流程",
+      "group": "observe",
+      "content": "方法级控制流/流程图",
+      "navHints": ["流程", "控制流", "分支", "循环", "执行路径"]
+    },
+    "datastructure": {
+      "name": "数据结构",
+      "group": "observe",
+      "content": "树/堆、数组、链表、排序、字符串匹配、图等可视化",
+      "navHints": ["数据结构", "树", "堆", "数组", "链表", "图", "可视化"]
+    },
+    "algorithm": {
+      "name": "算法库",
+      "group": "learn",
+      "subTabs": ["knowledge", "template"],
+      "content": "算法知识分类 + 算法模板",
+      "navHints": ["算法模板", "算法知识", "树算法", "排序算法", "算法库"]
+    },
+    "tutor": {
+      "name": "agent",
+      "group": "ask",
+      "subTabs": ["explain", "analysis"],
+      "content": "解说 + 分析（复杂度/算法标签）",
+      "navHints": ["为什么", "讲解", "分析", "复杂度", "时间复杂", "空间复杂"]
+    },
+    "callgraph": {
+      "name": "调用关系",
+      "group": "observe",
+      "mode": "multi",
+      "content": "多文件调用关系图",
+      "navHints": ["调用关系", "调用图", "谁调谁"]
+    },
+    "classdiagram": {
+      "name": "类图",
+      "group": "observe",
+      "mode": "multi",
+      "content": "多文件类图",
+      "navHints": ["类图", "继承", "类关系"]
+    },
+    "structure": {
+      "name": "结构",
+      "group": "observe",
+      "mode": "multi",
+      "content": "多文件项目结构",
+      "navHints": ["项目结构", "目录", "包结构"]
+    }
+  },
+  "algorithmLibrary": {
+    "subTabs": ["knowledge", "template"]
+  }
+}

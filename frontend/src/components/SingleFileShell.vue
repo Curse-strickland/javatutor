@@ -236,17 +236,16 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import TestCasePanel from './TestCasePanel.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
+import { allowedPanels, groupOfPanel, defaultPanelOfGroup } from '../constants/uiPanelManifest.js'
 
 const store = usePlayerStore()
-// 右侧两级标签：store.rightTab 仍是唯一状态源，顶层组由它派生
-const GROUP_OF_TAB = {
-  datastructure: 'observe',
-  flow: 'observe',
-  variables: 'observe',
-  algorithm: 'learn',
-  tutor: 'ask',
-}
-const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
+// 右侧两级标签：store.rightTab 仍是唯一状态源，顶层组/默认组由 manifest 派生（改面板先改 ui-panel-manifest.json）
+const GROUP_OF_TAB = Object.fromEntries(
+  allowedPanels('single').map((id) => [id, groupOfPanel(id)]),
+)
+const GROUP_DEFAULT_TAB = Object.fromEntries(
+  ['observe', 'learn', 'ask'].map((g) => [g, defaultPanelOfGroup(g)]),
+)
 const rightGroup = computed(() => GROUP_OF_TAB[store.rightTab] || 'observe')
 const switchGroup = (group) => {
   if (rightGroup.value !== group) store.switchRightTab(GROUP_DEFAULT_TAB[group])

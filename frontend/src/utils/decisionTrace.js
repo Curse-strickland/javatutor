@@ -3,17 +3,21 @@
  *
  * 契约：回答末尾用单独一行 `【决策痕迹】` 分隔，下一行为 JSON。
  * 解析规则：按最后一个 `\n【决策痕迹】\n` 切分；JSON 解析失败时整段按正文展示。
+ * 正文末尾的【编辑建议】/【视角导航】结构化块会被一并剥掉，避免裸 JSON 渲染进 markdown。
  */
+
+import { parseAssistantMessage } from './editSuggestion.js'
 
 export function splitDecisionTrace(text) {
   if (typeof text !== 'string') return { body: text, trace: null }
   const marker = '\n【决策痕迹】\n'
   const idx = text.lastIndexOf(marker)
-  if (idx < 0) return { body: text, trace: null }
+  if (idx < 0) return { body: parseAssistantMessage(text).body, trace: null }
   const body = text.slice(0, idx).trimEnd()
   const raw = text.slice(idx + marker.length).trim()
   try {
-    return { body, trace: JSON.parse(raw) }
+    const trace = JSON.parse(raw)
+    return { body: parseAssistantMessage(body).body, trace }
   } catch {
     return { body: text, trace: null }
   }
@@ -44,7 +48,21 @@ function formatToolCall(tc) {
     const bits = []
     if (typeof args.step_index === 'number') bits.push(`第 ${args.step_index + 1} 步`)
     if (typeof args.line === 'number') bits.push(`行 ${args.line}`)
-    return bits.length ? `调用 ${tool}：查询${bits.join('，')}` : `调用 ${tool}`
+    // 附加 tool_calls.result 摘要：越界(共N步)/已获取证据，便于诊断 step_facts
+    let status = ''
+    if (tc.result) {
+      try {
+        const r = JSON.parse(tc.result)
+        if (r.error && String(r.error).trim()) {
+          const count = typeof r.steps_count === 'number' ? `（共 ${r.steps_count} 步）` : ''
+          status = ` → 越界${count}`
+        } else {
+          status = ' → 已获取证据'
+        }
+      } catch { /* 忽略 result 解析失败 */ }
+    }
+    const base = bits.length ? `调用 ${tool}：查询${bits.join('，')}` : `调用 ${tool}`
+    return base + status
   }
   const scalars = Object.entries(args)
     .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))
