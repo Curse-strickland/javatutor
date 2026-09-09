@@ -62,13 +62,6 @@
     }
   },
   "algorithmLibrary": {
-    "subTabs": ["knowledge", "template"],
-    "categories": {
-      "tree": "树",
-      "sorting": "排序",
-      "graph": "图",
-      "linked-list": "链表",
-      "search-and-find": "查找"
-    }
+    "subTabs": ["knowledge", "template"]
   }
 }

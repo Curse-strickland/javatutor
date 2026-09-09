@@ -102,6 +102,35 @@ describe('parseAssistantMessage', () => {
     expect(nav.views).toHaveLength(1)
     expect(nav.views[0].panel).toBe('variables')
   })
+
+  it('块后跟正文仍能剥离并产出 nav（修裸 JSON 上屏）', () => {
+    const raw = '后序遍历的知识如下\n\n【视角导航】\n{"views":[{"panel":"algorithm","algo":{"subTab":"knowledge","categoryId":"tree","anchorId":"后序遍历"}}]}\n我已经明确回答了…\n\n【决策痕迹】\n{}'
+    const { body, nav } = parseAssistantMessage(raw)
+    expect(nav.views).toHaveLength(1)
+    expect(nav.views[0].algo).toMatchObject({ subTab: 'knowledge', categoryId: 'tree', anchorId: '后序遍历' })
+    expect(body).toContain('后序遍历的知识如下')
+    expect(body).toContain('我已经明确回答了')
+    expect(body).not.toContain('【视角导航】')
+    expect(body).not.toContain('{"views"')
+  })
+
+  it('panel=algorithm 顶层 sub/categoryId/anchorId 被回收为 algo（schema 兼容）', () => {
+    const raw = '如下\n\n【视角导航】\n{"views":[{"panel":"algorithm","sub":"knowledge","categoryId":"tree","anchorId":"后序遍历","label":"树算法知识"}]}\n\n【决策痕迹】\n{}'
+    const { nav } = parseAssistantMessage(raw)
+    expect(nav.views).toHaveLength(1)
+    expect(nav.views[0].algo).toMatchObject({ subTab: 'knowledge', categoryId: 'tree', anchorId: '后序遍历' })
+  })
+
+  it('编辑建议 + 视角导航 + 块后正文混排 → 都剥离且正文干净', () => {
+    const raw = '建议如下\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n总结：已检查。\n\n【决策痕迹】\n{"intent":"debug"}'
+    const { body, edits, nav } = parseAssistantMessage(raw)
+    expect(body).toContain('建议如下')
+    expect(body).toContain('总结：已检查。')
+    expect(body).not.toContain('【编辑建议】')
+    expect(body).not.toContain('【视角导航】')
+    expect(edits).toHaveLength(1)
+    expect(nav.views).toHaveLength(1)
+  })
 })
 
 describe('planEdits', () => {

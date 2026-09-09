@@ -18,7 +18,52 @@ function normalizeAlgo(algo) {
   return Object.keys(out).length ? out : undefined
 }
 
-// 剥掉 body（已去掉【决策痕迹】）末尾的结构化指令块。为兼容既有语义：
+// 归一化一条【视角导航】view。算法库若缺 `algo` 字段，回收顶层 sub/subTab/categoryId/anchorId，
+// 兼容 agent 把定位字段放顶层（而非放进 algo:{...}）的产出，避免定位被丢弃、只落到「算法库」默认页。
+function normalizeView(v) {
+  const panel = typeof v.panel === 'string' ? v.panel : ''
+  let algo = normalizeAlgo(v.algo)
+  if (!algo && panel === 'algorithm') {
+    const subTab = v.subTab ?? (ALGO_SUB_TABS.includes(v.sub) ? v.sub : undefined)
+    algo = normalizeAlgo({ subTab, categoryId: v.categoryId, anchorId: v.anchorId })
+  }
+  return {
+    panel,
+    sub: typeof v.sub === 'string' ? v.sub : undefined,
+    algo,
+    label: typeof v.label === 'string' && v.label ? v.label : '',
+  }
+}
+
+// 从 text[start]（跳过空白）找到与首字符配对的平衡 {…}/[…] 区间。
+// 返回 [end, jsonStr]（end 为闭括号后一位）；找不到合法起点时返回 null。
+function parseJsonAt(text, start) {
+  while (start < text.length && /\s/.test(text[start])) start++
+  const open = text[start]
+  const close = open === '{' ? '}' : open === '[' ? ']' : null
+  if (!close) return null
+  let depth = 0, inStr = false, esc = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === open) depth++
+    else if (ch === close) { depth--; if (depth === 0) return [i + 1, text.slice(start, i + 1)] }
+  }
+  return null
+}
+
+// 折叠 3 连及以上空行为单个空行，避免移除块后留下多余的空白分隔。
+function collapseBlankLines(text) {
+  return text.replace(/\n{3,}/g, '\n\n')
+}
+
+// 剥掉 body（已去掉【决策痕迹】）的结构化指令块。为兼容既有语义：
 // 从「最后一块」开始：只剥「解析成功且产出 ≥1 个可用项」的块；可用项为空的块按正文保留并停止。
 // 这样「编辑建议 JSON 合法但 edits 空」与「导航 views 空」都回退为正文，不静默丢弃。
 function extractStructBlocks(body) {
@@ -34,37 +79,38 @@ function extractStructBlocks(body) {
       if (idx !== -1 && idx > bestIdx) { bestMark = m; bestIdx = idx }
     }
     if (!bestMark) break
-    const jsonText = text.slice(bestIdx + bestMark.length).trim()
+    let jsonEnd = null
     let usable = false
-    try {
-      const parsed = JSON.parse(jsonText)
-      if (bestMark === NAV_MARK) {
-        const views = (Array.isArray(parsed?.views) ? parsed.views : [])
-          .filter((v) => v && typeof v.panel === 'string')
-          .slice(0, 3)
-          .map((v) => ({
-            panel: v.panel,
-            sub: typeof v.sub === 'string' ? v.sub : undefined,
-            algo: normalizeAlgo(v.algo),
-            label: typeof v.label === 'string' && v.label ? v.label : '',
-          }))
-        if (views.length) { nav.views = views; usable = true }
-      } else {
-        const list = (Array.isArray(parsed?.edits) ? parsed.edits : [])
-          .filter((e) => e && typeof e.old_string === 'string' && e.old_string.length > 0 && typeof e.new_string === 'string')
-          .map((e) => ({
-            title: typeof e.title === 'string' && e.title ? e.title : '代码修改',
-            explanation: typeof e.explanation === 'string' ? e.explanation : '',
-            old_string: e.old_string,
-            new_string: e.new_string,
-          }))
-        if (list.length) { edits.push(...list); usable = true }
-      }
-    } catch { /* JSON 解析失败 → 整块按正文展示 */ }
+    const range = parseJsonAt(text, bestIdx + bestMark.length)
+    if (range) {
+      jsonEnd = range[0]
+      const jsonStr = range[1]
+      try {
+        const parsed = JSON.parse(jsonStr)
+        if (bestMark === NAV_MARK) {
+          const views = (Array.isArray(parsed?.views) ? parsed.views : [])
+            .filter((v) => v && typeof v.panel === 'string')
+            .slice(0, 3)
+            .map(normalizeView)
+          if (views.length) { nav.views = views; usable = true }
+        } else {
+          const list = (Array.isArray(parsed?.edits) ? parsed.edits : [])
+            .filter((e) => e && typeof e.old_string === 'string' && e.old_string.length > 0 && typeof e.new_string === 'string')
+            .map((e) => ({
+              title: typeof e.title === 'string' && e.title ? e.title : '代码修改',
+              explanation: typeof e.explanation === 'string' ? e.explanation : '',
+              old_string: e.old_string,
+              new_string: e.new_string,
+            }))
+          if (list.length) { edits.push(...list); usable = true }
+        }
+      } catch { /* JSON 解析失败 → 整块按正文展示 */ }
+    }
     if (!usable) break
-    text = text.slice(0, bestIdx).trimEnd()
+    // 移除 [bestIdx, jsonEnd)：块前正文 + 块后正文（若 agent 在块后又写了正文）拼接保留
+    text = (text.slice(0, bestIdx) + text.slice(jsonEnd)).trimEnd()
   }
-  return { body: text.trimEnd(), edits, nav }
+  return { body: collapseBlankLines(text.trimEnd()), edits, nav }
 }
 
 /**

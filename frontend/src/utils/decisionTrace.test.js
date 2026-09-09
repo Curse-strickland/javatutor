@@ -37,6 +37,13 @@ describe('splitDecisionTrace', () => {
     expect(result.trace).toBeNull()
   })
 
+  it('块后跟正文也剥掉结构化块，仅留正文与后续补充', () => {
+    const text = '正文\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n后续补充\n\n【决策痕迹】\n{"intent":"debug"}'
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文\n\n后续补充')
+    expect(result.trace.intent).toBe('debug')
+  })
+
   it('extracts source labels', () => {
     const trace = { sources: [{ source: '知识库: HashMap' }, { source: '知识库: Arrays.sort' }] }
     expect(sourceLabels(trace)).toEqual(['知识库: HashMap', '知识库: Arrays.sort'])
