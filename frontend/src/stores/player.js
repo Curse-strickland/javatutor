@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
 import { allowedPanels, algoSubTabs } from '../constants/uiPanelManifest.js'
+import { buildGoalPrompt } from '../utils/editSuggestion.js'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -20,6 +21,10 @@ export const usePlayerStore = defineStore('player', {
     explainStage: '',
     explainAbortController: null,
     explainHistory: {},
+    /** agent 输入框草稿（提升自 AiTutorPanel 局部 ref）：报错入口/优化卡「只预填不发送」写入此字段 */
+    chatDraft: '',
+    /** 最近一次运行失败信息（控制台「让 agent 帮我看看」入口用）；只在下次成功运行时清 */
+    lastRunError: null,
     // Code analysis state
     analysisData: null,
     analysisError: null,
@@ -121,6 +126,7 @@ export const usePlayerStore = defineStore('player', {
         this.applyRunResult(data)
       } catch (e) {
         this.error = e.message || '网络请求失败'
+        this.lastRunError = { message: this.error }
       } finally {
         this.isLoading = false
       }
@@ -157,6 +163,7 @@ export const usePlayerStore = defineStore('player', {
         this.applyRunResult(data)
       } catch (e) {
         this.error = e.message || '网络请求失败'
+        this.lastRunError = { message: this.error }
       } finally {
         this.isLoading = false
       }
@@ -169,6 +176,7 @@ export const usePlayerStore = defineStore('player', {
         this.runId = data.runId
         this.output = data.output || ''
         this.currentStep = 0
+        this.lastRunError = null
         this.maybeShowTutorialToast()
         if (data.methodName) this.methodName = data.methodName
         if (data.methodSignature) this.methodSignature = data.methodSignature
@@ -177,7 +185,66 @@ export const usePlayerStore = defineStore('player', {
         this.requestControlFlow()
       } else {
         this.error = data.error || data.msg || '未知错误'
+        this.lastRunError = { message: this.error }
       }
+    },
+
+    /**
+     * 用「候选代码」的运行结果刷新右侧面板（优化卡门禁通过、用户点「应用」后调用）。
+     * 与 applyRunResult 的关键区别：**不重置会话状态**——chatMessages / explainHistory /
+     * activeAiTab / explainError 一律不动，否则应用一次优化会清空整个聊天记录。
+     * @param {object} data /api/run 或 /api/run/project 的响应
+     * @param {string} [code] 覆盖后的代码（同步给 store.code，供后续提问/分析作为上下文）
+     * @returns {object} 本次记录的「覆盖前」右侧展示快照——**由调用方（优化卡）自持**。
+     *   刻意不存 store 单槽：连续应用两张卡后再依次撤销时，单槽只剩最后一次的快照，
+     *   会出现「编辑器回退到 A 前、右栏却回填 B 后」的错配（且 store.code 与编辑器不一致）。
+     */
+    applyCandidateRun(data, code) {
+      const previousRun = {
+        steps: this.steps,
+        output: this.output,
+        runId: this.runId,
+        currentStep: this.currentStep,
+        code: this.code,
+      }
+      if (typeof code === 'string') this.code = code
+      this.steps = data.data || data.steps || []
+      this.runId = data.runId
+      this.output = data.output || ''
+      this.currentStep = 0
+      this.lastRunError = null
+      if (data.methodName) this.methodName = data.methodName
+      if (data.methodSignature) this.methodSignature = data.methodSignature
+      this.cfViewStack = []
+      this.requestAnalysis()
+      this.requestControlFlow()
+      return previousRun
+    },
+
+    /**
+     * 撤销优化：把右侧展示状态回填为「覆盖前」快照。
+     * @param {object} prev applyCandidateRun 的返回值（由优化卡自持，见该方法的 @returns）
+     */
+    restorePreviousRun(prev) {
+      if (!prev) return
+      this.steps = prev.steps || []
+      this.output = prev.output || ''
+      this.runId = prev.runId ?? null
+      this.currentStep = prev.currentStep || 0
+      if (typeof prev.code === 'string') this.code = prev.code
+      this.cfViewStack = []
+      this.requestAnalysis()
+      this.requestControlFlow()
+    },
+
+    /**
+     * 优化卡「方案卡」点击某个目标：按模板拼提问（见 utils/editSuggestion.buildGoalPrompt）
+     * 并复用既有发送入口发起新一轮对话，等价于用户自己问了那句话。
+     */
+    async askGoalOptimization(goal, detail, target) {
+      let q = buildGoalPrompt(goal, detail)
+      if (this.mode === 'multi' && target) q += `（目标文件：${target}）`
+      await this.askQuestion(q)
     },
     nextStep() {
       if (this.currentStep < this.totalSteps - 1) this.currentStep++

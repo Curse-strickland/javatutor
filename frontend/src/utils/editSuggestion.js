@@ -7,6 +7,56 @@ const NAV_MARK = '\n【视角导航】'
 const STRUCT_MARKS = [EDIT_MARK, NAV_MARK]
 const ALGO_SUB_TABS = ['knowledge', 'template']
 
+// 优化目标闭集（与 coze 侧 prompting/optimization.py 的 GOALS 一致）：
+// 前端据此渲染 label 缺省值，并按模板拼「点击目标」后的提问（确定、可日志，不由模型自由发挥）。
+export const GOALS = {
+  performance: '性能',
+  readability: '可读性',
+  memory: '内存',
+  style: '规范',
+  correctness: '正确性',
+}
+
+/** 拼「点击某个优化目标」时发出的提问；detail 为 agent 给的具体手段（可选）。 */
+export function buildGoalPrompt(goal, detail) {
+  const name = GOALS[goal] || goal
+  const tail = detail ? `，具体要求：${detail}` : ''
+  return `以「${name}」为优先优化当前代码${tail}。请给出优化后的完整代码。`
+}
+
+// 归一化非 patch 的【编辑建议】块（kind=options/replace）；不合法返回 null → 调用方回退为正文。
+function normalizePlan(parsed) {
+  const kind = typeof parsed?.kind === 'string' ? parsed.kind : 'patch'
+  if (kind === 'options') {
+    const options = (Array.isArray(parsed.options) ? parsed.options : [])
+      .filter((o) => o && typeof o.goal === 'string' && GOALS[o.goal])
+      .slice(0, 3)
+      .map((o) => ({
+        goal: o.goal,
+        label: typeof o.label === 'string' && o.label ? o.label : GOALS[o.goal],
+        detail: typeof o.detail === 'string' ? o.detail : '',
+      }))
+    if (!options.length) return null
+    return {
+      kind: 'options',
+      target: typeof parsed.target === 'string' ? parsed.target : '',
+      options,
+    }
+  }
+  if (kind === 'replace') {
+    const code = typeof parsed.code === 'string' ? parsed.code : ''
+    if (!code.trim()) return null
+    return {
+      kind: 'replace',
+      target: typeof parsed.target === 'string' ? parsed.target : '',
+      goal: typeof parsed.goal === 'string' && GOALS[parsed.goal] ? parsed.goal : '',
+      rationale: typeof parsed.rationale === 'string' ? parsed.rationale : '',
+      code,
+    }
+  }
+  return null // patch / 非法 kind → 走既有 edits 分支
+}
+
 // 归一化【视角导航】的 algo 精确定位字段（panel='algorithm' 时使用）。
 // 只保留合法 subTab 与字符串 categoryId/anchorId；空对象返回 undefined，避免 nav.views 塞进无意义项。
 function normalizeAlgo(algo) {
@@ -70,6 +120,7 @@ function extractStructBlocks(body) {
   let text = body
   const edits = []
   const nav = { views: [] }
+  let plan = null
   let guard = 0
   while (guard++ < 20) {
     let bestMark = null
@@ -94,15 +145,22 @@ function extractStructBlocks(body) {
             .map(normalizeView)
           if (views.length) { nav.views = views; usable = true }
         } else {
-          const list = (Array.isArray(parsed?.edits) ? parsed.edits : [])
-            .filter((e) => e && typeof e.old_string === 'string' && e.old_string.length > 0 && typeof e.new_string === 'string')
-            .map((e) => ({
-              title: typeof e.title === 'string' && e.title ? e.title : '代码修改',
-              explanation: typeof e.explanation === 'string' ? e.explanation : '',
-              old_string: e.old_string,
-              new_string: e.new_string,
-            }))
-          if (list.length) { edits.push(...list); usable = true }
+          // kind=options/replace：方案卡与整文件覆盖，与 patch 互斥（不同时走两个分支）
+          const p = normalizePlan(parsed)
+          if (p) {
+            plan = p
+            usable = true
+          } else {
+            const list = (Array.isArray(parsed?.edits) ? parsed.edits : [])
+              .filter((e) => e && typeof e.old_string === 'string' && e.old_string.length > 0 && typeof e.new_string === 'string')
+              .map((e) => ({
+                title: typeof e.title === 'string' && e.title ? e.title : '代码修改',
+                explanation: typeof e.explanation === 'string' ? e.explanation : '',
+                old_string: e.old_string,
+                new_string: e.new_string,
+              }))
+            if (list.length) { edits.push(...list); usable = true }
+          }
         }
       } catch { /* JSON 解析失败 → 整块按正文展示 */ }
     }
@@ -110,13 +168,13 @@ function extractStructBlocks(body) {
     // 移除 [bestIdx, jsonEnd)：块前正文 + 块后正文（若 agent 在块后又写了正文）拼接保留
     text = (text.slice(0, bestIdx) + text.slice(jsonEnd)).trimEnd()
   }
-  return { body: collapseBlankLines(text.trimEnd()), edits, nav }
+  return { body: collapseBlankLines(text.trimEnd()), edits, nav, plan }
 }
 
 /**
  * 剥离【决策痕迹】/【编辑建议】/【视角导航】块。
- * @returns {{ body: string, edits: Array<{title: string, explanation: string, old_string: string, new_string: string}>, nav: {views: Array<{panel: string, sub?: string, label?: string}>} }}
- * 任何解析失败都不抛出：块按正文展示，edits/nav 为空。
+ * @returns {{ body: string, edits: Array<{title: string, explanation: string, old_string: string, new_string: string}>, nav: {views: Array<{panel: string, sub?: string, label?: string}>}, plan: null | {kind:'options', target: string, options: Array<{goal: string, label: string, detail: string}>} | {kind:'replace', target: string, goal: string, rationale: string, code: string} }}
+ * 任何解析失败都不抛出：块按正文展示，edits/nav 为空、plan 为 null。
  */
 export function parseAssistantMessage(raw) {
   const text = String(raw || '')

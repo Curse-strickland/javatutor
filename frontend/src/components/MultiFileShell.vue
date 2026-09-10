@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import FileTabsBar from './FileTabsBar.vue'
@@ -151,6 +151,24 @@ const rightGroup = computed(() => GROUP_OF_TAB[store.multiTab] || 'observe')
 const switchGroup = (group) => {
   if (rightGroup.value !== group) store.switchMultiTab(GROUP_DEFAULT_TAB[group])
 }
+
+// 整文件覆盖（优化卡）：target 命中哪个文件；-1 表示「不存在 → 不覆盖」（spec §4.5）
+const targetIndex = (name) => store.multiState.files.findIndex((f) => f.name === name)
+// 读：目标为当前激活文件时读编辑器（用户可能有未保存编辑），否则读 files[i].code
+provide('getCode', (target) => {
+  const idx = targetIndex(target)
+  if (idx < 0) return null
+  if (idx === store.multiState.activeFileIndex) return editorRef.value?.getCode() ?? ''
+  return store.multiState.files[idx].code ?? ''
+})
+// 写：改 files[i].code 并切到该文件（用户能看到变化）；切换文件的 watcher 会保存旧文件并载入新内容
+provide('restoreCode', (code, target) => {
+  const idx = targetIndex(target)
+  if (idx < 0) return false
+  store.multiState.files[idx].code = code
+  store.multiState.activeFileIndex = idx
+  return true
+})
 const MIN_LEFT = 400
 const MIN_RIGHT = 350
 

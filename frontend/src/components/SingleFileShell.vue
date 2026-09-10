@@ -254,6 +254,9 @@ const editorRef = ref(null)
 // AI 编辑建议 → 编辑器（AiTutorPanel 里的卡片组件 inject 使用）
 provide('applyAiEdits', (edits) => editorRef.value?.applyAiEdits(edits) ?? null)
 provide('undoAiEdits', (token) => editorRef.value?.undoAiEdits(token) ?? false)
+// 整文件覆盖（优化卡）：编辑器内容才是权威来源，store.code 可能落后于未保存编辑
+provide('getCode', () => editorRef.value?.getCode() ?? '')
+provide('restoreCode', (code) => { editorRef.value?.setCode(code); return true })
 const containerRef = ref(null)
 const progressRef = ref(null)
 const controlBarRef = ref(null)

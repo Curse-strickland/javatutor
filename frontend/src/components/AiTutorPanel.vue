@@ -59,6 +59,10 @@
                 v-if="parsedMessages[i].edits.length && !store.isExplaining"
                 :edits="parsedMessages[i].edits"
               />
+              <OptimizationCard
+                v-if="parsedMessages[i].plan && (i !== store.chatMessages.length - 1 || !store.isExplaining)"
+                :plan="parsedMessages[i].plan"
+              />
               <NavSuggestionCard
                 v-if="parsedMessages[i].nav.views.length && !store.isExplaining"
                 :views="parsedMessages[i].nav.views"
@@ -88,7 +92,7 @@
         </div>
         <div class="chat-input-row">
           <input
-            v-model="chatInput"
+            v-model="store.chatDraft"
             class="chat-input"
             placeholder="输入问题，如「为什么 arr[0] 变了？」"
             autocomplete="off"
@@ -97,7 +101,7 @@
           />
           <button
             class="chat-send-btn"
-            :disabled="!store.code || store.isExplaining || !chatInput.trim()"
+            :disabled="!store.code || store.isExplaining || !store.chatDraft.trim()"
             @click="sendChat"
           >
             <svg v-if="store.isExplaining" class="ai-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -167,6 +171,7 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import EditSuggestionCard from './EditSuggestionCard.vue'
+import OptimizationCard from './OptimizationCard.vue'
 import NavSuggestionCard from './NavSuggestionCard.vue'
 import { parseAssistantMessage } from '../utils/editSuggestion'
 
@@ -183,12 +188,13 @@ const store = usePlayerStore()
 // assistant 消息解析：剥离【决策痕迹】/【编辑建议】块（流式中途 JSON 不完整时自动按正文展示）
 const parsedMessages = computed(() =>
   store.chatMessages.map((m) =>
-    m.role === 'assistant' ? parseAssistantMessage(m.text) : { body: m.text, edits: [], nav: { views: [] } },
+    m.role === 'assistant'
+      ? parseAssistantMessage(m.text)
+      : { body: m.text, edits: [], nav: { views: [] }, plan: null },
   ),
 )
 
 const chatBodyRef = ref(null)
-const chatInput = ref('')
 let chatResizeObserver = null
 
 onMounted(() => {
@@ -204,9 +210,9 @@ onBeforeUnmount(() => {
 })
 
 function sendChat() {
-  const q = chatInput.value.trim()
+  const q = store.chatDraft.trim()
   if (!q || store.isExplaining) return
-  chatInput.value = ''
+  store.chatDraft = ''
   store.askQuestion(q)
 }
 
