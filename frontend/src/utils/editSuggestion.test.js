@@ -230,19 +230,52 @@ describe('编辑建议块扩展（kind）', () => {
   })
 })
 
-describe('buildGoalPrompt', () => {
-  it('按闭集中文名拼提问', () => {
-    expect(buildGoalPrompt('performance')).toBe('以「性能」为优先优化当前代码。请给出优化后的完整代码。')
-  })
+describe('buildGoalPrompt（F1/F2/F3：白名单 + 显式排除未选项）', () => {
+  const P = { goal: 'performance', label: '以性能为先', detail: '用哈希表把嵌套循环降为 O(n)' }
+  const M = { goal: 'memory', label: '以空间优化为先', detail: '用左右边界索引限定原数组范围' }
+  const R = { goal: 'readability', label: '以可读性为先', detail: '' }
 
-  it('带 detail 时追加「具体要求」', () => {
-    expect(buildGoalPrompt('readability', '拆分长方法')).toBe(
-      '以「可读性」为优先优化当前代码，具体要求：拆分长方法。请给出优化后的完整代码。',
+  it('单项：只做该方向（不再是「以 X 为优先」的软措辞）', () => {
+    expect(buildGoalPrompt([P])).toBe(
+      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
     )
   })
 
-  it('GOALS 与 spec §4.4 闭集一致', () => {
-    expect(Object.keys(GOALS)).toEqual(['performance', 'readability', 'memory', 'style', 'correctness'])
+  it('单项 + 排除同一张卡的未选项', () => {
+    expect(buildGoalPrompt([P], [M])).toBe(
+      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。'
+      + '不要顺带做其他方向的改动（例如：「以空间优化为先」：用左右边界索引限定原数组范围）。'
+      + '请给出优化后的完整代码。',
+    )
+  })
+
+  it('多项：逐条列出（勾 ≥2 项 → 第 2 轮 goal 记 comprehensive）', () => {
+    expect(buildGoalPrompt([P, M])).toBe(
+      '只做以下方向的优化：①「以性能为先」：用哈希表把嵌套循环降为 O(n)；'
+      + '②「以空间优化为先」：用左右边界索引限定原数组范围。'
+      + '请给出优化后的完整代码。',
+    )
+  })
+
+  it('多项 + 排除未选项', () => {
+    expect(buildGoalPrompt([P, M], [R])).toContain('不要顺带做其他方向的改动（例如：「以可读性为先」）')
+  })
+
+  it('label 缺省回落闭集中文名；无 detail 时不出现「具体要求」', () => {
+    expect(buildGoalPrompt([{ goal: 'style', label: '' }])).toContain('只做「规范」方向的优化')
+    expect(buildGoalPrompt([{ goal: 'style', label: '' }])).not.toContain('具体要求')
+  })
+
+  it('空选择（含非法入参）→ 空串，调用方不得发送', () => {
+    expect(buildGoalPrompt([])).toBe('')
+    expect(buildGoalPrompt(null)).toBe('')
+    expect(buildGoalPrompt([null])).toBe('')
+  })
+
+  it('GOALS 含 comprehensive（与 spec §4.4 / coze 侧闭集一致）', () => {
+    expect(Object.keys(GOALS)).toEqual([
+      'performance', 'readability', 'memory', 'style', 'correctness', 'comprehensive',
+    ])
   })
 })
 

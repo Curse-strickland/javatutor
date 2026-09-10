@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
 import { allowedPanels, algoSubTabs } from '../constants/uiPanelManifest.js'
 import { buildGoalPrompt } from '../utils/editSuggestion.js'
+import { MAX_TIMELINE, buildCheckpointLabel } from '../utils/timeline.js'
 
 export const usePlayerStore = defineStore('player', {
   state: () => ({
@@ -23,8 +24,21 @@ export const usePlayerStore = defineStore('player', {
     explainHistory: {},
     /** agent 输入框草稿（提升自 AiTutorPanel 局部 ref）：报错入口/优化卡「只预填不发送」写入此字段 */
     chatDraft: '',
+    /** +1 即请求 agent 输入框聚焦（跨组件一次性事件，参照 store.knowledgeNav 的先例） */
+    chatFocusNonce: 0,
     /** 最近一次运行失败信息（控制台「让 agent 帮我看看」入口用）；只在下次成功运行时清 */
     lastRunError: null,
+    /**
+     * 对话时间线记录点（仅内存，刷新即清）。每项：
+     * `{ id, seq, kind:'run'|'optimize', label, mode, chatIndex, time, code?, files?, activeFileIndex?, goalLabel?, target?, expired? }`
+     * 只存**代码快照**不存运行结果（决策 T2）：回退时重跑一次，保证「编辑器代码 ↔ 右栏面板」永远同源。
+     */
+    timeline: [],
+    timelineSeq: 0,
+    /** 折叠起点：下标 **大于** 它的对话折叠（T3/T7）；null = 不折叠。分割线自身位于 chatIndex，不折叠。 */
+    foldFromIndex: null,
+    /** 本次运行的临时选项（`{silent}`），由 runCode/runProject 写入、applyRunResult 读取后在 finally 清掉 */
+    _runOpts: null,
     // Code analysis state
     analysisData: null,
     analysisError: null,
@@ -93,13 +107,21 @@ export const usePlayerStore = defineStore('player', {
     },
   },
   actions: {
-    async runCode(code) {
+    /**
+     * 运行单文件代码。
+     * @param {string} code
+     * @param {{silent?: boolean}} [opts] `silent` = 回退触发的重跑：不建记录点、不清折叠（T6）
+     *
+     * **不再清空 `chatMessages`**（对话时间线）：其余清理保留——它们描述「当前代码」的分析结果，
+     * 代码变了本就该失效（决策 D3）。
+     */
+    async runCode(code, opts = {}) {
       this.isLoading = true
       this.error = null
       this.output = ''
       this.runId = null
       this.code = code
-      this.chatMessages = []
+      this._runOpts = { silent: !!opts.silent }
       this.explainError = null
       this.explainHistory = {}
       this.analysisData = null
@@ -129,11 +151,15 @@ export const usePlayerStore = defineStore('player', {
         this.lastRunError = { message: this.error }
       } finally {
         this.isLoading = false
+        this._runOpts = null
       }
     },
 
-    /** 多文件项目运行：把整个项目发送给后端统一编译执行 */
-    async runProject() {
+    /**
+     * 多文件项目运行：把整个项目发送给后端统一编译执行。
+     * @param {{silent?: boolean}} [opts] 同 runCode；**不再清空 `chatMessages`**
+     */
+    async runProject(opts = {}) {
       const files = this.multiState.files
       if (!files.length) return
       this.isLoading = true
@@ -141,7 +167,7 @@ export const usePlayerStore = defineStore('player', {
       this.output = ''
       this.runId = null
       this.code = files[this.multiState.activeFileIndex]?.code || ''
-      this.chatMessages = []
+      this._runOpts = { silent: !!opts.silent }
       this.explainError = null
       this.explainHistory = {}
       this.analysisData = null
@@ -166,6 +192,7 @@ export const usePlayerStore = defineStore('player', {
         this.lastRunError = { message: this.error }
       } finally {
         this.isLoading = false
+        this._runOpts = null
       }
     },
 
@@ -183,6 +210,12 @@ export const usePlayerStore = defineStore('player', {
         this.requestAnalysis()
         this.cfViewStack = []
         this.requestControlFlow()
+        // 记录点（T1）：真实运行恢复正常线性阅读并建点；回退触发的静默重跑两者都不做（T6）。
+        // 失败分支不建点、不插分割线——用户要的是「成功运行」。
+        if (!this._runOpts?.silent) {
+          this.foldFromIndex = null
+          this.pushCheckpoint({ kind: 'run', steps: this.steps, output: this.output })
+        }
       } else {
         this.error = data.error || data.msg || '未知错误'
         this.lastRunError = { message: this.error }
@@ -195,11 +228,12 @@ export const usePlayerStore = defineStore('player', {
      * activeAiTab / explainError 一律不动，否则应用一次优化会清空整个聊天记录。
      * @param {object} data /api/run 或 /api/run/project 的响应
      * @param {string} [code] 覆盖后的代码（同步给 store.code，供后续提问/分析作为上下文）
+     * @param {{goalLabel?: string, target?: string}} [meta] 记录点摘要用（优化方向 / 目标文件）
      * @returns {object} 本次记录的「覆盖前」右侧展示快照——**由调用方（优化卡）自持**。
      *   刻意不存 store 单槽：连续应用两张卡后再依次撤销时，单槽只剩最后一次的快照，
      *   会出现「编辑器回退到 A 前、右栏却回填 B 后」的错配（且 store.code 与编辑器不一致）。
      */
-    applyCandidateRun(data, code) {
+    applyCandidateRun(data, code, meta = {}) {
       const previousRun = {
         steps: this.steps,
         output: this.output,
@@ -218,7 +252,88 @@ export const usePlayerStore = defineStore('player', {
       this.cfViewStack = []
       this.requestAnalysis()
       this.requestControlFlow()
+      // 应用优化会改代码但不走 /api/run（用的是门禁那次的运行结果），不建点会在时间线上
+      // 留下「代码已变、无线索」的空档（决策 T1）。
+      this.foldFromIndex = null
+      this.pushCheckpoint({
+        kind: 'optimize',
+        steps: this.steps,
+        output: this.output,
+        goalLabel: meta.goalLabel || '',
+        target: meta.target || '',
+      })
       return previousRun
+    },
+
+    /**
+     * 建一个时间线记录点：捕获**当前代码快照**（深拷贝——`files[i].code` 会被就地改写）
+     * 与摘要，并往 `chatMessages` 追加一条 `role:'divider'`（**真实消息**，不引入「过滤后的数组」，
+     * 否则优化卡的 `v-if` 依赖的真实下标会错位，见决策 D7）。
+     *
+     * @returns {object} 新建的记录点
+     */
+    pushCheckpoint({ kind = 'run', steps, output, goalLabel = '', target = '', mode = this.mode }) {
+      const seq = ++this.timelineSeq
+      const time = new Date().toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5)
+      const cp = {
+        id: `cp-${seq}`,
+        seq,
+        kind,
+        mode,
+        time,
+        // 折叠起点：下标 **大于** 它的对话折叠（分割线本身即位于 chatIndex）
+        chatIndex: this.chatMessages.length,
+        goalLabel,
+        target,
+      }
+      if (mode === 'multi') {
+        cp.files = this.multiState.files.map((f) => ({ name: f.name, code: f.code }))
+        cp.activeFileIndex = this.multiState.activeFileIndex
+      } else {
+        cp.code = this.code || ''
+      }
+      cp.label = buildCheckpointLabel({
+        seq, kind, mode, time, goalLabel, target,
+        methodName: this.methodName,
+        entryFile: this.multiState.entryFile,
+        fileCount: this.multiState.files.length,
+        code: cp.code,
+        steps,
+        output,
+      })
+      // 超上限：只丢最旧的**代码快照**（内存大头），记录本身留在 timeline 里——
+      // 分割线要靠 `cp.id → cp` 才能渲染出「记录已过期」并把按钮置灰；
+      // 把记录整个 shift 掉的话那条分割线会找不到 cp，直接渲染不出来。
+      const live = this.timeline.filter((t) => !t.expired)
+      if (live.length >= MAX_TIMELINE) {
+        const oldest = live[0]
+        oldest.expired = true
+        delete oldest.code
+        delete oldest.files
+      }
+      this.timeline.push(cp)
+      this.chatMessages.push({ role: 'divider', text: cp.label, checkpointId: cp.id })
+      return cp
+    },
+
+    /**
+     * 回退到某个记录点：折叠其后的对话 + **静默重跑**（T2：只存代码快照，运行结果靠重跑复现）。
+     *
+     * 代码本身由调用方（`TimelineDivider` 经 `restoreSource`）先写回编辑器/文件，本方法只管
+     * 「折叠 + 重跑」。`cp.expired`（快照已被上限丢弃）时**不得**调用本方法——由组件置灰按钮。
+     *
+     * @returns {Promise<boolean>} 是否执行了回退
+     */
+    async revertToCheckpoint(cp) {
+      if (!cp || cp.expired) return false
+      this.foldFromIndex = cp.chatIndex
+      // 记录点带 mode（T5）：单/多文件代码结构不同，必须在对应结构里恢复
+      if (cp.mode !== this.mode) this.switchMode(cp.mode)
+      // silent：回退在时间线上就是「回到第 k 点」，不是新版本（T6）；
+      // 代价是 runCode 会把 currentStep 复位为 0（T2 已接受）
+      if (cp.mode === 'multi') await this.runProject({ silent: true })
+      else await this.runCode(cp.code, { silent: true })
+      return true
     },
 
     /**
@@ -238,13 +353,34 @@ export const usePlayerStore = defineStore('player', {
     },
 
     /**
-     * 优化卡「方案卡」点击某个目标：按模板拼提问（见 utils/editSuggestion.buildGoalPrompt）
-     * 并复用既有发送入口发起新一轮对话，等价于用户自己问了那句话。
+     * 报错入口：预填草稿 + 切到 agent 面板 + 请求聚焦输入框（F5，均**不发送**——
+     * 这是「代写提问」不是「转发」，发送权仍在用户手里）。
      */
-    async askGoalOptimization(goal, detail, target) {
-      let q = buildGoalPrompt(goal, detail)
-      if (this.mode === 'multi' && target) q += `（目标文件：${target}）`
-      await this.askQuestion(q)
+    focusChatWithDraft(text) {
+      this.chatDraft = text
+      this.navigateTo('tutor')
+      this.chatFocusNonce += 1
+    },
+
+    /** 手动关闭报错弹窗时一并撤下入口（再次运行失败会重新出现）。 */
+    clearRunError() {
+      this.lastRunError = null
+    },
+
+    /**
+     * 优化卡「方案卡」提交：按所选方向（F2 白名单）+ 同一张卡的未选项（F2 黑名单）拼提问，
+     * 复用既有发送入口发起新一轮对话，等价于用户自己问了那句话。
+     * 之所以要显式列出未选项：请求不带对话历史（见 tests），「以 X 为优先」是软措辞，
+     * 不把选择写成硬约束时 agent 会顺带做其它方向。
+     * @param {Array<{goal: string, label?: string, detail?: string}>} selected 已勾选方向（≥1）
+     * @param {Array<{goal: string, label?: string, detail?: string}>} excluded 同一张卡的未选项
+     * @param {string} [target] 多文件模式的目标文件
+     */
+    async askGoalOptimization(selected, excluded = [], target = '') {
+      const q = buildGoalPrompt(selected, excluded)
+      if (!q) return
+      const suffix = this.mode === 'multi' && target ? `（目标文件：${target}）` : ''
+      await this.askQuestion(`${q}${suffix}`)
     },
     nextStep() {
       if (this.currentStep < this.totalSteps - 1) this.currentStep++

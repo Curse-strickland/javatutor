@@ -8,20 +8,54 @@ const STRUCT_MARKS = [EDIT_MARK, NAV_MARK]
 const ALGO_SUB_TABS = ['knowledge', 'template']
 
 // 优化目标闭集（与 coze 侧 prompting/optimization.py 的 GOALS 一致）：
-// 前端据此渲染 label 缺省值，并按模板拼「点击目标」后的提问（确定、可日志，不由模型自由发挥）。
+// 前端据此渲染 label 缺省值，并按模板拼「提交所选方向」后的提问（确定、可日志，不由模型自由发挥）。
+// comprehensive 仅用于第 2 轮 replace 的 goal（勾 ≥2 个方向时），方案卡的 options 不产出它。
 export const GOALS = {
   performance: '性能',
   readability: '可读性',
   memory: '内存',
   style: '规范',
   correctness: '正确性',
+  comprehensive: '综合',
 }
 
-/** 拼「点击某个优化目标」时发出的提问；detail 为 agent 给的具体手段（可选）。 */
-export function buildGoalPrompt(goal, detail) {
-  const name = GOALS[goal] || goal
-  const tail = detail ? `，具体要求：${detail}` : ''
-  return `以「${name}」为优先优化当前代码${tail}。请给出优化后的完整代码。`
+const ORDINALS = ['①', '②', '③'] // 与 options 上限（3 项）一致
+
+/** 某一项方向的显示名：优先 agent 给的 label，回落闭集中文名。 */
+function optionName(o) {
+  return o.label || GOALS[o.goal] || o.goal
+}
+
+/**
+ * 拼「已勾选优化方向」后发出的第 2 轮提问（F2：白名单 + 显式黑名单）。
+ * 「以 X 为优先」是软偏好，会把选择变成建议；这里改成「只做 X」+「不要顺带做 Y」，
+ * 让选择成为硬约束（agent 侧 guidance 同步要求「只做所列方向」）。
+ * @param {Array<{goal: string, label?: string, detail?: string}>} selected 已勾选方向（≥1 项）
+ * @param {Array<{goal: string, label?: string, detail?: string}>} [excluded] 同一张方案卡里未被勾选的项
+ * @returns {string} 空选择返回 ''（调用方不得发送）
+ */
+export function buildGoalPrompt(selected, excluded = []) {
+  const list = (Array.isArray(selected) ? selected : []).filter(Boolean)
+  if (!list.length) return ''
+  const name = optionName
+
+  let head
+  if (list.length === 1) {
+    const o = list[0]
+    head = `只做「${name(o)}」方向的优化` + (o.detail ? `，具体要求：${o.detail}` : '')
+  } else {
+    const items = list
+      .map((o, i) => `${ORDINALS[i] || `${i + 1}.`}「${name(o)}」${o.detail ? `：${o.detail}` : ''}`)
+      .join('；')
+    head = `只做以下方向的优化：${items}`
+  }
+
+  const bad = (Array.isArray(excluded) ? excluded : []).filter(Boolean)
+  const tail = bad.length
+    ? `。不要顺带做其他方向的改动（例如：${bad.map((o) => `「${name(o)}」${o.detail ? `：${o.detail}` : ''}`).join('；')}）`
+    : ''
+
+  return `${head}${tail}。请给出优化后的完整代码。`
 }
 
 // 归一化非 patch 的【编辑建议】块（kind=options/replace）；不合法返回 null → 调用方回退为正文。

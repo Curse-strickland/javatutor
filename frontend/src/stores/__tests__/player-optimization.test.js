@@ -68,8 +68,12 @@ describe('player store 优化卡支持', () => {
     expect(s.runId).toBe('new-run')
     expect(s.output).toBe('new-out')
     expect(s.steps).toHaveLength(1)
-    // 会话状态原样保留（这是与 applyRunResult 的关键区别）
-    expect(s.chatMessages).toHaveLength(2)
+    // 会话状态原样保留（这是与 applyRunResult 的关键区别）：原有两条消息仍在，
+    // 只在末尾追加一条时间线分割线（建记录点，见 player-timeline.test.js）
+    expect(s.chatMessages).toHaveLength(3)
+    expect(s.chatMessages[0]).toEqual({ role: 'user', text: '问' })
+    expect(s.chatMessages[1]).toEqual({ role: 'assistant', text: '答' })
+    expect(s.chatMessages[2].role).toBe('divider')
     expect(s.explainHistory).toEqual({ foo: 'bar' })
     expect(s.activeAiTab).toBe('analysis')
     expect(s.explainError).toBe('旧错误')
@@ -172,23 +176,68 @@ describe('player store 优化卡支持', () => {
     expect(s.lastRunError).toBeNull()
   })
 
-  it('askGoalOptimization 拼出闭集目标名 + detail 并发送', async () => {
+  it('focusChatWithDraft：预填 + 切到 agent 面板 + 请求聚焦，但不发送', () => {
     const s = usePlayerStore()
     const spy = vi.spyOn(s, 'askQuestion').mockResolvedValue(undefined)
-    await s.askGoalOptimization('performance', '用哈希表把嵌套循环降为 O(n)', 'Solution.java')
+    s.mode = 'multi'
+    s.multiTab = 'variables'
+    const nonce = s.chatFocusNonce
+
+    s.focusChatWithDraft('我的代码运行报错了，请帮我看看怎么修正：\n编译失败')
+
+    expect(s.chatDraft).toBe('我的代码运行报错了，请帮我看看怎么修正：\n编译失败')
+    expect(s.multiTab).toBe('tutor')      // 入口在全局弹窗，用户可能停在任意 tab
+    expect(s.chatFocusNonce).toBe(nonce + 1)
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('clearRunError 只撤下入口，不动 store.error', () => {
+    const s = usePlayerStore()
+    s.lastRunError = { message: '编译错误' }
+    s.error = '编译错误'
+    s.clearRunError()
+    expect(s.lastRunError).toBeNull()
+    expect(s.error).toBe('编译错误')
+  })
+
+  it('askGoalOptimization 按所选方向（白名单）拼提问并发送', async () => {
+    const s = usePlayerStore()
+    const spy = vi.spyOn(s, 'askQuestion').mockResolvedValue(undefined)
+    await s.askGoalOptimization(
+      [{ goal: 'performance', label: '以性能为先', detail: '用哈希表把嵌套循环降为 O(n)' }],
+      [],
+      'Solution.java',
+    )
     expect(spy).toHaveBeenCalledTimes(1)
     expect(spy.mock.calls[0][0]).toBe(
-      '以「性能」为优先优化当前代码，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
+      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
     )
+  })
+
+  it('askGoalOptimization 把同一张卡的未选项列为排除项（黑名单）', async () => {
+    const s = usePlayerStore()
+    const spy = vi.spyOn(s, 'askQuestion').mockResolvedValue(undefined)
+    await s.askGoalOptimization(
+      [{ goal: 'performance', label: '以性能为先', detail: '降为 O(n)' }],
+      [{ goal: 'memory', label: '以空间优化为先', detail: '用左右边界索引' }],
+    )
+    expect(spy.mock.calls[0][0]).toContain('不要顺带做其他方向的改动（例如：「以空间优化为先」：用左右边界索引）')
   })
 
   it('askGoalOptimization 多文件模式追加目标文件', async () => {
     const s = usePlayerStore()
     s.mode = 'multi'
     const spy = vi.spyOn(s, 'askQuestion').mockResolvedValue(undefined)
-    await s.askGoalOptimization('memory', '', 'Main.java')
+    await s.askGoalOptimization([{ goal: 'memory', label: '以空间优化为先', detail: '' }], [], 'Main.java')
     expect(spy.mock.calls[0][0]).toBe(
-      '以「内存」为优先优化当前代码。请给出优化后的完整代码。（目标文件：Main.java）',
+      '只做「以空间优化为先」方向的优化。请给出优化后的完整代码。（目标文件：Main.java）',
     )
+  })
+
+  it('askGoalOptimization 空选择 → 不发送', async () => {
+    const s = usePlayerStore()
+    const spy = vi.spyOn(s, 'askQuestion').mockResolvedValue(undefined)
+    await s.askGoalOptimization([], [], 'Main.java')
+    expect(spy).not.toHaveBeenCalled()
   })
 })

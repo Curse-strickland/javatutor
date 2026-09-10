@@ -128,6 +128,7 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
 import { allowedPanels, groupOfPanel, defaultPanelOfGroup } from '../constants/uiPanelManifest.js'
+import { clampActiveIndex } from '../utils/timeline'
 import FlowDiagramPanel from './FlowDiagramPanel.vue'
 import ClassDiagramPanel from './ClassDiagramPanel.vue'
 import StructureDiagramPanel from './StructureDiagramPanel.vue'
@@ -167,6 +168,23 @@ provide('restoreCode', (code, target) => {
   if (idx < 0) return false
   store.multiState.files[idx].code = code
   store.multiState.activeFileIndex = idx
+  return true
+})
+/**
+ * 时间线回退（TimelineDivider）：把记录点的**整项目**快照写回。
+ *
+ * **必须走三步**（否则被文件切换 watcher 用陈旧内容覆写）：
+ * 1) 先置 -1 —— 让 watcher 去保存「即将被整份丢弃的旧数组」里的旧文件（无害）；
+ * 2) 整项目替换（深拷贝，避免与记录点共享引用——`files[i].code` 会被就地改写）；
+ * 3) 收敛激活下标 —— 此时 watcher 的 oldIdx === -1，跳过保存，只 `setCode` 载入新内容。
+ */
+provide('restoreSource', async (cp) => {
+  if (!Array.isArray(cp?.files)) return false
+  store.multiState.activeFileIndex = -1
+  await nextTick()
+  store.multiState.files = cp.files.map((f) => ({ name: f.name, code: f.code }))
+  store.multiState.activeFileIndex = clampActiveIndex(cp.activeFileIndex, store.multiState.files.length)
+  await nextTick()
   return true
 })
 const MIN_LEFT = 400

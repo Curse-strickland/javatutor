@@ -6,18 +6,35 @@
       <span v-if="plan.target" class="oc-target">{{ plan.target }}</span>
     </div>
 
-    <!-- 方案卡：只给目标选项，点击后由前端按模板发起新一轮对话（spec §4.1/§4.4） -->
+    <!-- 方案卡：勾选目标（可多选），提交后由前端按模板发起新一轮对话（F1/F2/F3） -->
     <template v-if="isOptions">
-      <div class="oc-hint">选择一个优化目标，agent 将据此给出优化后的完整代码：</div>
+      <div class="oc-hint">勾选优化方向（可多选），agent 将只按所选方向给出优化后的完整代码：</div>
       <button
         v-for="o in plan.options" :key="o.goal"
         class="oc-option"
+        :class="{ checked: isSelected(o.goal) }"
         :disabled="store.isExplaining"
-        @click="choose(o)"
+        @click="toggle(o.goal)"
       >
-        <span class="oc-option-label">{{ o.label }}</span>
-        <span v-if="o.detail" class="oc-option-detail">{{ o.detail }}</span>
+        <span class="oc-check">{{ isSelected(o.goal) ? '✓' : '' }}</span>
+        <span class="oc-option-body">
+          <span class="oc-option-label">{{ o.label }}</span>
+          <span v-if="o.detail" class="oc-option-detail">{{ o.detail }}</span>
+        </span>
       </button>
+      <div class="oc-actions">
+        <button
+          class="oc-btn oc-apply"
+          :disabled="store.isExplaining || !selected.length"
+          @click="submit"
+        >{{ submitLabel }}</button>
+        <button
+          v-if="plan.options.length > 1"
+          class="oc-btn"
+          :disabled="store.isExplaining || selected.length === plan.options.length"
+          @click="selectAll"
+        >全选</button>
+      </div>
     </template>
 
     <!-- 整文件覆盖：先过门禁（真跑一次），通过才允许应用（spec §6） -->
@@ -71,6 +88,28 @@ const restoreCode = inject('restoreCode', null)
 const isOptions = computed(() => props.plan.kind === 'options')
 const goalLabel = computed(() => GOALS[props.plan.goal] || props.plan.goal || '')
 
+/** 方案卡：已勾选方向的 goal 列表（F1 多选）。 */
+const selected = ref([])
+const isSelected = (goal) => selected.value.includes(goal)
+function toggle(goal) {
+  selected.value = isSelected(goal)
+    ? selected.value.filter((g) => g !== goal)
+    : [...selected.value, goal]
+}
+function selectAll() {
+  selected.value = props.plan.options.map((o) => o.goal)
+}
+/** 0 项禁用；1 项给出方向名；≥2 项显示项数（F3：≥2 项由 agent 记为 comprehensive）。 */
+const submitLabel = computed(() => {
+  const n = selected.value.length
+  if (!n) return '请先勾选方向'
+  if (n === 1) {
+    const o = props.plan.options.find((x) => x.goal === selected.value[0])
+    return `只优化「${o?.label || GOALS[selected.value[0]] || selected.value[0]}」`
+  }
+  return `综合优化 ${n} 个方向`
+})
+
 const gate = ref('idle')        // 'idle' | 'running' | 'ok' | 'fail'
 const gateError = ref('')
 const gateSnapshot = ref(null)  // 门禁那次运行结果（应用后用它刷新右侧，spec D7）
@@ -99,9 +138,11 @@ function readCurrent() {
   return typeof code === 'string' ? code : null
 }
 
-/** 方案卡：按模板拼提问并复用既有发送入口，等价于用户自己问了那句话 */
-function choose(o) {
-  store.askGoalOptimization(o.goal, o.detail, props.plan.target)
+/** 方案卡提交：白名单 = 已勾选项，黑名单 = 同一张方案卡里未被勾选的项（F2）。 */
+function submit() {
+  const sel = props.plan.options.filter((o) => isSelected(o.goal))
+  const rest = props.plan.options.filter((o) => !isSelected(o.goal))
+  store.askGoalOptimization(sel, rest, props.plan.target)
 }
 
 /** 门禁：前端直接 fetch，绕开 runCode（后者会置全局 loading / 清空 chatMessages） */
@@ -164,8 +205,13 @@ function apply() {
   }
 
   // D7：用门禁那次运行结果刷新右侧（不清会话状态）；返回的快照由本卡片自持，
-  // 避免多张卡依次撤销时误用别的卡片留下的快照
-  appliedRunSnapshot.value = store.applyCandidateRun(gateSnapshot.value || {}, code)
+  // 避免多张卡依次撤销时误用别的卡片留下的快照。
+  // meta 供时间线记录点摘要（「已应用优化（性能）· Solution.java」）。
+  appliedRunSnapshot.value = store.applyCandidateRun(
+    gateSnapshot.value || {},
+    code,
+    { goalLabel: goalLabel.value, target: props.plan.target },
+  )
   applied.value = true
   undoError.value = ''
 }
@@ -238,9 +284,9 @@ onMounted(() => {
 }
 .oc-option {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-start;
-  gap: 2px;
+  gap: 8px;
   width: 100%;
   text-align: left;
   margin-bottom: 6px;
@@ -249,10 +295,36 @@ onMounted(() => {
   background: var(--accent-bg);
   color: var(--primary);
   cursor: pointer;
-  transition: box-shadow 160ms, opacity 160ms;
+  transition: box-shadow 160ms, opacity 160ms, background 150ms;
 }
 .oc-option:hover:not(:disabled) { box-shadow: 0 4px 12px var(--accent-bg); }
 .oc-option:disabled { opacity: 0.4; cursor: not-allowed; }
+.oc-option.checked {
+  background: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.oc-check {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  background: var(--card-bg);
+}
+.oc-option:not(.checked) .oc-check { border-color: var(--line-strong); }
+.oc-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
 .oc-option-label {
   font-size: 12px;
   font-weight: 600;
