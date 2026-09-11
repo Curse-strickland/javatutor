@@ -45,6 +45,9 @@ CozeService
 [Service]
 # 已有配置...
 EnvironmentFile=/opt/javatutor/config/coze.env
+# 该文件里的 JAVATUTOR_LOG_DIR 指向的目录必须对**本服务的运行用户**可写：
+# logback 打不开日志文件会被 Spring Boot 判为配置错误，应用启动即退出，表现为 nginx 全 /api/* 502。
+# 部署脚本已自动 chown + chmod 755（见 .github/workflows/deploy.yml）；手工部署见 docs/logging-guide.md。
 # 可选：无需明文 token 时的降级开关（COZE_ENABLED=false 会禁用 coze）
 ExecStart=/usr/bin/java -jar /opt/javatutor/javatutor-backend-0.1.0.jar
 ```

@@ -31,9 +31,17 @@ export function http(url, options = {}) {
   }
 
   return fetch(url, { ...options, headers })
-    .then((response) => {
+    .then(async (response) => {
       const elapsed = Date.now() - startTime
       console.log(`[${requestId}] ${method} ${url} ${response.status} ${elapsed}ms`)
+      if (!response.ok) {
+        // 后端未启动时反向代理会回 HTML 错误页（nginx 502）；调用方直接 res.json() 会抛
+        // `Unexpected token '<'`，把真实原因盖住。这里先读 body 换成可读错误。
+        // 注意：本项目的业务错误走 HTTP 200 + body 内 code 字段，不会落到这里。
+        const text = await response.text().catch(() => '')
+        const hint = /^\s*</.test(text) ? '（后端未启动或不可用）' : ''
+        throw new Error(`HTTP ${response.status}${hint}`)
+      }
       return response
     })
     .catch((error) => {

@@ -5,8 +5,10 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.javatutor.logging.RequestLoggingFilter;
 
@@ -27,6 +29,27 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * 路径不存在。Spring 6.1 起静态资源未命中会抛 {@code NoResourceFoundException}，
+     * 若被下面的 catch-all 接住就会变成 500 —— 把「没有这个资源」说成「服务器故障」，
+     * 监控与前端都会误判（前端尤其会把 500 当成后端挂了）。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(NoResourceFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "error", "not found"));
+    }
+
+    /**
+     * 方法不允许（如对只有 POST 的 /api/run 发 GET）。同样必须保住 405 语义，
+     * 否则排查线上问题时 405 与真故障无法区分。
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException e) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(Map.of("success", false, "error", "method not allowed"));
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleException(Exception e) {

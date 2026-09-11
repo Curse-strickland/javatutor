@@ -1,0 +1,4 @@
+# 日志目录不可写时降级到临时目录，避免 logback 配置 ERROR 被 Spring Boot 升级为启动失败
+# （表现为 nginx 对全部 /api/* 回 502）。见 LogDirEnvironmentPostProcessor 的类注释。
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.javatutor.logging.LogDirEnvironmentPostProcessor

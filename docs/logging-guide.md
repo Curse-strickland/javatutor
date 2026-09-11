@@ -19,6 +19,10 @@
 ## 二、日志文件与字段
 
 - 目录：本地默认 `backend/logs/`；生产 `/opt/javatutor/logs/`（由环境变量 `JAVATUTOR_LOG_DIR` 注入）。
+- **权限前提**：该目录**必须对 systemd 服务运行用户可写**——logback 打开日志文件失败会被 Spring Boot 判为配置错误，
+  应用直接退出（exit 1），外部表现为 nginx 对全部 `/api/*` 返回 **502**（不是 404、也不是 500，整站 API 不可用）。
+  部署脚本已在同步后 `chown` 该目录（见 `.github/workflows/deploy.yml` 的 `SCRIPT_AFTER`）；
+  排查见 [plan/2026-09-11-log-dir-permission-502-and-merge-conflict-fix-plan.md](plan/2026-09-11-log-dir-permission-502-and-merge-conflict-fix-plan.md)。
 - 滚动：按天滚动，保留 30 天。
 - 格式：`request.log` 为单行 JSON；`app.log` 为结构化 JSON（LogstashEncoder）。
 

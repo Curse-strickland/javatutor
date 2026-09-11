@@ -129,8 +129,16 @@ jobs:
           # ── 传输完成后在服务器上执行的命令 ────────────────
           SCRIPT_AFTER: |
             # 建日志目录 + 写入 Coze / Agent token 到环境文件（若 GitHub Secrets 已配置）
+            # 日志目录必须对**服务运行用户**可写：logback 打不开日志文件会被 Spring Boot 判为
+            # 配置错误，应用启动即退出（exit 1），外部表现为 nginx 对全部 /api/* 回 502。
+            # 见 docs/plan/2026-09-11-log-dir-permission-502-and-merge-conflict-fix-plan.md。
+            # 服务用户从 systemd unit 现取（unit 未写 User= 即 root），不把用户名写死在仓库里。
             sudo mkdir -p /opt/javatutor/config
             sudo mkdir -p /opt/javatutor/logs
+            svc_user="$(systemctl show -p User --value javatutor)"
+            svc_group="$(systemctl show -p Group --value javatutor)"
+            sudo chown -R "${svc_user:-root}:${svc_group:-${svc_user:-root}}" /opt/javatutor/logs
+            sudo chmod 755 /opt/javatutor/logs
             {
               # 日志目录：后端通过 JAVATUTOR_LOG_DIR 读到 /opt/javatutor/logs
               echo "JAVATUTOR_LOG_DIR=/opt/javatutor/logs"

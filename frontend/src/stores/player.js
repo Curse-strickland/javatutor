@@ -449,9 +449,7 @@ export const usePlayerStore = defineStore('player', {
           signal: this.explainAbortController.signal
         })
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
+        // 非 2xx 已在 http() 里抛可读错误，这里不再重复检查（原来的 HTTP <status> 信息更差）
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()

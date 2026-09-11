@@ -33,6 +33,14 @@ scp "$DEPLOY_DIR/backend/application-prod.properties" "$SERVER:$REMOTE_DIR/"
 scp "$DEPLOY_DIR/backend/logs.sh" "$SERVER:$REMOTE_DIR/"
 echo "      ✓ 后端已推送至 $REMOTE_DIR"
 
+# ---- 1b. 保证日志目录存在且对运行用户可写（logback 打不开会直接让应用启动失败）----
+# 失败表现为 nginx 对全部 /api/* 回 502；
+# 见 docs/plan/2026-09-11-log-dir-permission-502-and-merge-conflict-fix-plan.md。
+echo ""
+echo "[1b/2] 准备日志目录 ..."
+ssh "$SERVER" "mkdir -p $REMOTE_DIR/logs && chmod 755 $REMOTE_DIR/logs"
+echo "      ✓ 日志目录已就绪：$REMOTE_DIR/logs"
+
 # ---- 2. 推送前端静态文件 ----
 echo ""
 echo "[2/2] 推送前端 ..."
