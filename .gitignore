@@ -26,6 +26,7 @@ Thumbs.db
 
 # Logs and env
 *.log
+logs/
 .env
 CLAUDE.md
 

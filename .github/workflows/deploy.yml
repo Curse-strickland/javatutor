@@ -128,9 +128,12 @@ jobs:
 
           # ── 传输完成后在服务器上执行的命令 ────────────────
           SCRIPT_AFTER: |
-            # 写入 Coze / Agent token 到环境文件（若 GitHub Secrets 已配置）
+            # 建日志目录 + 写入 Coze / Agent token 到环境文件（若 GitHub Secrets 已配置）
             sudo mkdir -p /opt/javatutor/config
+            sudo mkdir -p /opt/javatutor/logs
             {
+              # 日志目录：后端通过 JAVATUTOR_LOG_DIR 读到 /opt/javatutor/logs
+              echo "JAVATUTOR_LOG_DIR=/opt/javatutor/logs"
               if [ -n "${{ secrets.COZE_API_TOKEN }}" ]; then
                 echo "COZE_API_TOKEN=${{ secrets.COZE_API_TOKEN }}"
               fi

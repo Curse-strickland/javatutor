@@ -24,6 +24,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { usePlayerStore } from '../stores/player'
+import { http } from '../utils/http.js'
 import { getStaticFallback, sanitizeSvg } from '../utils/umlFallback.js'
 import { generateClassDiagramSvg } from '../utils/staticClassDiagram.js'
 
@@ -86,7 +87,7 @@ async function regenerate() {
   if (!props.files.length) return
   loading.value = true
   try {
-    const res = await fetch('/api/ai/uml', {
+    const res = await http('/api/ai/uml', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

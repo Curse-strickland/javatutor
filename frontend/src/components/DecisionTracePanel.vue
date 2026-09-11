@@ -40,12 +40,18 @@
             <li v-for="(line, i) in summary.toolLines" :key="i">{{ line }}</li>
           </ul>
           <span v-else-if="summary.toolEmptyText" class="trace-revise">{{ summary.toolEmptyText }}</span>
+          <ul v-if="summary.qualityWarnings.length" class="trace-warnings">
+            <li v-for="(line, i) in summary.qualityWarnings" :key="i">{{ line }}</li>
+          </ul>
           <div class="trace-metrics">
             <span v-if="summary.latencyText" class="trace-metric">{{ summary.latencyText }}</span>
             <span v-if="summary.tokenText" class="trace-metric">{{ summary.tokenText }}</span>
           </div>
         </div>
         <!-- 原始 JSON 仅开发者模式可见（?dev=1 或 localStorage jt-dev=1） -->
+        <ul v-if="devMode && debugLines.length" class="trace-debug">
+          <li v-for="(line, i) in debugLines" :key="i">{{ line }}</li>
+        </ul>
         <pre v-if="devMode" class="trace-json">{{ traceJson }}</pre>
       </div>
     </div>
@@ -56,7 +62,7 @@
 import { computed, ref } from 'vue'
 
 import { renderMarkdown } from '../utils/markdown.js'
-import { sourceLabels, splitDecisionTrace, traceSummary } from '../utils/decisionTrace.js'
+import { sourceLabels, splitDecisionTrace, traceSummary, traceDebugLines } from '../utils/decisionTrace.js'
 
 const props = defineProps({
   /** 完整消息文本：正文 + 【决策痕迹】JSON 标记 */
@@ -73,9 +79,11 @@ const bodyHtml = computed(() => renderMarkdown(parts.value.body || ''))
 const trace = computed(() => parts.value.trace)
 const sources = computed(() => sourceLabels(trace.value))
 const summary = computed(() => traceSummary(trace.value))
+const debugLines = computed(() => traceDebugLines(trace.value))
 const hasSummary = computed(() =>
   summary.value.intentLabel !== '' || summary.value.reviseText !== '' ||
   summary.value.toolLines.length > 0 || summary.value.toolEmptyText !== '' ||
+  summary.value.qualityWarnings.length > 0 ||
   summary.value.latencyText !== '' ||
   summary.value.tokenText !== ''
 )
@@ -182,6 +190,34 @@ const devMode = computed(() => {
   gap: 2px;
 }
 .trace-tools li {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.trace-warnings {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trace-warnings li {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.trace-debug {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trace-debug li {
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.5;

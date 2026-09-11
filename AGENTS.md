@@ -83,6 +83,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `sandbox/SandboxValidator.java` | AST 静态沙箱：import 白名单 + 方法/类型黑名单 |
 | `sandbox/SafeSecurityManager.java` | 运行时沙箱：拦截文件写/删、外部网络、进程执行、`exit(≠0)` |
 | `model/ExplainRequest.java` | AI 请求体：`code` / `steps` / `step` / `currentLine` / `algorithmTags` 等 |
+| `logging/RequestLoggingFilter.java` / `LogMasker.java` / `TeeResponseWrapper.java` | 请求访问日志 + request-id + 脱敏 + 响应体 tee 采样 |
 
 ### 前端 `frontend/src/`
 
@@ -121,6 +122,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/superpowers/plans/2026-08-17-decision-trace-user-display-metrics-plan.md` | 决策痕迹用户展示与耗时指标修复计划 |
 | `docs/superpowers/specs/2026-08-23-execution-snapshot-api-design.md` | 执行快照 API 设计（后端按 `run_id` 提供执行上下文） |
 | `docs/superpowers/plans/2026-08-23-execution-snapshot-api-plan.md` | 执行快照 API TDD 实施计划 |
+| `docs/superpowers/plans/2026-08-30-decision-trace-unused-fields.md` | 决策痕迹未利用字段接入计划（质量提示 + dev 观测行） |
 | `docs/reviews/2026-08-17-integrated-followup-review.md` | 综合接力计划执行 review（latency=0 / JSON 展示 / token_cost） |
 | `docs/devlog/2026-08-15-chat-step-context-fix.md` | 单步问答 steps 链路修复开发日志 |
 | `docs/devlog/2026-08-15-chat-stage-streaming-quote-fix.md` | Coze 阶段流式 + 回答代码引用修复开发日志 |
@@ -135,8 +137,11 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/devlog/2026-08-30-multifile-envelope.md` | 多文件 envelope 开发日志（buildAgentPayload 携带 files + 前端发 files） |
 | `docs/devlog/2026-09-09-class-diagram-relation-legend.md` | 多文件可视化图例与类型标识（类图关系/可见性图例 + 接口枚举区分 + 结构图/调用图箭头图例） |
 | `docs/devlog/2026-08-25-code-editor-theme-and-controlbar-resize.md` | 代码区蓝黑配色 + 运行栏左右拖拽调宽开发日志 |
+| `docs/devlog/2026-08-30-decision-trace-unused-fields.md` | 决策痕迹未利用字段接入开发日志 |
 | `docs/reviews/2026-08-15-decision-trace-panel-review.md` | 决策痕迹面板实现 review（含整改复验） |
 | `docs/reviews/2026-08-15-javatutor-branch-audit-review.md` | 旧分支整合审查 review |
+| `docs/logging-guide.md` | 日志排查指南（request-id 排查法 + 常用命令 + SLS 接入） |
+| `docs/devlog/2026-09-03-request-logging.md` | 后端结构化日志 + request-id 开发日志 |
 | `docs/old/` | 归档的旧文档（`sandbox-design` 等，仅历史参考） |
 
 ## 开发与审查 Hook（强制）
