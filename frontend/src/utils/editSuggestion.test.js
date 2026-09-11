@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseAssistantMessage, planEdits } from './editSuggestion'
+import { GOALS, buildGoalPrompt, parseAssistantMessage, planEdits } from './editSuggestion'
 
 describe('parseAssistantMessage', () => {
   it('纯正文原样返回，edits 为空', () => {
@@ -39,8 +39,8 @@ describe('parseAssistantMessage', () => {
   })
 
   it('空输入安全', () => {
-    expect(parseAssistantMessage('')).toEqual({ body: '', edits: [], nav: { views: [] } })
-    expect(parseAssistantMessage(null)).toEqual({ body: '', edits: [], nav: { views: [] } })
+    expect(parseAssistantMessage('')).toEqual({ body: '', edits: [], nav: { views: [] }, plan: null })
+    expect(parseAssistantMessage(null)).toEqual({ body: '', edits: [], nav: { views: [] }, plan: null })
   })
 
   it('JSON 合法但 edits 为空 → 整块按正文展示（不静默丢弃）', () => {
@@ -133,6 +133,152 @@ describe('parseAssistantMessage', () => {
   })
 })
 
+describe('编辑建议块扩展（kind）', () => {
+  it('解析 kind=options 方案卡', () => {
+    const raw = '可优化点如下\n\n【编辑建议】\n{"kind":"options","target":"Solution.java","options":[{"goal":"performance","label":"以性能为先","detail":"用哈希表"},{"goal":"readability"}]}\n\n【决策痕迹】\n{}'
+    const { body, edits, plan } = parseAssistantMessage(raw)
+    expect(body).toBe('可优化点如下')
+    expect(edits).toHaveLength(0)
+    expect(plan.kind).toBe('options')
+    expect(plan.target).toBe('Solution.java')
+    expect(plan.options).toHaveLength(2)
+    expect(plan.options[0]).toMatchObject({ goal: 'performance', label: '以性能为先', detail: '用哈希表' })
+    expect(plan.options[1].label).toBe('可读性') // label 缺省 → 中文规范名
+    expect(plan.options[1].detail).toBe('')
+  })
+
+  it('解析 kind=replace 整文件覆盖', () => {
+    const raw = '改动如下\n\n【编辑建议】\n{"kind":"replace","target":"Solution.java","goal":"performance","rationale":"换成哈希表","code":"public class Solution {}"}\n\n【决策痕迹】\n{}'
+    const { body, edits, plan } = parseAssistantMessage(raw)
+    expect(body).toBe('改动如下')
+    expect(edits).toHaveLength(0)
+    expect(plan).toMatchObject({ kind: 'replace', target: 'Solution.java', goal: 'performance', rationale: '换成哈希表' })
+    expect(plan.code).toBe('public class Solution {}')
+  })
+
+  it('kind=replace 的 goal 非闭集 → 保留 code，goal 清空', () => {
+    const raw = '前\n\n【编辑建议】\n{"kind":"replace","code":"class A {}","goal":"whatever"}\n\n【决策痕迹】\n{}'
+    const { plan } = parseAssistantMessage(raw)
+    expect(plan.kind).toBe('replace')
+    expect(plan.goal).toBe('')
+  })
+
+  it('options 的 goal 不在闭集 → 该项丢弃；全部非法 → 整块按正文', () => {
+    const bad = '前\n\n【编辑建议】\n{"kind":"options","options":[{"goal":"whatever"}]}\n\n【决策痕迹】\n{}'
+    const { body, plan } = parseAssistantMessage(bad)
+    expect(plan).toBeNull()
+    expect(body).toContain('【编辑建议】')
+  })
+
+  it('options 部分非法 → 只保留合法项', () => {
+    const raw = '前\n\n【编辑建议】\n{"kind":"options","options":[{"goal":"whatever"},{"goal":"memory","label":"以内存为先"}]}\n\n【决策痕迹】\n{}'
+    const { plan } = parseAssistantMessage(raw)
+    expect(plan.options).toHaveLength(1)
+    expect(plan.options[0]).toMatchObject({ goal: 'memory', label: '以内存为先' })
+  })
+
+  it('options 为空数组 → 整块按正文', () => {
+    const raw = '前\n\n【编辑建议】\n{"kind":"options","options":[]}\n\n【决策痕迹】\n{}'
+    const { body, plan } = parseAssistantMessage(raw)
+    expect(plan).toBeNull()
+    expect(body).toContain('【编辑建议】')
+  })
+
+  it('replace 的 code 为空/纯空白 → 整块按正文', () => {
+    for (const code of ['', '   \n  ']) {
+      const raw = `前\n\n【编辑建议】\n{"kind":"replace","code":${JSON.stringify(code)}}\n\n【决策痕迹】\n{}`
+      const { body, plan } = parseAssistantMessage(raw)
+      expect(plan).toBeNull()
+      expect(body).toContain('【编辑建议】')
+    }
+  })
+
+  it('kind 非法 → 按 patch 处理（与现状一致）', () => {
+    const raw = '前\n\n【编辑建议】\n{"kind":"nonsense","edits":[{"old_string":"a","new_string":"b"}]}\n\n【决策痕迹】\n{}'
+    const { edits, plan } = parseAssistantMessage(raw)
+    expect(edits).toHaveLength(1) // 非法 kind 回落 patch 分支
+    expect(plan).toBeNull()
+  })
+
+  it('kind=patch 显式给出 → 仍走 patch（零行为变化）', () => {
+    const raw = '前\n\n【编辑建议】\n{"kind":"patch","edits":[{"old_string":"a","new_string":"b"}]}\n\n【决策痕迹】\n{}'
+    const { edits, plan } = parseAssistantMessage(raw)
+    expect(edits).toHaveLength(1)
+    expect(plan).toBeNull()
+  })
+
+  it('plan 非空时该块的 edits 必须为空（不同时走两分支）', () => {
+    const raw = '前\n\n【编辑建议】\n{"kind":"options","edits":[{"old_string":"a","new_string":"b"}],"options":[{"goal":"style"}]}\n\n【决策痕迹】\n{}'
+    const { edits, plan } = parseAssistantMessage(raw)
+    expect(plan.kind).toBe('options')
+    expect(edits).toHaveLength(0)
+  })
+
+  it('options 卡最多保留 3 项', () => {
+    const opts = ['performance', 'readability', 'memory', 'style', 'correctness'].map((g) => ({ goal: g }))
+    const raw = `前\n\n【编辑建议】\n${JSON.stringify({ kind: 'options', options: opts })}\n\n【决策痕迹】\n{}`
+    expect(parseAssistantMessage(raw).plan.options).toHaveLength(3)
+  })
+
+  it('block 后跟正文仍能剥离并产出 plan', () => {
+    const raw = '可优化点\n\n【编辑建议】\n{"kind":"options","options":[{"goal":"memory"}]}\n总结：已完成。\n\n【决策痕迹】\n{}'
+    const { body, plan } = parseAssistantMessage(raw)
+    expect(plan.kind).toBe('options')
+    expect(body).toContain('可优化点')
+    expect(body).toContain('总结：已完成。')
+    expect(body).not.toContain('【编辑建议】')
+  })
+})
+
+describe('buildGoalPrompt（F1/F2/F3：白名单 + 显式排除未选项）', () => {
+  const P = { goal: 'performance', label: '以性能为先', detail: '用哈希表把嵌套循环降为 O(n)' }
+  const M = { goal: 'memory', label: '以空间优化为先', detail: '用左右边界索引限定原数组范围' }
+  const R = { goal: 'readability', label: '以可读性为先', detail: '' }
+
+  it('单项：只做该方向（不再是「以 X 为优先」的软措辞）', () => {
+    expect(buildGoalPrompt([P])).toBe(
+      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
+    )
+  })
+
+  it('单项 + 排除同一张卡的未选项', () => {
+    expect(buildGoalPrompt([P], [M])).toBe(
+      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。'
+      + '不要顺带做其他方向的改动（例如：「以空间优化为先」：用左右边界索引限定原数组范围）。'
+      + '请给出优化后的完整代码。',
+    )
+  })
+
+  it('多项：逐条列出（勾 ≥2 项 → 第 2 轮 goal 记 comprehensive）', () => {
+    expect(buildGoalPrompt([P, M])).toBe(
+      '只做以下方向的优化：①「以性能为先」：用哈希表把嵌套循环降为 O(n)；'
+      + '②「以空间优化为先」：用左右边界索引限定原数组范围。'
+      + '请给出优化后的完整代码。',
+    )
+  })
+
+  it('多项 + 排除未选项', () => {
+    expect(buildGoalPrompt([P, M], [R])).toContain('不要顺带做其他方向的改动（例如：「以可读性为先」）')
+  })
+
+  it('label 缺省回落闭集中文名；无 detail 时不出现「具体要求」', () => {
+    expect(buildGoalPrompt([{ goal: 'style', label: '' }])).toContain('只做「规范」方向的优化')
+    expect(buildGoalPrompt([{ goal: 'style', label: '' }])).not.toContain('具体要求')
+  })
+
+  it('空选择（含非法入参）→ 空串，调用方不得发送', () => {
+    expect(buildGoalPrompt([])).toBe('')
+    expect(buildGoalPrompt(null)).toBe('')
+    expect(buildGoalPrompt([null])).toBe('')
+  })
+
+  it('GOALS 含 comprehensive（与 spec §4.4 / coze 侧闭集一致）', () => {
+    expect(Object.keys(GOALS)).toEqual([
+      'performance', 'readability', 'memory', 'style', 'correctness', 'comprehensive',
+    ])
+  })
+})
+
 describe('planEdits', () => {
   const src = 'int i = 0;\ni = i + 1;\nreturn i;'
 
@@ -168,5 +314,16 @@ describe('planEdits', () => {
     ])
     expect(a.status).toBe('not-found')
     expect(b.status).toBe('not-found')
+  })
+
+  it('整文件覆盖（old_string = 当前全文）→ ok，覆盖区间为全文', () => {
+    const [r] = planEdits(src, [{ old_string: src, new_string: 'class New {}' }])
+    expect(r.status).toBe('ok')
+    expect(src.slice(r.start, r.end)).toBe(src)
+  })
+
+  it('编辑器为空（source 空串）→ not-found（调用方退回 restoreCode）', () => {
+    const [r] = planEdits('', [{ old_string: '', new_string: 'class New {}' }])
+    expect(r.status).toBe('not-found')
   })
 })

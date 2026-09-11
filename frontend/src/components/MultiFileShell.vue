@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import FileTabsBar from './FileTabsBar.vue'
@@ -128,6 +128,7 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
 import { allowedPanels, groupOfPanel, defaultPanelOfGroup } from '../constants/uiPanelManifest.js'
+import { clampActiveIndex } from '../utils/timeline'
 import FlowDiagramPanel from './FlowDiagramPanel.vue'
 import ClassDiagramPanel from './ClassDiagramPanel.vue'
 import StructureDiagramPanel from './StructureDiagramPanel.vue'
@@ -151,6 +152,41 @@ const rightGroup = computed(() => GROUP_OF_TAB[store.multiTab] || 'observe')
 const switchGroup = (group) => {
   if (rightGroup.value !== group) store.switchMultiTab(GROUP_DEFAULT_TAB[group])
 }
+
+// 整文件覆盖（优化卡）：target 命中哪个文件；-1 表示「不存在 → 不覆盖」（spec §4.5）
+const targetIndex = (name) => store.multiState.files.findIndex((f) => f.name === name)
+// 读：目标为当前激活文件时读编辑器（用户可能有未保存编辑），否则读 files[i].code
+provide('getCode', (target) => {
+  const idx = targetIndex(target)
+  if (idx < 0) return null
+  if (idx === store.multiState.activeFileIndex) return editorRef.value?.getCode() ?? ''
+  return store.multiState.files[idx].code ?? ''
+})
+// 写：改 files[i].code 并切到该文件（用户能看到变化）；切换文件的 watcher 会保存旧文件并载入新内容
+provide('restoreCode', (code, target) => {
+  const idx = targetIndex(target)
+  if (idx < 0) return false
+  store.multiState.files[idx].code = code
+  store.multiState.activeFileIndex = idx
+  return true
+})
+/**
+ * 时间线回退（TimelineDivider）：把记录点的**整项目**快照写回。
+ *
+ * **必须走三步**（否则被文件切换 watcher 用陈旧内容覆写）：
+ * 1) 先置 -1 —— 让 watcher 去保存「即将被整份丢弃的旧数组」里的旧文件（无害）；
+ * 2) 整项目替换（深拷贝，避免与记录点共享引用——`files[i].code` 会被就地改写）；
+ * 3) 收敛激活下标 —— 此时 watcher 的 oldIdx === -1，跳过保存，只 `setCode` 载入新内容。
+ */
+provide('restoreSource', async (cp) => {
+  if (!Array.isArray(cp?.files)) return false
+  store.multiState.activeFileIndex = -1
+  await nextTick()
+  store.multiState.files = cp.files.map((f) => ({ name: f.name, code: f.code }))
+  store.multiState.activeFileIndex = clampActiveIndex(cp.activeFileIndex, store.multiState.files.length)
+  await nextTick()
+  return true
+})
 const MIN_LEFT = 400
 const MIN_RIGHT = 350
 

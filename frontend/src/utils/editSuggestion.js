@@ -7,6 +7,90 @@ const NAV_MARK = '\n【视角导航】'
 const STRUCT_MARKS = [EDIT_MARK, NAV_MARK]
 const ALGO_SUB_TABS = ['knowledge', 'template']
 
+// 优化目标闭集（与 coze 侧 prompting/optimization.py 的 GOALS 一致）：
+// 前端据此渲染 label 缺省值，并按模板拼「提交所选方向」后的提问（确定、可日志，不由模型自由发挥）。
+// comprehensive 仅用于第 2 轮 replace 的 goal（勾 ≥2 个方向时），方案卡的 options 不产出它。
+export const GOALS = {
+  performance: '性能',
+  readability: '可读性',
+  memory: '内存',
+  style: '规范',
+  correctness: '正确性',
+  comprehensive: '综合',
+}
+
+const ORDINALS = ['①', '②', '③'] // 与 options 上限（3 项）一致
+
+/** 某一项方向的显示名：优先 agent 给的 label，回落闭集中文名。 */
+function optionName(o) {
+  return o.label || GOALS[o.goal] || o.goal
+}
+
+/**
+ * 拼「已勾选优化方向」后发出的第 2 轮提问（F2：白名单 + 显式黑名单）。
+ * 「以 X 为优先」是软偏好，会把选择变成建议；这里改成「只做 X」+「不要顺带做 Y」，
+ * 让选择成为硬约束（agent 侧 guidance 同步要求「只做所列方向」）。
+ * @param {Array<{goal: string, label?: string, detail?: string}>} selected 已勾选方向（≥1 项）
+ * @param {Array<{goal: string, label?: string, detail?: string}>} [excluded] 同一张方案卡里未被勾选的项
+ * @returns {string} 空选择返回 ''（调用方不得发送）
+ */
+export function buildGoalPrompt(selected, excluded = []) {
+  const list = (Array.isArray(selected) ? selected : []).filter(Boolean)
+  if (!list.length) return ''
+  const name = optionName
+
+  let head
+  if (list.length === 1) {
+    const o = list[0]
+    head = `只做「${name(o)}」方向的优化` + (o.detail ? `，具体要求：${o.detail}` : '')
+  } else {
+    const items = list
+      .map((o, i) => `${ORDINALS[i] || `${i + 1}.`}「${name(o)}」${o.detail ? `：${o.detail}` : ''}`)
+      .join('；')
+    head = `只做以下方向的优化：${items}`
+  }
+
+  const bad = (Array.isArray(excluded) ? excluded : []).filter(Boolean)
+  const tail = bad.length
+    ? `。不要顺带做其他方向的改动（例如：${bad.map((o) => `「${name(o)}」${o.detail ? `：${o.detail}` : ''}`).join('；')}）`
+    : ''
+
+  return `${head}${tail}。请给出优化后的完整代码。`
+}
+
+// 归一化非 patch 的【编辑建议】块（kind=options/replace）；不合法返回 null → 调用方回退为正文。
+function normalizePlan(parsed) {
+  const kind = typeof parsed?.kind === 'string' ? parsed.kind : 'patch'
+  if (kind === 'options') {
+    const options = (Array.isArray(parsed.options) ? parsed.options : [])
+      .filter((o) => o && typeof o.goal === 'string' && GOALS[o.goal])
+      .slice(0, 3)
+      .map((o) => ({
+        goal: o.goal,
+        label: typeof o.label === 'string' && o.label ? o.label : GOALS[o.goal],
+        detail: typeof o.detail === 'string' ? o.detail : '',
+      }))
+    if (!options.length) return null
+    return {
+      kind: 'options',
+      target: typeof parsed.target === 'string' ? parsed.target : '',
+      options,
+    }
+  }
+  if (kind === 'replace') {
+    const code = typeof parsed.code === 'string' ? parsed.code : ''
+    if (!code.trim()) return null
+    return {
+      kind: 'replace',
+      target: typeof parsed.target === 'string' ? parsed.target : '',
+      goal: typeof parsed.goal === 'string' && GOALS[parsed.goal] ? parsed.goal : '',
+      rationale: typeof parsed.rationale === 'string' ? parsed.rationale : '',
+      code,
+    }
+  }
+  return null // patch / 非法 kind → 走既有 edits 分支
+}
+
 // 归一化【视角导航】的 algo 精确定位字段（panel='algorithm' 时使用）。
 // 只保留合法 subTab 与字符串 categoryId/anchorId；空对象返回 undefined，避免 nav.views 塞进无意义项。
 function normalizeAlgo(algo) {
@@ -70,6 +154,7 @@ function extractStructBlocks(body) {
   let text = body
   const edits = []
   const nav = { views: [] }
+  let plan = null
   let guard = 0
   while (guard++ < 20) {
     let bestMark = null
@@ -94,15 +179,22 @@ function extractStructBlocks(body) {
             .map(normalizeView)
           if (views.length) { nav.views = views; usable = true }
         } else {
-          const list = (Array.isArray(parsed?.edits) ? parsed.edits : [])
-            .filter((e) => e && typeof e.old_string === 'string' && e.old_string.length > 0 && typeof e.new_string === 'string')
-            .map((e) => ({
-              title: typeof e.title === 'string' && e.title ? e.title : '代码修改',
-              explanation: typeof e.explanation === 'string' ? e.explanation : '',
-              old_string: e.old_string,
-              new_string: e.new_string,
-            }))
-          if (list.length) { edits.push(...list); usable = true }
+          // kind=options/replace：方案卡与整文件覆盖，与 patch 互斥（不同时走两个分支）
+          const p = normalizePlan(parsed)
+          if (p) {
+            plan = p
+            usable = true
+          } else {
+            const list = (Array.isArray(parsed?.edits) ? parsed.edits : [])
+              .filter((e) => e && typeof e.old_string === 'string' && e.old_string.length > 0 && typeof e.new_string === 'string')
+              .map((e) => ({
+                title: typeof e.title === 'string' && e.title ? e.title : '代码修改',
+                explanation: typeof e.explanation === 'string' ? e.explanation : '',
+                old_string: e.old_string,
+                new_string: e.new_string,
+              }))
+            if (list.length) { edits.push(...list); usable = true }
+          }
         }
       } catch { /* JSON 解析失败 → 整块按正文展示 */ }
     }
@@ -110,13 +202,13 @@ function extractStructBlocks(body) {
     // 移除 [bestIdx, jsonEnd)：块前正文 + 块后正文（若 agent 在块后又写了正文）拼接保留
     text = (text.slice(0, bestIdx) + text.slice(jsonEnd)).trimEnd()
   }
-  return { body: collapseBlankLines(text.trimEnd()), edits, nav }
+  return { body: collapseBlankLines(text.trimEnd()), edits, nav, plan }
 }
 
 /**
  * 剥离【决策痕迹】/【编辑建议】/【视角导航】块。
- * @returns {{ body: string, edits: Array<{title: string, explanation: string, old_string: string, new_string: string}>, nav: {views: Array<{panel: string, sub?: string, label?: string}>} }}
- * 任何解析失败都不抛出：块按正文展示，edits/nav 为空。
+ * @returns {{ body: string, edits: Array<{title: string, explanation: string, old_string: string, new_string: string}>, nav: {views: Array<{panel: string, sub?: string, label?: string}>}, plan: null | {kind:'options', target: string, options: Array<{goal: string, label: string, detail: string}>} | {kind:'replace', target: string, goal: string, rationale: string, code: string} }}
+ * 任何解析失败都不抛出：块按正文展示，edits/nav 为空、plan 为 null。
  */
 export function parseAssistantMessage(raw) {
   const text = String(raw || '')

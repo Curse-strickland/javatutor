@@ -42,30 +42,45 @@
         <div v-if="!store.chatMessages.length && !store.isExplaining" class="ai-hint">
           运行代码后，输入问题，AI 将结合当前步骤回答。
         </div>
-        <div v-for="(m, i) in store.chatMessages" :key="i" class="chat-msg" :class="m.role">
-          <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
-          <div v-else class="chat-bubble assistant">
-            <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
-            <!-- 仅在「当前正在生成的那条（最后一条）」用裸 markdown 流式展示；
-                 其余已完成消息始终交给 DecisionTracePanel 解析，避免历史消息的
-                 决策痕迹在生成期间退化成裸 JSON（bug: 思考中历史痕迹显示异常） -->
-            <template v-else>
-              <DecisionTracePanel
-                v-if="i !== store.chatMessages.length - 1 || !store.isExplaining"
-                :content="m.text"
-              />
-              <span v-else v-html="renderMarkdown(m.text)"></span>
-              <EditSuggestionCard
-                v-if="parsedMessages[i].edits.length && !store.isExplaining"
-                :edits="parsedMessages[i].edits"
-              />
-              <NavSuggestionCard
-                v-if="parsedMessages[i].nav.views.length && !store.isExplaining"
-                :views="parsedMessages[i].nav.views"
-              />
-            </template>
+        <!-- 时间线分割线是**真实消息**（role:'divider'），不引入「过滤后的数组」：
+             优化卡的 v-if 依赖真实下标，重排/过滤会打乱挂载状态（决策 D7）。
+             折叠一律用 v-show（v-if 会卸载优化卡 → 门禁重跑、applied/undoToken 丢失）。 -->
+        <template v-for="(m, i) in store.chatMessages" :key="i">
+          <TimelineDivider
+            v-if="m.role === 'divider'"
+            v-show="!isFoldedIndex(i)"
+            :cp="cpOf(m)"
+            :folded-count="i === store.foldFromIndex ? foldedCount(store.chatMessages.length, store.foldFromIndex) : 0"
+          />
+          <div v-else v-show="!isFoldedIndex(i)" class="chat-msg" :class="m.role">
+            <div v-if="m.role === 'user'" class="chat-bubble user">{{ m.text }}</div>
+            <div v-else class="chat-bubble assistant">
+              <span v-if="!m.text && i === store.chatMessages.length - 1" class="chat-typing">…</span>
+              <!-- 仅在「当前正在生成的那条（最后一条）」用裸 markdown 流式展示；
+                   其余已完成消息始终交给 DecisionTracePanel 解析，避免历史消息的
+                   决策痕迹在生成期间退化成裸 JSON（bug: 思考中历史痕迹显示异常） -->
+              <template v-else>
+                <DecisionTracePanel
+                  v-if="i !== store.chatMessages.length - 1 || !store.isExplaining"
+                  :content="m.text"
+                />
+                <span v-else v-html="renderMarkdown(m.text)"></span>
+                <EditSuggestionCard
+                  v-if="parsedMessages[i].edits.length && !store.isExplaining"
+                  :edits="parsedMessages[i].edits"
+                />
+                <OptimizationCard
+                  v-if="parsedMessages[i].plan && (i !== store.chatMessages.length - 1 || !store.isExplaining)"
+                  :plan="parsedMessages[i].plan"
+                />
+                <NavSuggestionCard
+                  v-if="parsedMessages[i].nav.views.length && !store.isExplaining"
+                  :views="parsedMessages[i].nav.views"
+                />
+              </template>
+            </div>
           </div>
-        </div>
+        </template>
         <div v-if="store.isExplaining && store.explainStage" class="chat-stage">
           <span class="stage-dot" />
           {{ store.explainStage }}
@@ -88,7 +103,8 @@
         </div>
         <div class="chat-input-row">
           <input
-            v-model="chatInput"
+            ref="inputRef"
+            v-model="store.chatDraft"
             class="chat-input"
             placeholder="输入问题，如「为什么 arr[0] 变了？」"
             autocomplete="off"
@@ -97,7 +113,7 @@
           />
           <button
             class="chat-send-btn"
-            :disabled="!store.code || store.isExplaining || !chatInput.trim()"
+            :disabled="!store.code || store.isExplaining || !store.chatDraft.trim()"
             @click="sendChat"
           >
             <svg v-if="store.isExplaining" class="ai-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -167,28 +183,63 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import EditSuggestionCard from './EditSuggestionCard.vue'
+import OptimizationCard from './OptimizationCard.vue'
 import NavSuggestionCard from './NavSuggestionCard.vue'
+import TimelineDivider from './TimelineDivider.vue'
 import { parseAssistantMessage } from '../utils/editSuggestion'
+import { foldedCount, isFolded } from '../utils/timeline'
 
 import { renderMarkdown } from '../utils/markdown.js'
 import DecisionTracePanel from './DecisionTracePanel.vue'
 
-defineProps({
+const props = defineProps({
   /** 嵌在右侧 INSPECT 分页时铺满高度，并隐藏关闭按钮 */
   embedded: { type: Boolean, default: false },
 })
 
 const store = usePlayerStore()
+const inputRef = ref(null)
+
+// 单文件模式下内嵌面板与悬浮面板可能同时挂载 → 只有当前真正可见的那个实例才聚焦
+const isVisibleInstance = computed(() =>
+  props.embedded
+    ? (store.mode === 'multi' ? store.multiTab === 'tutor' : store.rightTab === 'tutor')
+    : store.explainExpanded,
+)
+
+// 报错入口（GlobalStatus）写草稿后请求聚焦；光标落到末尾，便于用户接着编辑
+watch(() => store.chatFocusNonce, async () => {
+  await nextTick()
+  if (!isVisibleInstance.value) return
+  const el = inputRef.value
+  if (!el) return
+  el.focus()
+  const n = el.value?.length ?? 0
+  try { el.setSelectionRange(n, n) } catch { /* 部分 input 类型不支持选区 */ }
+})
 
 // assistant 消息解析：剥离【决策痕迹】/【编辑建议】块（流式中途 JSON 不完整时自动按正文展示）
 const parsedMessages = computed(() =>
   store.chatMessages.map((m) =>
-    m.role === 'assistant' ? parseAssistantMessage(m.text) : { body: m.text, edits: [], nav: { views: [] } },
+    m.role === 'assistant'
+      ? parseAssistantMessage(m.text)
+      : { body: m.text, edits: [], nav: { views: [] }, plan: null },
   ),
 )
 
+// --- 对话时间线（记录点回退后的折叠；决策 T3/T7）---
+
+/** 下标 i 的消息是否在折叠区（divider 与普通消息共用；分割线自身不折叠）。 */
+function isFoldedIndex(i) {
+  return isFolded(i, store.foldFromIndex)
+}
+
+/** divider 消息 → 它对应的记录点（记录点不删，只是超上限后丢快照并标 expired）。 */
+function cpOf(m) {
+  return store.timeline.find((t) => t.id === m.checkpointId) || null
+}
+
 const chatBodyRef = ref(null)
-const chatInput = ref('')
 let chatResizeObserver = null
 
 onMounted(() => {
@@ -204,9 +255,9 @@ onBeforeUnmount(() => {
 })
 
 function sendChat() {
-  const q = chatInput.value.trim()
+  const q = store.chatDraft.trim()
   if (!q || store.isExplaining) return
-  chatInput.value = ''
+  store.chatDraft = ''
   store.askQuestion(q)
 }
 
