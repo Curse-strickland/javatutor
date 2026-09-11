@@ -3,17 +3,17 @@
     <div class="algo-subtab-row">
       <button
         class="algo-subtab"
-        :class="{ active: algoSubTab === 'knowledge' }"
-        @click="algoSubTab = 'knowledge'"
+        :class="{ active: store.algoSubTab === 'knowledge' }"
+        @click="store.algoSubTab = 'knowledge'"
       >算法知识</button>
       <button
         class="algo-subtab"
-        :class="{ active: algoSubTab === 'template' }"
-        @click="algoSubTab = 'template'"
+        :class="{ active: store.algoSubTab === 'template' }"
+        @click="store.algoSubTab = 'template'"
       >算法模板</button>
     </div>
-    <AlgoKnowledgeHeader v-show="algoSubTab === 'knowledge'" />
-    <section v-show="algoSubTab === 'template'" class="algo-section algo-section-fill">
+    <AlgoKnowledgeHeader v-show="store.algoSubTab === 'knowledge'" />
+    <section v-show="store.algoSubTab === 'template'" class="algo-section algo-section-fill">
       <h4 class="algo-section-h">经典算法（预置）</h4>
       <ClassicCodePanel @loadCode="$emit('loadCode', $event)" />
     </section>
@@ -21,7 +21,6 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
 import { usePlayerStore } from '../../stores/player'
 import AlgoKnowledgeHeader from '../AlgoKnowledgeHeader.vue'
 import ClassicCodePanel from '../ClassicCodePanel.vue'
@@ -29,15 +28,7 @@ import ClassicCodePanel from '../ClassicCodePanel.vue'
 defineEmits(['loadCode'])
 
 const store = usePlayerStore()
-
-// 内部子标签：算法知识（默认）/ 算法模板，内容不卸载仅 v-show
-const algoSubTab = ref('knowledge')
-
-// 教程弹窗跳转时，确保落在「算法知识」子标签（而非「算法模板」）
-watch(() => store.knowledgeNav.nonce, (nonce) => {
-  if (!nonce) return
-  algoSubTab.value = 'knowledge'
-})
+// 子标签（算法知识/算法模板）提升到 store.algoSubTab，供视角导航 navigateTo 的 algo.subTab 精确定位
 </script>
 
 <style scoped>

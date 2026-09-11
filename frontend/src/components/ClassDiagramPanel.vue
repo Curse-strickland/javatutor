@@ -5,6 +5,45 @@
         {{ store.multiState.isAnalyzingProject ? '分析中…' : '重新分析' }}
       </button>
       <span v-if="store.multiState.projectAnalysisError" class="cd-error">{{ store.multiState.projectAnalysisError }}</span>
+      <div v-if="classes.length" class="cd-legend">
+        <div class="cd-legend-row">
+        <span class="cd-legend-item" title="实线 + 空心三角：子类继承父类">
+          <svg class="cd-legend-ic" width="36" height="12" viewBox="0 0 36 12" aria-hidden="true">
+            <line x1="0" y1="6" x2="24" y2="6" stroke="currentColor" stroke-width="1.5" />
+            <polygon points="24,1 36,6 24,11" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span>继承</span>
+        </span>
+        <span class="cd-legend-item" title="虚线 + 空心三角：类实现接口">
+          <svg class="cd-legend-ic" width="36" height="12" viewBox="0 0 36 12" aria-hidden="true">
+            <line x1="0" y1="6" x2="24" y2="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2" />
+            <polygon points="24,1 36,6 24,11" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span>实现</span>
+        </span>
+        <span class="cd-legend-item" title="实线 + 实心箭头：一个类使用（依赖 / 关联）另一个类">
+          <svg class="cd-legend-ic" width="36" height="12" viewBox="0 0 36 12" aria-hidden="true">
+            <line x1="0" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="1.5" />
+            <polygon points="26,2 34,6 26,10" fill="currentColor" stroke="currentColor" />
+          </svg>
+          <span>依赖 / 关联</span>
+        </span>
+        </div>
+        <div class="cd-legend-row">
+        <span class="cd-legend-item" title="public：公开成员，任何地方可见">
+          <span class="cd-vis-sym">+</span><span>public</span>
+        </span>
+        <span class="cd-legend-item" title="private：私有成员，仅本类内可见">
+          <span class="cd-vis-sym">-</span><span>private</span>
+        </span>
+        <span class="cd-legend-item" title="protected：受保护成员，同类/子类可见">
+          <span class="cd-vis-sym">#</span><span>protected</span>
+        </span>
+        <span class="cd-legend-item" title="package：包内可见（无修饰符）">
+          <span class="cd-vis-sym">~</span><span>package</span>
+        </span>
+        </div>
+      </div>
     </div>
 
     <div class="cd-body">
@@ -55,7 +94,8 @@ function toMermaid() {
   for (const c of classes.value) {
     const id = mermaidId(c.id)
     // 类声明 + 成员（字段/方法直接渲染进格子）
-    lines.push('  class ' + id + '["' + c.label + '"] {')
+    const stereotype = c.kind === 'interface' ? '«interface» ' : c.kind === 'enum' ? '«enum» ' : ''
+    lines.push('  class ' + id + '["' + stereotype + c.label + '"] {')
     for (const f of c.fields || []) {
       lines.push('    ' + toMermaidMember(f, true))
     }
@@ -74,24 +114,28 @@ function toMermaid() {
   return lines.join('\n')
 }
 
-// 把后端成员串（如 "+ name: String"）转成 mermaid 成员声明
+// 把后端成员串（如 "- name: String"）转成 mermaid 成员声明
+// mermaid classDiagram 用 +/-/#/~ 前缀表示可见性
 function toMermaidMember(member, isField) {
   let s = String(member || '').trim()
-  // 移除可见性符号
-  const vis = s.charAt(0)
-  if (vis === '+' || vis === '-' || vis === '#' || vis === '~') s = s.slice(1).trim()
+  let vis = ''
+  const ch = s.charAt(0)
+  if (ch === '+' || ch === '-' || ch === '#' || ch === '~') {
+    vis = ch + ' '
+    s = s.slice(1).trim()
+  }
   if (isField) {
     // "name: String" → "String name"
     const idx = s.indexOf(':')
     if (idx >= 0) {
       const name = s.slice(0, idx).trim()
       const type = s.slice(idx + 1).trim()
-      return type + ' ' + name
+      return vis + type + ' ' + name
     }
-    return s
+    return vis + s
   }
   // "run(int): int" → "run(int) int"
-  return s.replace(/\)\s*:/, ') ')
+  return vis + s.replace(/\)\s*:/, ') ')
 }
 
 // mermaid classDiagram 的 id 不能含点号，做安全替换
@@ -99,13 +143,38 @@ function mermaidId(id) {
   return 'C' + String(id || '').replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
-mermaid.initialize({ startOnLoad: false, theme: 'default', themeVariables: { fontSize: '14px' } })
+// mermaid.initialize 是全局单例，其他面板（流程图/调用关系）会设置白色文字，
+// 若切到类图时不重置主题，浅色背景 + 白字会导致文字不可见。
+// 这里用明确的浅色主题 + 深色文字。
+function initMermaid() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    themeVariables: {
+      fontSize: '14px',
+      // 类图浅色卡片，强制深色文字
+      primaryColor: '#ffffff',
+      primaryTextColor: '#1f2937',
+      primaryBorderColor: '#94a3b8',
+      lineColor: '#475569',
+      secondaryColor: '#f8fafc',
+      tertiaryColor: '#f1f5f9',
+      mainBkg: '#ffffff',
+      nodeBkg: '#ffffff',
+      nodeBorder: '#94a3b8',
+      clusterBkg: '#f8fafc',
+      clusterBorder: '#cbd5e1',
+    },
+  })
+}
+initMermaid()
 
 async function render() {
   const text = toMermaid()
   if (!classes.value.length) { svgContent.value = ''; return }
   const seq = ++renderId
   try {
+    initMermaid() // 每次渲染前重置主题，避免被其他面板污染
     const id = 'cd-' + seq
     const { svg } = await mermaid.render(id, text)
     if (seq !== renderId) return
@@ -141,7 +210,7 @@ defineExpose({})
 
 <style scoped>
 .cd-panel { display: flex; flex-direction: column; height: 100%; gap: 10px; }
-.cd-toolbar { display: flex; align-items: center; gap: 10px; }
+.cd-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .cd-btn {
   padding: 5px 12px; border: 1px solid var(--line-strong); background: transparent;
   color: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 700;
@@ -150,6 +219,11 @@ defineExpose({})
 }
 .cd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cd-error { font-family: var(--mono); font-size: 10.5px; color: var(--danger, #ef476f); }
+.cd-legend { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--text-muted); }
+.cd-legend-row { display: flex; align-items: center; gap: 14px; }
+.cd-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cd-legend-ic { color: #475569; flex: none; }
+.cd-vis-sym { font-weight: 700; color: var(--text-h); }
 .cd-body { flex: 1; min-height: 0; overflow: auto; }
 .cd-state { font-family: var(--mono); font-size: 12px; color: var(--text-muted); padding: 20px; text-align: center; }
 .cd-mermaid { min-height: 200px; }

@@ -23,6 +23,27 @@ describe('splitDecisionTrace', () => {
     expect(result.trace).toBeNull()
   })
 
+  it('剥掉正文末尾的【编辑建议】/【视角导航】块，避免裸 JSON 渲染', () => {
+    const text = '正文\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n\n【决策痕迹】\n{"intent":"debug"}'
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文')
+    expect(result.trace.intent).toBe('debug')
+  })
+
+  it('无【决策痕迹】时也剥掉正文末尾的结构化块，避免裸 JSON 渲染', () => {
+    const text = '正文\n\n【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}'
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文')
+    expect(result.trace).toBeNull()
+  })
+
+  it('块后跟正文也剥掉结构化块，仅留正文与后续补充', () => {
+    const text = '正文\n\n【视角导航】\n{"views":[{"panel":"variables"}]}\n后续补充\n\n【决策痕迹】\n{"intent":"debug"}'
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文\n\n后续补充')
+    expect(result.trace.intent).toBe('debug')
+  })
+
   it('extracts source labels', () => {
     const trace = { sources: [{ source: '知识库: HashMap' }, { source: '知识库: Arrays.sort' }] }
     expect(sourceLabels(trace)).toEqual(['知识库: HashMap', '知识库: Arrays.sort'])
@@ -73,7 +94,22 @@ describe('traceSummary', () => {
     ])
   })
 
-  it('shows revise text for all critic-failed cases', () => {
+  it('annotates step_facts result status on the tool line', () => {
+    const trace = {
+      tool_calls: [
+        { tool: 'step_facts', args: { step_index: 6, line: 0 },
+          result: JSON.stringify({ error: 'step_index 6 不在可用范围', steps_count: 6 }) },
+        { tool: 'step_facts', args: { step_index: 0 },
+          result: JSON.stringify({ error: '', evidence: { variables: { x: 1 } }, diff: [] }) },
+      ],
+    }
+    expect(traceSummary(trace).toolLines).toEqual([
+      '调用 step_facts：查询第 7 步，行 0 → 越界（共 6 步）',
+      '调用 step_facts：查询第 1 步 → 已获取证据',
+    ])
+  })
+
+  it('shows revise text only when critic failed and revised', () => {
     expect(traceSummary({ critic_passed: false, revised: true }).reviseText).toBe('评审未通过，已修订')
     expect(traceSummary({ critic_passed: false, revised: false }).reviseText).toBe('评审未通过（未修订）')
     expect(traceSummary({ critic_passed: true, revised: true }).reviseText).toBe('')

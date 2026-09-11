@@ -12,6 +12,8 @@ public class ExplainRequest {
     private Map<String, Object> variables;
     private List<Map<String, Object>> steps;
     private List<String> algorithmTags;
+    private List<Map<String, String>> files;
+    private String entryFile;
     private String apiKey;
     private String mode;
     private boolean overview;
@@ -52,6 +54,12 @@ public class ExplainRequest {
 
     public List<String> getAlgorithmTags() { return algorithmTags; }
     public void setAlgorithmTags(List<String> algorithmTags) { this.algorithmTags = algorithmTags; }
+
+    public List<Map<String, String>> getFiles() { return files; }
+    public void setFiles(List<Map<String, String>> files) { this.files = files; }
+
+    public String getEntryFile() { return entryFile; }
+    public void setEntryFile(String entryFile) { this.entryFile = entryFile; }
 
     public String getApiKey() { return apiKey; }
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }

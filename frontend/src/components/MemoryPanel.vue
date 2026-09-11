@@ -3,7 +3,7 @@
     <div class="mp-header" @click="isOpen = !isOpen">
       <div class="flex items-center gap-2">
         <span class="mp-dot" />
-        <span class="text-sm font-semibold" style="color: var(--text-h)">内存监控</span>
+        <span class="text-sm font-semibold" style="color: var(--text-h)">内存状态</span>
       </div>
       <svg class="mp-chevron" :class="{ rotated: isOpen }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9" />

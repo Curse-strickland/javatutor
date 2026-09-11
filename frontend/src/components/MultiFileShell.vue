@@ -64,46 +64,46 @@
         <WallpaperSelector />
         <div class="right-subtab-row">
           <template v-if="rightGroup === 'observe'">
-            <button class="right-tab" :class="{ active: multiTab === 'datastructure' }" @click="switchTab('datastructure')">数据结构</button>
-            <button class="right-tab" :class="{ active: multiTab === 'flow' }" @click="switchTab('flow')">流程</button>
-            <button class="right-tab" :class="{ active: multiTab === 'variables' }" @click="switchTab('variables')">内存状态</button>
-            <button class="right-tab" :class="{ active: multiTab === 'callgraph' }" @click="switchTab('callgraph')">调用关系</button>
-            <button class="right-tab" :class="{ active: multiTab === 'classdiagram' }" @click="switchTab('classdiagram')">类图</button>
-            <button class="right-tab" :class="{ active: multiTab === 'structure' }" @click="switchTab('structure')">结构</button>
+            <button class="right-tab" :class="{ active: store.multiTab === 'datastructure' }" @click="store.switchMultiTab('datastructure')">数据结构</button>
+            <button class="right-tab" :class="{ active: store.multiTab === 'flow' }" @click="store.switchMultiTab('flow')">流程</button>
+            <button class="right-tab" :class="{ active: store.multiTab === 'variables' }" @click="store.switchMultiTab('variables')">内存状态</button>
+            <button class="right-tab" :class="{ active: store.multiTab === 'callgraph' }" @click="store.switchMultiTab('callgraph')">调用关系</button>
+            <button class="right-tab" :class="{ active: store.multiTab === 'classdiagram' }" @click="store.switchMultiTab('classdiagram')">类图</button>
+            <button class="right-tab" :class="{ active: store.multiTab === 'structure' }" @click="store.switchMultiTab('structure')">结构</button>
           </template>
           <template v-else-if="rightGroup === 'learn'">
-            <button class="right-tab active" @click="switchTab('algorithm')">算法库</button>
+            <button class="right-tab active" @click="store.switchMultiTab('algorithm')">算法库</button>
           </template>
           <template v-else>
-            <button class="right-tab active" @click="switchTab('tutor')">agent</button>
+            <button class="right-tab active" @click="store.switchMultiTab('tutor')">agent</button>
           </template>
         </div>
       </div>
-      <div class="flex-1 right-card-body" :class="{ 'body-fill': multiTab === 'tutor' }">
+      <div class="flex-1 right-card-body" :class="{ 'body-fill': store.multiTab === 'tutor' }">
         <!-- v-show：避免切换时卸载/重挂载导致高度跳动 -->
-        <div v-show="multiTab === 'variables'" class="right-pane">
+        <div v-show="store.multiTab === 'variables'" class="right-pane">
           <MemoryPanel />
           <ConsoleOutput />
         </div>
-        <div v-show="multiTab === 'flow'" class="right-pane">
-          <ControlFlowPanel v-if="multiTab === 'flow'" :active="true" />
+        <div v-show="store.multiTab === 'flow'" class="right-pane">
+          <ControlFlowPanel v-if="store.multiTab === 'flow'" :active="true" />
         </div>
-        <div v-show="multiTab === 'datastructure'" class="right-pane">
+        <div v-show="store.multiTab === 'datastructure'" class="right-pane">
           <DataStructureTab />
         </div>
-        <div v-show="multiTab === 'algorithm'" class="right-pane">
+        <div v-show="store.multiTab === 'algorithm'" class="right-pane">
           <AlgoTab @loadCode="onClassicLoad" />
         </div>
-        <div v-show="multiTab === 'tutor'" class="right-pane right-pane-fill">
+        <div v-show="store.multiTab === 'tutor'" class="right-pane right-pane-fill">
           <AiTutorPanel embedded />
         </div>
-        <div v-show="multiTab === 'callgraph'" class="right-pane">
+        <div v-show="store.multiTab === 'callgraph'" class="right-pane">
           <FlowDiagramPanel />
         </div>
-        <div v-show="multiTab === 'classdiagram'" class="right-pane">
+        <div v-show="store.multiTab === 'classdiagram'" class="right-pane">
           <ClassDiagramPanel />
         </div>
-        <div v-show="multiTab === 'structure'" class="right-pane">
+        <div v-show="store.multiTab === 'structure'" class="right-pane">
           <StructureDiagramPanel />
         </div>
       </div>
@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, provide } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import Editor from './Editor.vue'
 import FileTabsBar from './FileTabsBar.vue'
@@ -127,6 +127,8 @@ import ControlFlowPanel from './ControlFlowPanel.vue'
 import WallpaperSelector from './WallpaperSelector.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
+import { allowedPanels, groupOfPanel, defaultPanelOfGroup } from '../constants/uiPanelManifest.js'
+import { clampActiveIndex } from '../utils/timeline'
 import FlowDiagramPanel from './FlowDiagramPanel.vue'
 import ClassDiagramPanel from './ClassDiagramPanel.vue'
 import StructureDiagramPanel from './StructureDiagramPanel.vue'
@@ -138,27 +140,53 @@ const containerRef = ref(null)
 const containerWidth = ref(0)
 const splitRatio = ref(0.55)
 const uploadOpen = ref(false)
-// 多文件右侧 tab：本地状态，独立于单文件的 store.rightTab
-const multiTab = ref('datastructure')
-// 顶层分组：observe / learn / ask
-const GROUP_OF_TAB = {
-  datastructure: 'observe',
-  flow: 'observe',
-  variables: 'observe',
-  callgraph: 'observe',
-  classdiagram: 'observe',
-  structure: 'observe',
-  algorithm: 'learn',
-  tutor: 'ask',
-}
-const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
-const rightGroup = computed(() => GROUP_OF_TAB[multiTab.value] || 'observe')
+// 多文件右侧 tab：已提升到 store（store.multiTab），供视角导航 navigateTo 与面板选择共用
+// 顶层分组：observe / learn / ask（改面板先改 ui-panel-manifest.json）
+const GROUP_OF_TAB = Object.fromEntries(
+  allowedPanels('multi').map((id) => [id, groupOfPanel(id)]),
+)
+const GROUP_DEFAULT_TAB = Object.fromEntries(
+  ['observe', 'learn', 'ask'].map((g) => [g, defaultPanelOfGroup(g)]),
+)
+const rightGroup = computed(() => GROUP_OF_TAB[store.multiTab] || 'observe')
 const switchGroup = (group) => {
-  if (rightGroup.value !== group) multiTab.value = GROUP_DEFAULT_TAB[group]
+  if (rightGroup.value !== group) store.switchMultiTab(GROUP_DEFAULT_TAB[group])
 }
-function switchTab(tab) {
-  multiTab.value = tab
-}
+
+// 整文件覆盖（优化卡）：target 命中哪个文件；-1 表示「不存在 → 不覆盖」（spec §4.5）
+const targetIndex = (name) => store.multiState.files.findIndex((f) => f.name === name)
+// 读：目标为当前激活文件时读编辑器（用户可能有未保存编辑），否则读 files[i].code
+provide('getCode', (target) => {
+  const idx = targetIndex(target)
+  if (idx < 0) return null
+  if (idx === store.multiState.activeFileIndex) return editorRef.value?.getCode() ?? ''
+  return store.multiState.files[idx].code ?? ''
+})
+// 写：改 files[i].code 并切到该文件（用户能看到变化）；切换文件的 watcher 会保存旧文件并载入新内容
+provide('restoreCode', (code, target) => {
+  const idx = targetIndex(target)
+  if (idx < 0) return false
+  store.multiState.files[idx].code = code
+  store.multiState.activeFileIndex = idx
+  return true
+})
+/**
+ * 时间线回退（TimelineDivider）：把记录点的**整项目**快照写回。
+ *
+ * **必须走三步**（否则被文件切换 watcher 用陈旧内容覆写）：
+ * 1) 先置 -1 —— 让 watcher 去保存「即将被整份丢弃的旧数组」里的旧文件（无害）；
+ * 2) 整项目替换（深拷贝，避免与记录点共享引用——`files[i].code` 会被就地改写）；
+ * 3) 收敛激活下标 —— 此时 watcher 的 oldIdx === -1，跳过保存，只 `setCode` 载入新内容。
+ */
+provide('restoreSource', async (cp) => {
+  if (!Array.isArray(cp?.files)) return false
+  store.multiState.activeFileIndex = -1
+  await nextTick()
+  store.multiState.files = cp.files.map((f) => ({ name: f.name, code: f.code }))
+  store.multiState.activeFileIndex = clampActiveIndex(cp.activeFileIndex, store.multiState.files.length)
+  await nextTick()
+  return true
+})
 const MIN_LEFT = 400
 const MIN_RIGHT = 350
 
@@ -206,12 +234,14 @@ async function onRunProject() {
 
 // 经典算法加载：把代码作为新文件加入多文件项目（若已存在同名文件则替换内容）
 function onClassicLoad({ name, code }) {
-  store.addMultiFile({ name: name || 'Classic.java', code })
-  const idx = store.multiState.files.findIndex(f => f.name === (name || 'Classic.java'))
+  const fname = name || 'Classic.java'
+  store.addMultiFile({ name: fname, code })
+  store.addUploadRecord(fname, code)
+  const idx = store.multiState.files.findIndex(f => f.name === fname)
   if (idx >= 0) store.setActiveMultiFile(idx)
 }
 
-// 多文件上传：批量追加文件到项目，并激活第一个新文件
+// 多文件上传：批量追加文件到项目，并激活第一个新文件；同时同步到加载记录
 function onLoadFiles(files) {
   if (!Array.isArray(files) || !files.length) return
   let firstNewIdx = -1
@@ -219,6 +249,8 @@ function onLoadFiles(files) {
     if (!f?.name) return
     const existed = store.multiState.files.some(x => x.name === f.name)
     store.addMultiFile({ name: f.name, code: f.code || '' })
+    // 同步到加载记录（localStorage 持久化）
+    store.addUploadRecord(f.name, f.code || '')
     if (!existed && firstNewIdx === -1) {
       firstNewIdx = store.multiState.files.findIndex(x => x.name === f.name)
     }
@@ -401,8 +433,7 @@ const onWindowResize = () => {
   position: relative;
   background: var(--editor-header-bg);
 }
-.editor-card-header::after,
-.right-card-header::after {
+.editor-card-header::after {
   content: '';
   position: absolute;
   left: 16px;

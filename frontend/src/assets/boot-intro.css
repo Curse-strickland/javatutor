@@ -54,6 +54,8 @@
   --line-strong: #9aa2b0;
   --line-on-ink: #39404e;
   --accent: #0d9ec4;
+  --accent-text: #0e7b99;
+  --accent-text: color-mix(in oklab, var(--accent) 74%, var(--fg));
   --accent-soft: rgba(13, 158, 196, 0.55);
   --accent-ghost: rgba(13, 158, 196, 0.16);
   --sans: 'Archivo', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
@@ -400,13 +402,13 @@
   position: relative; z-index: 1;
   display: inline-flex; align-items: center; gap: 14px;
   font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  text-decoration: none; color: #ffffff; background: var(--accent);
+  text-decoration: none; color: var(--accent-text); background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent);
   padding: 17px 28px;
   clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
-  box-shadow: 0 14px 28px -14px rgba(13,158,196,0.55);
-  transition: filter 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
-.btn-enter:hover { filter: brightness(1.1); transform: translateY(-2px); }
+.btn-enter:hover { background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--fg); transform: translateY(-2px); }
 .btn-enter:active { transform: translateY(0) scale(0.97); }
 .btn-enter svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
 .boot-intro.is-op-start .btn-ripple .halo { animation: halo-burst 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards; }

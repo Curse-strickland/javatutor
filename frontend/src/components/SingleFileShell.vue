@@ -236,17 +236,16 @@ import WallpaperSelector from './WallpaperSelector.vue'
 import TestCasePanel from './TestCasePanel.vue'
 import DataStructureTab from './right-tabs/DataStructureTab.vue'
 import AlgoTab from './right-tabs/AlgoTab.vue'
+import { allowedPanels, groupOfPanel, defaultPanelOfGroup } from '../constants/uiPanelManifest.js'
 
 const store = usePlayerStore()
-// 右侧两级标签：store.rightTab 仍是唯一状态源，顶层组由它派生
-const GROUP_OF_TAB = {
-  datastructure: 'observe',
-  flow: 'observe',
-  variables: 'observe',
-  algorithm: 'learn',
-  tutor: 'ask',
-}
-const GROUP_DEFAULT_TAB = { observe: 'datastructure', learn: 'algorithm', ask: 'tutor' }
+// 右侧两级标签：store.rightTab 仍是唯一状态源，顶层组/默认组由 manifest 派生（改面板先改 ui-panel-manifest.json）
+const GROUP_OF_TAB = Object.fromEntries(
+  allowedPanels('single').map((id) => [id, groupOfPanel(id)]),
+)
+const GROUP_DEFAULT_TAB = Object.fromEntries(
+  ['observe', 'learn', 'ask'].map((g) => [g, defaultPanelOfGroup(g)]),
+)
 const rightGroup = computed(() => GROUP_OF_TAB[store.rightTab] || 'observe')
 const switchGroup = (group) => {
   if (rightGroup.value !== group) store.switchRightTab(GROUP_DEFAULT_TAB[group])
@@ -255,6 +254,15 @@ const editorRef = ref(null)
 // AI 编辑建议 → 编辑器（AiTutorPanel 里的卡片组件 inject 使用）
 provide('applyAiEdits', (edits) => editorRef.value?.applyAiEdits(edits) ?? null)
 provide('undoAiEdits', (token) => editorRef.value?.undoAiEdits(token) ?? false)
+// 整文件覆盖（优化卡）：编辑器内容才是权威来源，store.code 可能落后于未保存编辑
+provide('getCode', () => editorRef.value?.getCode() ?? '')
+provide('restoreCode', (code) => { editorRef.value?.setCode(code); return true })
+// 时间线回退（TimelineDivider）：把记录点的代码快照写回编辑器；无快照（超上限）时返回 false 让调用方放弃
+provide('restoreSource', (cp) => {
+  if (!cp?.code) return false
+  editorRef.value?.setCode(cp.code)
+  return true
+})
 const containerRef = ref(null)
 const progressRef = ref(null)
 const controlBarRef = ref(null)
