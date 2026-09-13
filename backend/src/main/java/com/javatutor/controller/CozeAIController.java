@@ -94,7 +94,10 @@
                          catch (Exception e) { throw new RuntimeException(e); }
                      },
                      request.getFiles(),
-                     request.getEntryFile()
+                     request.getEntryFile(),
+                     // 本次运行模式（事实）：仅在客户端支持时出现，缺失则 Coze 侧按「模式未知」处理
+                     request.getMode(),
+                     request.getTestCaseCount()
                  );
                  emitter.complete();
              } catch (Exception e) {

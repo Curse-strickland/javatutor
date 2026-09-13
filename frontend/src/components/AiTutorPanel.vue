@@ -72,6 +72,10 @@
                 <OptimizationCard
                   v-if="parsedMessages[i].plan && (i !== store.chatMessages.length - 1 || !store.isExplaining)"
                   :plan="parsedMessages[i].plan"
+                  :msg-index="i"
+                  :rev="store.chatMessages[i].optRev || 0"
+                  :regate-nonce="store.chatMessages[i].optRegateNonce || 0"
+                  :repair="store.optRepair && store.optRepair.msgIndex === i ? store.optRepair : null"
                 />
                 <NavSuggestionCard
                   v-if="parsedMessages[i].nav.views.length && !store.isExplaining"

@@ -3,6 +3,7 @@ import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
 import { http } from '../utils/http.js'
 import { allowedPanels, algoSubTabs } from '../constants/uiPanelManifest.js'
 import { buildGoalPrompt } from '../utils/editSuggestion.js'
+import { buildRetryPrompt, hasUsableReplace, nextRetry } from '../utils/optimization.js'
 import { MAX_TIMELINE, buildCheckpointLabel } from '../utils/timeline.js'
 
 export const usePlayerStore = defineStore('player', {
@@ -22,6 +23,19 @@ export const usePlayerStore = defineStore('player', {
     explainError: null,
     explainStage: '',
     explainAbortController: null,
+    /**
+     * 优化卡门禁失败后的自动返修：null | `{ msgIndex, attempt, max }`。
+     * 上限必须由 store 持有——卡片会因折叠/重挂载而丢失局部状态（决策见
+     * javatutor-coze docs/plan/2026-09-12-coze-agent-optimization-gate-retry-plan.md §0.1）。
+     */
+    optRepair: null,
+    /** 返修提问自己的 AbortController（用户手动提问会 abort 它 = 抢占） */
+    optAbortController: null,
+    /**
+     * 传输失败时的「重跑门禁」通知量与闩**都按消息记**（`chatMessages[i].optRegateNonce` /
+     * `.optRegate`），不设全局量：全局量会让任一卡的故障唤醒**所有**挂载中的 replace 卡一起重跑
+     * 门禁（总请求数上界 O(N²)，且本卡门禁飞行中时会被并发发起第二次），见 review P3-6 / P3-3(b)。
+     */
     explainHistory: {},
     /** agent 输入框草稿（提升自 AiTutorPanel 局部 ref）：报错入口/优化卡「只预填不发送」写入此字段 */
     chatDraft: '',
@@ -383,6 +397,68 @@ export const usePlayerStore = defineStore('player', {
       const suffix = this.mode === 'multi' && target ? `（目标文件：${target}）` : ''
       await this.askQuestion(`${q}${suffix}`)
     },
+
+    /**
+     * 优化卡门禁失败上报 → 决定是否自动返修（F1–F5；上限由 store 持有，抗卡片重挂载）。
+     * 只重写**最后一条 assistant 消息**的 text，不新增消息、不新增记录点：
+     * 时间线记录点记的是 `chatIndex = chatMessages.length`（下标即折叠边界），
+     * 重写最后一条只影响「最新记录点之后的当前段」，对时间线无副作用。
+     *
+     * applied / targetBlocked 由卡片如实传入——二者本可「按构造恒为 false」，但**不得**在
+     * store 里写死：判定必须全部走 nextRetry，否则纯函数的守卫就成了死代码（何况 gate 在
+     * `rev` 变更时会重跑）。
+     */
+    async requestOptimizationRetry(msgIndex, { gateError, kind, plan, goalLabel, applied, targetBlocked }) {
+      const idx = Number(msgIndex)
+      const msg = this.chatMessages[idx]
+      const isLatest = idx === this.chatMessages.length - 1 && !!msg && msg.role === 'assistant'
+      const hasCode = !!(plan && plan.code)
+      const attempt = (msg && msg.optAttempt) || 0
+      if (this.optRepair) return                       // 已有返修在飞 → 不重入
+      const d = nextRetry({ attempt, kind, applied, targetBlocked, isLatest, hasCode })
+      if (d.action === 'regate') {
+        // 传输失败：让卡片**重跑一次门禁**（F4），但不烧返修次数。
+        // 必须按消息加闩：重跑仍会失败（后端不通/返 500），又会回到这里；
+        // 无闩则「重跑 → 失败 → 重跑」形成 fetch 风暴（早于提交的实测发现，见 devlog 偏差 #1）。
+        // 门禁成功后由卡片调 notifyGateOk 解闩，使下一次链路故障仍能自动重跑一次。
+        // 通知量也按消息（`msg.optRegateNonce`），只唤醒**发起卡**：全局量会连坐其它卡（见 state 注释）。
+        if (msg.optRegate) return
+        msg.optRegate = true
+        msg.optRegateNonce = (msg.optRegateNonce || 0) + 1
+        return
+      }
+      if (d.action === 'stop') return
+      msg.optAttempt = d.attempt
+      this.optRepair = { msgIndex: idx, attempt: d.attempt, max: d.max }
+      try {
+        let buf = ''
+        await this._runChat({
+          question: buildRetryPrompt({ plan, gateError, goalLabel, attempt: d.attempt, max: d.max }),
+          signal: (this.optAbortController = new AbortController()).signal,
+          onChunk: (t) => { buf += t },
+          onStage: () => {},
+          onError: (m) => { this.explainError = m },
+        })
+        // F5：拿不到候选 → 丢弃该次返修结果，保留失败卡片（用户还要看到错误原文）
+        if (!hasUsableReplace(buf)) return
+        msg.text = buf                                  // F2：原地替换卡片，不新增气泡
+        msg.optRev = (msg.optRev || 0) + 1              // 通知卡片重跑门禁
+      } catch (e) {
+        /* 返修本身失败（含被用户提问抢占的 AbortError）：保持失败卡片，不重试 */
+      } finally {
+        this.optRepair = null
+        this.optAbortController = null
+      }
+    },
+
+    /**
+     * 门禁通过 → 解除该消息的「已自动重跑门禁」闩。
+     * 目的是让闩按**链路故障时段**生效而不是按消息终生生效：下一次链路故障仍可自动重跑一次。
+     */
+    notifyGateOk(msgIndex) {
+      const msg = this.chatMessages[Number(msgIndex)]
+      if (msg) msg.optRegate = false
+    },
     nextStep() {
       if (this.currentStep < this.totalSteps - 1) this.currentStep++
     },
@@ -408,6 +484,10 @@ export const usePlayerStore = defineStore('player', {
       if (this.explainAbortController) {
         this.explainAbortController.abort()
       }
+      // 用户手动提问**抢占**自动返修（用户优先）；被抢占的那次不退还返修次数（次数按「生成」计）
+      if (this.optAbortController) {
+        this.optAbortController.abort()
+      }
       const q = (question || '').trim()
       if (!this.code || !q) return
 
@@ -422,75 +502,13 @@ export const usePlayerStore = defineStore('player', {
       const assistantIdx = this.chatMessages.length - 1
 
       try {
-        // 单步问答必须把执行快照传给 Coze，step_facts 才能给出当前步骤证据
-        const stepSnapshots = (this.steps || []).map(s => ({
-          step: s.step,
-          line: s.line,
-          file: s.file || '',              // 多文件项目时确定当前步归属
-          variables: s.variables || {},
-          heap: s.heap || {},
-          stackFrames: s.stackFrames || [],
-          output: s.output
-        }))
-        const response = await http('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            code: this.code,
-            runId: this.runId,
-            step: this.currentStep,
-            totalSteps: this.totalSteps,
-            currentLine: this.currentLine,
-            steps: stepSnapshots,
-            variables: { ...this.currentVariables, _explainTopic: q },
-            files: this.multiState.files.map(f => ({ name: f.name, code: f.code })),   // 全部文件
-            entryFile: this.multiState.entryFile || '',                                // 主入口（可选）
-          }),
-          signal: this.explainAbortController.signal
+        await this._runChat({
+          question: q,
+          signal: this.explainAbortController.signal,
+          onChunk: (t) => { this.chatMessages[assistantIdx].text += t },
+          onError: (m) => { this.explainError = m },
+          onStage: (m) => { this.explainStage = m },
         })
-
-        // 非 2xx 已在 http() 里抛可读错误，这里不再重复检查（原来的 HTTP <status> 信息更差）
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        let currentEvent = ''
-        // SSE 多行 data 累积：一个事件可有多个 data: 行，按标准用 \n 连接
-        let eventData = []
-
-        const flushEvent = () => {
-          if (currentEvent === 'chunk' && eventData.length) {
-            this.chatMessages[assistantIdx].text += eventData.join('\n')
-          } else if (currentEvent === 'error') {
-            this.explainError = eventData.join('\n')
-          } else if (currentEvent === 'stage' && eventData.length) {
-            this.explainStage = eventData.join('\n')
-          }
-          currentEvent = ''
-          eventData = []
-        }
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              flushEvent()
-              currentEvent = line.slice(6).trim()
-            } else if (line.startsWith('data:')) {
-              // 保留前导空格：data:  的正文从第 5 字符起
-              eventData.push(line.slice(5))
-            } else if (!line.trim() && eventData.length) {
-              // 空行代表事件结束（flush）
-            }
-          }
-        }
-        flushEvent()
       } catch (e) {
         if (e.name !== 'AbortError') {
           this.explainError = e.message || '自由问答请求失败'
@@ -499,6 +517,96 @@ export const usePlayerStore = defineStore('player', {
         this.isExplaining = false
         this.explainAbortController = null
       }
+    },
+
+    /**
+     * 组装 /api/ai/chat 的请求体（提问体上下文：执行快照 + 多文件信息）。
+     * 抽出来是为了让自动返修复用同一份上下文——否则 agent 看到的是缺上下文的孤岛提问。
+     */
+    buildChatBody(question) {
+      // 单步问答必须把执行快照传给 Coze，step_facts 才能给出当前步骤证据
+      const stepSnapshots = (this.steps || []).map(s => ({
+        step: s.step,
+        line: s.line,
+        file: s.file || '',              // 多文件项目时确定当前步归属
+        variables: s.variables || {},
+        heap: s.heap || {},
+        stackFrames: s.stackFrames || [],
+        output: s.output
+      }))
+      return {
+        code: this.code,
+        runId: this.runId,
+        step: this.currentStep,
+        totalSteps: this.totalSteps,
+        currentLine: this.currentLine,
+        steps: stepSnapshots,
+        variables: { ...this.currentVariables, _explainTopic: question },
+        files: this.multiState.files.map(f => ({ name: f.name, code: f.code })),   // 全部文件
+        entryFile: this.multiState.entryFile || '',                                // 主入口（可选）
+        // 运行模式事实（语义在 coze 侧知识与引导里，前端只报事实）：
+        // 缺省即 `default`（不是省略），coze 侧据此区分「默认模式」与「旧客户端没带」
+        mode: this.testMode ? 'test' : 'default',
+        testCaseCount: this.testCases.length,
+      }
+    },
+
+    /**
+     * 发一次提问并消费 SSE 流，逐事件回调 `onChunk(text)` / `onStage(text)` / `onError(text)`。
+     * 落点由调用方决定：`askQuestion` 追加到新建的 assistant 消息，自动返修原地重写最后一条。
+     * 本函数**不写任何 store 状态**；抛出的异常（含 `AbortError`）由调用方处理。
+     */
+    async _runChat({ question, onChunk, onStage, onError, signal }) {
+      const response = await http('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.buildChatBody(question)),
+        signal
+      })
+
+      // 非 2xx 已在 http() 里抛可读错误，这里不再重复检查（原来的 HTTP <status> 信息更差）
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let currentEvent = ''
+      // SSE 多行 data 累积：一个事件可有多个 data: 行，按标准用 \n 连接
+      let eventData = []
+
+      const flushEvent = () => {
+        const text = eventData.join('\n')
+        if (currentEvent === 'chunk' && eventData.length) {
+          if (onChunk) onChunk(text)
+        } else if (currentEvent === 'error') {
+          if (onError) onError(text)
+        } else if (currentEvent === 'stage' && eventData.length) {
+          if (onStage) onStage(text)
+        }
+        currentEvent = ''
+        eventData = []
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            flushEvent()
+            currentEvent = line.slice(6).trim()
+          } else if (line.startsWith('data:')) {
+            // 保留前导空格：data:  的正文从第 5 字符起
+            eventData.push(line.slice(5))
+          } else if (!line.trim() && eventData.length) {
+            // 空行代表事件结束（flush）
+          }
+        }
+      }
+      flushEvent()
     },
 
     // 兼容入口：单步解说 / 标签解说 → 转成自由问答

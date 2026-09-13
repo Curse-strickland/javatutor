@@ -16,6 +16,8 @@ public class ExplainRequest {
     private String entryFile;
     private String apiKey;
     private String mode;
+    /** 本次运行已保存的测试用例数（与 mode 一起透传给 Coze；缺失 = 0，但 mode 缺失时两者都不透传） */
+    private int testCaseCount;
     private boolean overview;
     private String apiUrl;
     private String apiModel;
@@ -66,4 +68,7 @@ public class ExplainRequest {
 
     public String getMode() { return mode; }
     public void setMode(String mode) { this.mode = mode; }
+
+    public int getTestCaseCount() { return testCaseCount; }
+    public void setTestCaseCount(int testCaseCount) { this.testCaseCount = testCaseCount; }
 }

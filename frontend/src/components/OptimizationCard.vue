@@ -43,6 +43,8 @@
       <div v-if="plan.rationale" class="oc-rationale">{{ plan.rationale }}</div>
 
       <div v-if="targetBlocked" class="oc-error">{{ targetBlockedText }}</div>
+      <!-- 返修态优先于失败态：错误原文此刻已在上一条返修提问里（F2：原地换码，不新增气泡） -->
+      <div v-else-if="repair" class="oc-gate">{{ retryLabel(repair.attempt, repair.max) }}</div>
       <div v-else-if="gate === 'running'" class="oc-gate">校验中…</div>
       <div v-else-if="gate === 'fail'" class="oc-error">校验未通过：{{ gateError }}</div>
       <div v-else-if="gate === 'ok'" class="oc-gate">校验通过（候选代码可正常运行）</div>
@@ -60,21 +62,34 @@
 </template>
 
 <script setup>
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { GOALS } from '../utils/editSuggestion'
 import {
   SNAPSHOT_UNDO_CONFIRM,
   buildGateRequest,
   canApply as canApplyPure,
+  classifyGateFailure,
   pickApplyMode,
   readGateResponse,
   resolveTarget,
+  retryLabel,
 } from '../utils/optimization'
 
 const props = defineProps({
   /** parseAssistantMessage 产出的 plan：{kind:'options',...} | {kind:'replace',...} */
   plan: { type: Object, required: true },
+  /** 该卡片所属 assistant 消息在 chatMessages 里的下标（返修上报用；-1 = 未接线） */
+  msgIndex: { type: Number, default: -1 },
+  /** 返修版本号：每产出一版新候选 +1 → 触发本卡重跑门禁（原始类型，身份稳定，见 D4） */
+  rev: { type: Number, default: 0 },
+  /**
+   * 本卡所属消息的「重跑门禁」通知量：该消息上报传输失败时 +1 → 触发本卡重跑门禁。
+   * **按消息**而非全局：全局量会被别的卡的故障唤醒（review P3-6 / P3-3(b)）。
+   */
+  regateNonce: { type: Number, default: 0 },
+  /** 本卡正在返修时的 `{ msgIndex, attempt, max }`，否则 null */
+  repair: { type: Object, default: null },
 })
 
 const store = usePlayerStore()
@@ -145,6 +160,21 @@ function submit() {
   store.askGoalOptimization(sel, rest, props.plan.target)
 }
 
+/**
+ * 上报门禁失败 → 由 store 决定是否自动返修（F1–F5 的判定全在纯函数 `nextRetry` 里）。
+ * 先写画面再上报：上报本身失败也不影响「错误原文 + 应用禁用」这一兜底显示。
+ */
+function reportFailure({ gateError: msg, thrown = false, httpStatus = 0 }) {
+  store.requestOptimizationRetry(props.msgIndex, {
+    gateError: msg,
+    kind: classifyGateFailure({ thrown, httpStatus }),
+    plan: props.plan,
+    goalLabel: goalLabel.value,
+    applied: applied.value,
+    targetBlocked: targetBlocked.value,
+  })
+}
+
 /** 门禁：前端直接 fetch，绕开 runCode（后者会置全局 loading / 清空 chatMessages） */
 async function runGate() {
   gate.value = 'running'
@@ -168,13 +198,17 @@ async function runGate() {
     if (r.ok) {
       gate.value = 'ok'
       gateSnapshot.value = data
-    } else {
-      gate.value = 'fail'
-      gateError.value = r.error
+      store.notifyGateOk(props.msgIndex)   // 解闩：下方若再遇链路故障仍可自动重跑一次
+      return
     }
+    gate.value = 'fail'
+    gateError.value = r.error
+    // HTTP ≥ 400 = 链路问题：重生成一版同样验不了 → 只重跑门禁，不烧返修次数（F4）
+    reportFailure({ gateError: r.error, httpStatus: res.status })
   } catch (e) {
     gate.value = 'fail'
     gateError.value = e.message || '校验请求失败'
+    reportFailure({ gateError: gateError.value, thrown: true })
   }
 }
 
@@ -241,6 +275,26 @@ onMounted(() => {
   if (isOptions.value || targetBlocked.value) return
   // 快照在收到 replace 块时即捕获，避免应用时机与快照时机错位（spec §6.2）
   snapshot.value = readCurrent() ?? ''
+  runGate()
+})
+
+// 两条重跑通路：① 自动返修产出了新版候选（`rev` +1）；② 本消息传输失败后只重跑门禁（`regateNonce` +1）。
+// **不 watch `props.plan`**：它来自 parsedMessages computed，每次重算都是新对象身份，会在流式期间反复触发。
+// 折叠用 v-show（不卸载卡片），因此这里不会与 onMounted 的首次门禁重复。
+//
+// 两个不显眼的依赖，改动前请先读：
+// - `props.repair` 这个守卫在**当前的 watch 源下不可达**（review P3-3(a)）：`repair` 本身不在 watch 源里，
+//   而返修进行中不会有本消息的 regate 上报 —— 留着是为了把「返修进行中不重跑门禁」写成显式约束，别删。
+//   它不误拦「返修产出新候选」那条通路，靠的是 store 里
+//   `optRepair = null` 与 `msg.optRev++` 在**同一个同步段**内完成（`finally` 紧跟在 `msg.optRev++` 之后），
+//   而 watcher 回调是 pre-flush 队列、必然晚于该赋值 —— 回调看到时 repair 已是 null。
+//   若将来把 `optRepair = null` 挪到任何 `await` 之后，这条通路会被静默跳过：卡片显示**新**候选
+//   却挂着**旧**的「校验未通过」且「应用」禁用。
+// - 不动 `gate === 'running'`：能并发发起第二次门禁的只有「别的卡触发的全局 nonce」，
+//   自 P3-6 把 nonce 收到消息级后该路径不存在；加此守卫反而会漏掉合法的 `rev` 变化
+//   （新代码配旧门禁结果），得不偿失。
+watch(() => [props.rev, props.regateNonce], () => {
+  if (isOptions.value || targetBlocked.value || applied.value || props.repair) return
   runGate()
 })
 </script>

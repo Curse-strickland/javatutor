@@ -56,7 +56,14 @@ function close() {
 
 /** 预填草稿 + 切到 agent 面板 + 聚焦输入框，**不发送**（用户可编辑后再自行发送）。 */
 function prefillFix() {
-  store.focusChatWithDraft(buildFixPrompt(store.lastRunError?.message))
+  // 只传**事实**（本次是哪一种模式、几个文件）；两种模式各要求什么写在 coze 侧知识与引导里
+  store.focusChatWithDraft(buildFixPrompt(store.lastRunError?.message, {
+    mode: store.mode,
+    fileCount: store.multiState.files.length,
+    entryFile: store.multiState.entryFile || '',
+    testMode: store.testMode,
+    testCaseCount: store.testCases.length,
+  }))
 }
 
 onBeforeUnmount(() => {

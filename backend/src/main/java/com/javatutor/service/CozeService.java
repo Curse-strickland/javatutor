@@ -57,7 +57,9 @@
                                            List<String> algorithmTags,
                                            String runId,
                                            List<Map<String, String>> files,
-                                           String entryFile) {
+                                           String entryFile,
+                                           String runMode,
+                                           int testCaseCount) {
          Map<String, Object> agentPayload = new LinkedHashMap<>();
          if (runId != null && !runId.isBlank()) {
              agentPayload.put("run_id", runId);
@@ -74,6 +76,7 @@
                  agentPayload.put("algorithm_tags", algorithmTags);
              }
              addFiles(agentPayload, files, entryFile);
+             addRunMode(agentPayload, runMode, testCaseCount);
              return agentPayload;
          }
 
@@ -91,7 +94,20 @@
              agentPayload.put("algorithm_tags", algorithmTags);
          }
          addFiles(agentPayload, files, entryFile);
+         addRunMode(agentPayload, runMode, testCaseCount);
          return agentPayload;
+     }
+
+     /**
+      * 可选携带本次运行模式（前端报的**事实**；两种模式各要求什么的**语义**在 Coze 侧知识与引导里）。
+      * 两个键**同时出现或同时不出现**：Coze 侧据此区分「默认模式」与「旧客户端没带 = 模式未知」，
+      * 不得把缺失当成默认模式（否则会对着未知模式乱下结论）。
+      */
+     private void addRunMode(Map<String, Object> agentPayload, String runMode, int testCaseCount) {
+         if (runMode != null && !runMode.isBlank()) {
+             agentPayload.put("run_mode", runMode);
+             agentPayload.put("test_case_count", testCaseCount);
+         }
      }
 
      /** 可选携带项目文件与主入口（多文件）。 */
@@ -117,7 +133,9 @@
                                Consumer<String> onChunk,
                                Consumer<String> onStage,
                                List<Map<String, String>> files,
-                               String entryFile) throws Exception {
+                               String entryFile,
+                               String runMode,
+                               int testCaseCount) throws Exception {
 
          if (!isEnabled()) {
              throw new IllegalStateException("Coze is disabled.");
@@ -137,7 +155,9 @@
              algorithmTags,
              runId,
              files,
-             entryFile
+             entryFile,
+             runMode,
+             testCaseCount
          );
 
          String agentJson = objectMapper.writeValueAsString(agentPayload);
@@ -235,7 +255,7 @@
                                    String intent) throws Exception {
         StringBuilder sb = new StringBuilder();
         streamExplain(sourceCode, null, currentStepIndex, currentLine,
-            userQuestion, null, sessionId, intent, null, null, sb::append, null, null, null);
+            userQuestion, null, sessionId, intent, null, null, sb::append, null, null, null, null, 0);
         return sb.toString();
      }
 
@@ -250,7 +270,7 @@
                                             List<String> algorithmTags) throws Exception {
         StringBuilder sb = new StringBuilder();
         streamExplain(sourceCode, steps, currentStepIndex, currentLine,
-            userQuestion, null, sessionId, intent, algorithmTags, null, sb::append, null, null, null);
+            userQuestion, null, sessionId, intent, algorithmTags, null, sb::append, null, null, null, null, 0);
         return sb.toString();
      }
  }

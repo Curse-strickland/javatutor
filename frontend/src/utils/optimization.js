@@ -2,6 +2,8 @@
 // 与组件分离，便于单测（本仓无 DOM 测试环境）。协议见
 // javatutor-coze docs/spec/2026-09-10-coze-agent-code-optimization.md §4/§6。
 
+import { parseAssistantMessage } from './editSuggestion.js'
+
 /**
  * 解析优化卡的目标文件。
  * @param {'single'|'multi'} mode
@@ -69,3 +71,75 @@ export function canApply({ targetBlocked, gate, applied }) {
 
 /** 覆盖前快照 + 撤销提示文案（快照回退会丢弃此后的编辑，必须显式确认）。 */
 export const SNAPSHOT_UNDO_CONFIRM = '代码已改动，撤销将丢弃此后的编辑，确定撤销吗？'
+
+/** 门禁失败后的自动返修次数上限（**额外**生成次数，故最多 3 版候选）。 */
+export const MAX_OPT_RETRY = 2
+
+/**
+ * 区分门禁失败的两种性质：代码跑不过 vs 链路不通。
+ * 不区分就会在断网时把返修额度烧光（重生成一版同样验不了）。
+ * @param {{ thrown?: boolean, httpStatus?: number }} s
+ *   thrown=true → fetch 抛异常（断网/服务未起）；httpStatus ≥ 400 → 服务端链路失败
+ * @returns {'transport'|'run'} 只有 'run' 才值得让 agent 重生成
+ */
+export function classifyGateFailure({ thrown = false, httpStatus = 0 } = {}) {
+  if (thrown) return 'transport'
+  return httpStatus >= 400 ? 'transport' : 'run'
+}
+
+/**
+ * 返修决策（F1/F3/F4/F5 的唯一判定点，纯函数）。
+ * @param {{ attempt: number, kind: 'run'|'transport', applied: boolean,
+ *           targetBlocked: boolean, isLatest: boolean, hasCode: boolean }} s
+ * @returns {{ action: 'retry'|'regate'|'stop', attempt: number, max: number }}
+ *   retry  = 发起返修提问（attempt 为**本次**序号，从 1 起）
+ *   regate = 只重跑门禁（传输失败）
+ *   stop   = 保持现状（显示错误 + 禁用应用）
+ */
+export function nextRetry({ attempt, kind, applied, targetBlocked, isLatest, hasCode }) {
+  const stop = { action: 'stop', attempt, max: MAX_OPT_RETRY }
+  if (applied || targetBlocked || !isLatest || !hasCode) return stop
+  if (kind === 'transport') return { action: 'regate', attempt, max: MAX_OPT_RETRY }
+  if (attempt >= MAX_OPT_RETRY) return stop
+  return { action: 'retry', attempt: attempt + 1, max: MAX_OPT_RETRY }
+}
+
+/** 返修中的卡片文案。 */
+export function retryLabel(attempt, max = MAX_OPT_RETRY) {
+  return `校验未通过，正在自动修正 ${attempt}/${max}…`
+}
+
+/**
+ * 返修提问。
+ * 候选代码必须**内联**：提问体里的 `code` 是用户编辑器里的代码，不是候选代码，
+ * 而候选只活在 props.plan.code 里。目标与方向也必须写明，避免 agent 改错方向。
+ * 首行的两个标记与 coze 侧引导段（prompting/optimization.py）**互为字面包含**，
+ * 一端改字另一端即红（见 tests/test_optimization_guidance.py）。
+ */
+export function buildRetryPrompt({ plan = {}, gateError = '', goalLabel = '', attempt, max = MAX_OPT_RETRY }) {
+  const target = plan.target || '（当前文件）'
+  return [
+    `上一版优化代码没有通过编译/运行校验（第 ${attempt}/${max} 次自动修正），请修正后重新给出完整代码。`,
+    '',
+    `[目标] 方向：${goalLabel || plan.goal || '（未指明）'}；目标文件：${target}`,
+    '[校验错误]',
+    gateError || '（未提供）',
+    '[上一版候选代码]',
+    '```java',
+    plan.code || '',
+    '```',
+    '',
+    '要求：只输出一版修正后的完整代码（同一个【编辑建议】块，kind:"replace"，goal 与 target 保持不变），',
+    '必须能编译并正常运行；不要只解释错误，也不要改动优化方向，不要新增其它块。',
+  ].join('\n')
+}
+
+/**
+ * 返修结果是否产出可用的 `kind:"replace"` 块（F5 的判据）。
+ * 复用既有解析器（`utils/editSuggestion.js`），不另写一套块解析——
+ * 拿不到候选时必须**丢弃该次返修**并保留失败卡片（用户还要看到错误原文）。
+ */
+export function hasUsableReplace(raw) {
+  const parsed = parseAssistantMessage(raw)
+  return !!(parsed && parsed.plan && parsed.plan.kind === 'replace')
+}

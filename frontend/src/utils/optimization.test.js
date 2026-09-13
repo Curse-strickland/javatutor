@@ -1,11 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import {
+  MAX_OPT_RETRY,
   SNAPSHOT_UNDO_CONFIRM,
   buildGateRequest,
+  buildRetryPrompt,
   canApply,
+  classifyGateFailure,
+  hasUsableReplace,
+  nextRetry,
   pickApplyMode,
   readGateResponse,
   resolveTarget,
+  retryLabel,
 } from './optimization'
 
 const FILES = [
@@ -105,5 +111,137 @@ describe('pickApplyMode', () => {
 
   it('撤销确认文案明示「将丢弃此后的编辑」', () => {
     expect(SNAPSHOT_UNDO_CONFIRM).toContain('将丢弃此后的编辑')
+  })
+})
+
+describe('classifyGateFailure', () => {
+  it('fetch 抛异常 → transport', () => {
+    expect(classifyGateFailure({ thrown: true })).toBe('transport')
+  })
+
+  it('HTTP ≥ 400 → transport', () => {
+    expect(classifyGateFailure({ httpStatus: 500 })).toBe('transport')
+    expect(classifyGateFailure({ httpStatus: 404 })).toBe('transport')
+  })
+
+  it('HTTP 200 + success:false（编译/运行失败）→ run', () => {
+    expect(classifyGateFailure({ httpStatus: 200 })).toBe('run')
+  })
+
+  it('缺参默认 → run（不把未知当链路故障，否则永远不返修）', () => {
+    expect(classifyGateFailure()).toBe('run')
+  })
+})
+
+describe('nextRetry', () => {
+  const base = {
+    attempt: 0,
+    kind: 'run',
+    applied: false,
+    targetBlocked: false,
+    isLatest: true,
+    hasCode: true,
+  }
+
+  it('第 1 次失败 → 发起第 1 次返修', () => {
+    expect(nextRetry(base)).toEqual({ action: 'retry', attempt: 1, max: MAX_OPT_RETRY })
+  })
+
+  it('第 1 次返修后仍失败 → 发起第 2 次返修', () => {
+    expect(nextRetry({ ...base, attempt: 1 })).toEqual({ action: 'retry', attempt: 2, max: MAX_OPT_RETRY })
+  })
+
+  it('已达上限 → stop（最多 3 版候选）', () => {
+    expect(nextRetry({ ...base, attempt: MAX_OPT_RETRY })).toEqual({
+      action: 'stop',
+      attempt: MAX_OPT_RETRY,
+      max: MAX_OPT_RETRY,
+    })
+  })
+
+  it('已应用 / 目标被拦截 / 非最新 / 无候选代码 → stop', () => {
+    for (const s of [
+      { applied: true },
+      { targetBlocked: true },
+      { isLatest: false },
+      { hasCode: false },
+    ]) {
+      expect(nextRetry({ ...base, ...s }).action).toBe('stop')
+    }
+  })
+
+  it('传输失败 → regate 且不递增次数（不烧返修额度）', () => {
+    expect(nextRetry({ ...base, kind: 'transport' })).toEqual({
+      action: 'regate',
+      attempt: 0,
+      max: MAX_OPT_RETRY,
+    })
+    expect(nextRetry({ ...base, kind: 'transport', attempt: 1 }).attempt).toBe(1)
+  })
+
+  it('stop 优先于 transport（已应用 + 传输失败仍 stop）', () => {
+    expect(nextRetry({ ...base, kind: 'transport', applied: true }).action).toBe('stop')
+  })
+})
+
+describe('retryLabel', () => {
+  it('带当前次数与上限', () => {
+    expect(retryLabel(1)).toBe(`校验未通过，正在自动修正 1/${MAX_OPT_RETRY}…`)
+    expect(retryLabel(2, 3)).toContain('2/3')
+  })
+})
+
+describe('buildRetryPrompt', () => {
+  const plan = { code: 'class A { int x() { return 1; } }', goal: '提升可读性', target: 'Solution.java' }
+
+  it('含错误原文、候选全文、goal 与 target', () => {
+    const p = buildRetryPrompt({ plan, gateError: 'error: 需要 ;', goalLabel: '提升可读性', attempt: 1 })
+    expect(p).toContain('error: 需要 ;')
+    expect(p).toContain(plan.code)
+    expect(p).toContain('提升可读性')
+    expect(p).toContain('Solution.java')
+  })
+
+  it('含与 coze 侧引导互为字面包含的关键标记', () => {
+    // 这两个短语同时被 tests/test_optimization_guidance.py 断言；一端改字必须另一端红。
+    const p = buildRetryPrompt({ plan, gateError: 'e', attempt: 1 })
+    expect(p).toContain('上一版优化代码没有通过编译/运行校验')
+    expect(p).toContain('上一版候选代码')
+  })
+
+  it('要求保持 goal/target 不变并只给一个 replace 块', () => {
+    const p = buildRetryPrompt({ plan, gateError: 'e', attempt: 2 })
+    expect(p).toContain('kind:"replace"')
+    expect(p).toContain('goal 与 target 保持不变')
+    expect(p).toContain('2/2')
+  })
+
+  it('plan.code 为空 / 参数缺失时不抛异常', () => {
+    expect(() => buildRetryPrompt({})).not.toThrow()
+    expect(buildRetryPrompt({ plan: { code: '' }, gateError: '' })).toContain('（当前文件）')
+  })
+})
+
+describe('hasUsableReplace', () => {
+  it('含 kind:"replace" 的【编辑建议】块 → true', () => {
+    const raw = '修正后如下\n\n【编辑建议】\n{"kind":"replace","target":"Solution.java","goal":"performance","code":"class A {}"}'
+    expect(hasUsableReplace(raw)).toBe(true)
+  })
+
+  it('无块 / 只有正文 / 空文本 → false', () => {
+    expect(hasUsableReplace('只是解释了一下错误')).toBe(false)
+    expect(hasUsableReplace('')).toBe(false)
+    expect(hasUsableReplace(null)).toBe(false)
+  })
+
+  it('kind:"options" 或纯 patch 块 → false（返修只要 replace）', () => {
+    const options = '【编辑建议】\n{"kind":"options","options":[{"goal":"performance"}]}'
+    expect(hasUsableReplace(options)).toBe(false)
+    const patch = '【编辑建议】\n{"edits":[{"old_string":"a","new_string":"b"}]}'
+    expect(hasUsableReplace(patch)).toBe(false)
+  })
+
+  it('replace 块 code 为空 → false（与解析器同口径）', () => {
+    expect(hasUsableReplace('【编辑建议】\n{"kind":"replace","code":"  "}')).toBe(false)
   })
 })

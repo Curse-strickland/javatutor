@@ -21,7 +21,42 @@ export function shouldAutoDismiss(error, lastRunError) {
   return !isRunError(error, lastRunError)
 }
 
-/** 报错入口要预填的提问文本（只预填、不发送）。 */
-export function buildFixPrompt(message) {
-  return `我的代码运行报错了，请帮我看看怎么修正：\n${message || ''}`
+/**
+ * 报错入口要预填的提问文本（只预填、不发送）。
+ * `ctx` 只承载**事实**（本仓不写任何 JavaTutor 运行语义——语义在 coze 侧知识与引导里）。
+ * @param {string} message 错误原文
+ * @param {{mode?: 'single'|'multi', fileCount?: number, entryFile?: string,
+ *          testMode?: boolean, testCaseCount?: number}} [ctx]
+ *   缺省时退化为旧行为（只有错误原文 + 旧首行，无 `[运行环境]`），保证既有调用不受影响。
+ */
+export function buildFixPrompt(message, ctx) {
+  const lines = ['我的代码运行报错了，请帮我看看怎么修正：']
+  const env = runEnvLines(ctx)
+  if (env.length) lines.push('', '[运行环境]', ...env)
+  lines.push('', '[错误原文]', message || '')
+  return lines.join('\n')
+}
+
+/**
+ * 运行环境事实行；`ctx` 缺失或字段缺失时不产出该行（向后兼容）。
+ * 用纯文本而非 `**` 强调：这段文本进的是**输入框草稿**与用户消息气泡，
+ * 两处都不走 markdown 渲染，加粗标记只会原样显示成星号。
+ */
+export function runEnvLines(ctx) {
+  if (!ctx) return []
+  const out = []
+  if (ctx.mode === 'multi') {
+    out.push(`- 文件模式：多文件（${Number(ctx.fileCount) || 0} 个文件，主入口 ${ctx.entryFile || '未指定'}）`)
+  } else if (ctx.mode === 'single') {
+    out.push('- 文件模式：单文件')
+  }
+  if (typeof ctx.testMode === 'boolean') {
+    const n = Number(ctx.testCaseCount) || 0
+    out.push(
+      ctx.testMode
+        ? `- 运行模式：测试模式（已保存用例 ${n} 条）`
+        : `- 运行模式：默认模式（测试模式未激活：已保存用例 ${n} 条）`,
+    )
+  }
+  return out
 }

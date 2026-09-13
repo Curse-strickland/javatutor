@@ -240,4 +240,155 @@ describe('player store 优化卡支持', () => {
     await s.askGoalOptimization([], [], 'Main.java')
     expect(spy).not.toHaveBeenCalled()
   })
+
+  // ── 自动返修状态机（review P2-1：这条路径曾漏出过无界循环，必须有回归网） ──────────
+
+  const REPLACE_PLAN = {
+    kind: 'replace',
+    target: 'A.java',
+    goal: 'performance',
+    rationale: '',
+    code: 'class A { void f() {} }',
+  }
+  /** 一版可用候选：必须带「【编辑建议】」标记，parseAssistantMessage 才认（前缀 \n 是标记的一部分） */
+  const REPLACE_CHUNK = '\n【编辑建议】\n'
+    + '{"kind":"replace","target":"A.java","goal":"performance","code":"class A { int x; }"}'
+  /** 门禁失败上报的入参基座（run = 编译/运行失败；transport = 链路失败） */
+  const UP_RUN = { gateError: '编译失败：缺少分号', kind: 'run', plan: REPLACE_PLAN, applied: false, targetBlocked: false }
+  const UP_TRANSPORT = { ...UP_RUN, gateError: 'HTTP 500', kind: 'transport' }
+
+  /** 造一条「最新的 assistant 候选卡」，返回它的下标 */
+  function seedRetry(s) {
+    s.chatMessages = [{ role: 'user', text: '优化' }, { role: 'assistant', text: '候选卡' }]
+    return 1
+  }
+
+  it('传输失败：闩按消息生效，重复上报不叠加（终止性的回归网，review P2-1）', async () => {
+    const s = usePlayerStore()
+    const i = seedRetry(s)
+
+    await s.requestOptimizationRetry(i, UP_TRANSPORT)
+    expect(s.chatMessages[i].optRegate).toBe(true)
+    expect(s.chatMessages[i].optRegateNonce).toBe(1)
+
+    // 第二次上报：闩命中 → 不 bump ⇒ 卡片不会被再次唤醒 ⇒ 无 fetch 风暴
+    await s.requestOptimizationRetry(i, UP_TRANSPORT)
+    expect(s.chatMessages[i].optRegateNonce).toBe(1)
+    // 传输失败只重跑门禁，不烧返修次数、不留返修态
+    expect(s.chatMessages[i].optAttempt ?? 0).toBe(0)
+    expect(s.optRepair).toBeNull()
+  })
+
+  it('notifyGateOk 解闩：下一次传输失败仍能自动重跑一次（闩按故障时段生效）', async () => {
+    const s = usePlayerStore()
+    const i = seedRetry(s)
+
+    await s.requestOptimizationRetry(i, UP_TRANSPORT)
+    s.notifyGateOk(i)
+    expect(s.chatMessages[i].optRegate).toBe(false)
+
+    await s.requestOptimizationRetry(i, UP_TRANSPORT)
+    expect(s.chatMessages[i].optRegateNonce).toBe(2)
+  })
+
+  it('nonce 按消息记：只唤醒发起卡，其它挂载中的卡不连坐（review P3-6）', async () => {
+    const s = usePlayerStore()
+    s.chatMessages = [
+      { role: 'user', text: 'a' }, { role: 'assistant', text: '卡1' },
+      { role: 'user', text: 'b' }, { role: 'assistant', text: '卡2' },
+    ]
+
+    await s.requestOptimizationRetry(3, UP_TRANSPORT)
+
+    // 判别性断言：通知量不再有全局槽（旧的全局量 = 任一卡故障唤醒所有挂载卡 → O(N²) 请求）
+    expect(s.optRegateNonce).toBeUndefined()
+    expect(s.chatMessages[3].optRegateNonce).toBe(1)
+    expect(s.chatMessages[1].optRegateNonce).toBeUndefined()   // 卡1 的门禁不被唤醒
+    // 非最新消息拿不到 regate（nextRetry 的 isLatest）——这也是「只可能最新卡 bump」的原因
+    await s.requestOptimizationRetry(1, UP_TRANSPORT)
+    expect(s.chatMessages[1].optRegateNonce).toBeUndefined()
+  })
+
+  it('返修两次后第三次 stop；每次产出的候选原地改写文本并 +1 rev', async () => {
+    const s = usePlayerStore()
+    const i = seedRetry(s)
+    const runChat = vi.spyOn(s, '_runChat').mockImplementation(async ({ onChunk }) => {
+      onChunk(REPLACE_CHUNK)
+    })
+
+    await s.requestOptimizationRetry(i, UP_RUN)
+    expect(s.chatMessages[i].optAttempt).toBe(1)
+    expect(s.chatMessages[i].optRev).toBe(1)
+    // 返修提问必须带跨仓握手标记（与 coze「候选返修」段互为字面包含）
+    expect(runChat.mock.calls[0][0].question).toContain('上一版优化代码没有通过编译/运行校验')
+    expect(runChat.mock.calls[0][0].question).toContain('上一版候选代码')
+
+    await s.requestOptimizationRetry(i, UP_RUN)
+    expect(s.chatMessages[i].optAttempt).toBe(2)
+    const textAfterTwo = s.chatMessages[i].text
+
+    await s.requestOptimizationRetry(i, UP_RUN)          // 第 3 次：耗尽 → stop
+    expect(runChat).toHaveBeenCalledTimes(2)             // 上限 2 次（MAX_OPT_RETRY）
+    expect(s.chatMessages[i].optAttempt).toBe(2)
+    expect(s.chatMessages[i].text).toBe(textAfterTwo)
+    // 不新增消息、不新增记录点（时间线 chatIndex 语义的前提）
+    expect(s.chatMessages).toHaveLength(2)
+    expect(s.timeline).toHaveLength(0)
+  })
+
+  it('返修没产出可用 replace 块 → 丢弃该次结果，保留失败卡片（F5）', async () => {
+    const s = usePlayerStore()
+    const i = seedRetry(s)
+    vi.spyOn(s, '_runChat').mockImplementation(async ({ onChunk }) => {
+      onChunk('这个错误我没法在不改方向的前提下修好。')
+    })
+
+    await s.requestOptimizationRetry(i, UP_RUN)
+
+    expect(s.chatMessages[i].text).toBe('候选卡')       // 卡片不被破坏（用户还要看错误原文）
+    expect(s.chatMessages[i].optRev).toBeUndefined()    // 不触发重跑门禁
+    expect(s.chatMessages[i].optAttempt).toBe(1)        // 次数照烧（上限按「生成」计）
+  })
+
+  it('返修在飞时再次上报 → 不重入', async () => {
+    const s = usePlayerStore()
+    const i = seedRetry(s)
+    let release
+    const runChat = vi.spyOn(s, '_runChat').mockImplementation(
+      () => new Promise((res) => { release = res }),
+    )
+
+    const p = s.requestOptimizationRetry(i, UP_RUN)
+    expect(s.optRepair).toEqual({ msgIndex: i, attempt: 1, max: 2 })
+
+    await s.requestOptimizationRetry(i, UP_RUN)
+    expect(runChat).toHaveBeenCalledTimes(1)
+    expect(s.chatMessages[i].optAttempt).toBe(1)
+
+    release()
+    await p
+    expect(s.optRepair).toBeNull()
+    expect(s.optAbortController).toBeNull()
+  })
+
+  it('返修被用户提问抢占（abort）→ 保持失败卡片，且已烧掉的次数不退还', async () => {
+    const s = usePlayerStore()
+    const i = seedRetry(s)
+    vi.spyOn(s, '_runChat').mockImplementation(({ signal }) => new Promise((_, reject) => {
+      signal.addEventListener('abort', () => {
+        const e = new Error('aborted')
+        e.name = 'AbortError'
+        reject(e)
+      })
+    }))
+
+    const p = s.requestOptimizationRetry(i, UP_RUN)
+    s.optAbortController.abort()          // 等价于 askQuestion 首部的抢占
+
+    await p
+    expect(s.chatMessages[i].optAttempt).toBe(1)      // 不退还（次数按「生成」计）
+    expect(s.chatMessages[i].text).toBe('候选卡')
+    expect(s.optRepair).toBeNull()
+    expect(s.optAbortController).toBeNull()
+  })
 })
