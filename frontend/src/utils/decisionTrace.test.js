@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { sourceLabels, splitDecisionTrace, traceSummary, traceDebugLines } from './decisionTrace.js'
+import { sourceLabels, splitDecisionTrace, traceProcess, traceSummary, traceDebugLines } from './decisionTrace.js'
 
 describe('splitDecisionTrace', () => {
   it('returns body unchanged when no trace marker', () => {
@@ -164,5 +164,79 @@ describe('traceDebugLines', () => {
   it('renders fetch context success latency', () => {
     expect(traceDebugLines({ fetch_context_failed: false, fetch_context_latency_ms: 12.3 }))
       .toEqual(['上下文拉取：12.3ms'])
+  })
+})
+
+describe('traceProcess', () => {
+  const empty = {
+    reasoning: [],
+    reasoningTruncated: false,
+    retrieval: null,
+    hasContent: false,
+  }
+
+  it('returns empty structure for no trace', () => {
+    expect(traceProcess(null)).toEqual(empty)
+    expect(traceProcess(undefined)).toEqual(empty)
+    expect(traceProcess({})).toEqual(empty)
+  })
+
+  it('reads reasoning rounds with tool calls', () => {
+    const trace = {
+      reasoning: [
+        { round: 0, content: '先看看上下文', tool_calls: ['fetch_execution_context'] },
+        { round: 1, content: '直接作答', tool_calls: [] },
+      ],
+    }
+    const out = traceProcess(trace)
+    expect(out.reasoning).toHaveLength(2)
+    expect(out.reasoning[0]).toEqual({ round: 0, content: '先看看上下文', toolsText: 'fetch_execution_context' })
+    expect(out.reasoning[1].toolsText).toBe('')
+    expect(out.hasContent).toBe(true)
+  })
+
+  it('surfaces truncation flag', () => {
+    const trace = { reasoning: [{ round: 0, content: '很长' }], reasoning_truncated: true }
+    expect(traceProcess(trace).reasoningTruncated).toBe(true)
+  })
+
+  it('summarises retrieval with candidates', () => {
+    const trace = {
+      retrieval: {
+        query: 'HashMap 的 get 原理',
+        top_k: 3,
+        threshold: 0.3,
+        best_score: 0.28,
+        kept: 0,
+        candidates: [
+          { source: '知识库: HashMap.get', chunk_index: 0, score: 0.28, preview: 'HashMap.get', kept: false },
+        ],
+      },
+    }
+    const out = traceProcess(trace)
+    expect(out.retrieval.summaryText).toContain('HashMap 的 get 原理')
+    expect(out.retrieval.summaryText).toContain('0.28')
+    expect(out.retrieval.summaryText).toContain('命中 0')
+    expect(out.retrieval.candidates).toHaveLength(1)
+    expect(out.retrieval.candidates[0].source).toBe('知识库: HashMap.get')
+    expect(out.retrieval.candidates[0].kept).toBe(false)
+    expect(out.hasContent).toBe(true)
+  })
+
+  it('keeps candidates when kept is zero (诊断的核心：召回到但被阈值滤掉)', () => {
+    const trace = { retrieval: { query: 'q', candidates: [{ source: 'A', score: 0.1, kept: false }], kept: 0 } }
+    const out = traceProcess(trace)
+    expect(out.retrieval.candidates).toHaveLength(1)
+    expect(out.hasContent).toBe(true)
+  })
+
+  it('tolerates malformed entries without throwing', () => {
+    expect(() => traceProcess({ reasoning: 'nope', retrieval: 42 })).not.toThrow()
+    expect(traceProcess({ reasoning: [null, { content: 'ok' }] }).reasoning).toHaveLength(1)
+    expect(traceProcess({ retrieval: { candidates: 'nope' } }).retrieval.candidates).toEqual([])
+  })
+
+  it('hasContent is false when reasoning empty and no candidates', () => {
+    expect(traceProcess({ reasoning: [], retrieval: { candidates: [] } }).hasContent).toBe(false)
   })
 })

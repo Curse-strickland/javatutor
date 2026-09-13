@@ -131,6 +131,56 @@ export function traceSummary(trace) {
   return { intentLabel, toolLines, toolEmptyText, reviseText, qualityWarnings, latencyText, tokenText }
 }
 
+/**
+ * 把决策痕迹中的「完整过程」整理成可渲染结构：工具间思考（reasoning）与
+ * RAG 检索全过程（retrieval）。
+ *
+ * 两层都做**缺省容错**——老数据不含这两个键（Agent 侧是纯增量新增），
+ * 缺键 / 类型不符一律归空，绝不抛错。
+ *
+ * `retrieval.candidates` **含被阈值滤掉的候选**（`kept: false`），
+ * 这正是「检索没召回到」与「召回到但被阈值滤掉」在界面上可区分的地方。
+ */
+export function traceProcess(trace) {
+  const empty = { reasoning: [], reasoningTruncated: false, retrieval: null, hasContent: false }
+  if (!trace || typeof trace !== 'object') return empty
+
+  const reasoning = (Array.isArray(trace.reasoning) ? trace.reasoning : [])
+    .filter((r) => r && typeof r === 'object')
+    .map((r) => ({
+      round: typeof r.round === 'number' ? r.round : 0,
+      content: typeof r.content === 'string' ? r.content : '',
+      toolsText: Array.isArray(r.tool_calls) ? r.tool_calls.filter(Boolean).join('、') : '',
+    }))
+
+  let retrieval = null
+  const raw = trace.retrieval
+  if (raw && typeof raw === 'object') {
+    const candidates = (Array.isArray(raw.candidates) ? raw.candidates : [])
+      .filter((c) => c && typeof c === 'object')
+      .map((c) => ({
+        source: c.source || '',
+        score: typeof c.score === 'number' ? c.score : 0,
+        kept: c.kept === true,
+        preview: typeof c.preview === 'string' ? c.preview : '',
+      }))
+    const parts = []
+    if (raw.query) parts.push(`查询「${raw.query}」`)
+    if (typeof raw.threshold === 'number') parts.push(`阈值 ${raw.threshold}`)
+    if (typeof raw.best_score === 'number') parts.push(`最高分 ${raw.best_score}`)
+    parts.push(`命中 ${typeof raw.kept === 'number' ? raw.kept : 0}`)
+    retrieval = { summaryText: parts.join(' · '), candidates }
+  }
+
+  const hasContent = reasoning.length > 0 || (retrieval !== null && retrieval.candidates.length > 0)
+  return {
+    reasoning,
+    reasoningTruncated: trace.reasoning_truncated === true,
+    retrieval,
+    hasContent,
+  }
+}
+
 /** 开发者模式用的结构化观测行（run_id / 上下文拉取结果）。 */
 export function traceDebugLines(trace) {
   if (!trace || typeof trace !== 'object') return []

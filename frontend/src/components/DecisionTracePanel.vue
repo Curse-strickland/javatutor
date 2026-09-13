@@ -48,6 +48,49 @@
             <span v-if="summary.tokenText" class="trace-metric">{{ summary.tokenText }}</span>
           </div>
         </div>
+        <!-- 思考过程：工具间 AI 片段 + RAG 检索全过程（默认收起） -->
+        <div v-if="process.hasContent" class="trace-process">
+          <div
+            class="trace-toggle trace-toggle-sub"
+            role="button"
+            tabindex="0"
+            :aria-expanded="processOpen ? 'true' : 'false'"
+            :aria-controls="processPanelId"
+            @click="processOpen = !processOpen"
+            @keydown.enter.prevent="processOpen = !processOpen"
+            @keydown.space.prevent="processOpen = !processOpen"
+          >
+            <span class="trace-dot" />
+            <span class="trace-toggle-label">思考过程</span>
+            <svg
+              class="trace-chevron"
+              :class="{ rotated: processOpen }"
+              width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+          <div v-show="processOpen" :id="processPanelId" class="trace-process-panel">
+            <div v-if="process.reasoning.length" class="trace-reasoning">
+              <div v-for="(r, i) in process.reasoning" :key="i" class="trace-round">
+                <span class="trace-round-head">
+                  第 {{ r.round + 1 }} 轮<span v-if="r.toolsText"> · {{ r.toolsText }}</span>
+                </span>
+                <span class="trace-round-body">{{ r.content }}</span>
+              </div>
+              <span v-if="process.reasoningTruncated" class="trace-revise">（思考内容已截断）</span>
+            </div>
+            <div v-if="process.retrieval" class="trace-retrieval">
+              <span class="trace-retrieval-summary">{{ process.retrieval.summaryText }}</span>
+              <ul v-if="process.retrieval.candidates.length" class="trace-candidates">
+                <li v-for="(c, i) in process.retrieval.candidates" :key="i">
+                  {{ c.source }} · {{ c.score }}<span v-if="!c.kept"> · 未过阈值</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <!-- 原始 JSON 仅开发者模式可见（?dev=1 或 localStorage jt-dev=1） -->
         <ul v-if="devMode && debugLines.length" class="trace-debug">
           <li v-for="(line, i) in debugLines" :key="i">{{ line }}</li>
@@ -62,7 +105,7 @@
 import { computed, ref } from 'vue'
 
 import { renderMarkdown } from '../utils/markdown.js'
-import { sourceLabels, splitDecisionTrace, traceSummary, traceDebugLines } from '../utils/decisionTrace.js'
+import { sourceLabels, splitDecisionTrace, traceProcess, traceSummary, traceDebugLines } from '../utils/decisionTrace.js'
 
 const props = defineProps({
   /** 完整消息文本：正文 + 【决策痕迹】JSON 标记 */
@@ -70,15 +113,18 @@ const props = defineProps({
 })
 
 const open = ref(true)
+const processOpen = ref(false)
 
 // 每条消息一个独立实例，折叠区 id 需唯一（aria-controls 引用）
 const tracePanelId = `decision-trace-panel-${Math.random().toString(36).slice(2, 8)}`
+const processPanelId = `decision-trace-process-${Math.random().toString(36).slice(2, 8)}`
 
 const parts = computed(() => splitDecisionTrace(props.content))
 const bodyHtml = computed(() => renderMarkdown(parts.value.body || ''))
 const trace = computed(() => parts.value.trace)
 const sources = computed(() => sourceLabels(trace.value))
 const summary = computed(() => traceSummary(trace.value))
+const process = computed(() => traceProcess(trace.value))
 const debugLines = computed(() => traceDebugLines(trace.value))
 const hasSummary = computed(() =>
   summary.value.intentLabel !== '' || summary.value.reviseText !== '' ||
@@ -204,6 +250,71 @@ const devMode = computed(() => {
   gap: 2px;
 }
 .trace-warnings li {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.trace-process {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+.trace-toggle-sub .trace-dot {
+  background: var(--text-muted);
+  animation: none;
+}
+.trace-process-panel {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trace-reasoning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trace-round {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.trace-round-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.trace-round-body {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.trace-retrieval {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trace-retrieval-summary {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.trace-candidates {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.trace-candidates li {
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.5;
