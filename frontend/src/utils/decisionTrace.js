@@ -4,22 +4,32 @@
  * 契约：回答末尾用单独一行 `【决策痕迹】` 分隔，下一行为 JSON。
  * 解析规则：按最后一个 `\n【决策痕迹】\n` 切分；JSON 解析失败时整段按正文展示。
  * 正文末尾的【编辑建议】/【视角导航】结构化块会被一并剥掉，避免裸 JSON 渲染进 markdown。
+ * 过程中流出的**过程哨兵**（`<!--jt:process …-->`）也在此剥掉——它们在 agent 终态已被
+ * 清除，但流式累积的文本里留着（见 `processEvents.js`）。
+ * 正文**开头**的裸工具调用 JSON（`main_agent` 中间提案随 `answer` delta 流出后被纯累加，
+ * 见 `editSuggestion.js::stripLeadingToolJson`）同样在此剥掉。
  */
 
-import { parseAssistantMessage } from './editSuggestion.js'
+import { parseAssistantMessage, stripLeadingToolJson } from './editSuggestion.js'
+import { extractProcessEvents } from './processEvents.js'
 
 export function splitDecisionTrace(text) {
   if (typeof text !== 'string') return { body: text, trace: null }
+  // 过程哨兵是**流中**产物：agent 侧已在终态用 RemoveMessage 清除，但流式累积出来的
+  // `chatMessages[i].text` 里仍然留着它们。渲染前必须剥掉，否则会以 HTML 注释形态混进正文。
+  // 紧接着剥裸工具 JSON：`main_agent` 的中间提案随 `answer` delta 流到前端并被纯累加，
+  // 其作用点在 `state["answer"]` 的 coze 侧剥离**够不到流**（见 review 2026-09-13 §1.2）。
+  const cleaned = stripLeadingToolJson(extractProcessEvents(text).clean)
   const marker = '\n【决策痕迹】\n'
-  const idx = text.lastIndexOf(marker)
-  if (idx < 0) return { body: parseAssistantMessage(text).body, trace: null }
-  const body = text.slice(0, idx).trimEnd()
-  const raw = text.slice(idx + marker.length).trim()
+  const idx = cleaned.lastIndexOf(marker)
+  if (idx < 0) return { body: parseAssistantMessage(cleaned).body, trace: null }
+  const body = cleaned.slice(0, idx).trimEnd()
+  const raw = cleaned.slice(idx + marker.length).trim()
   try {
     const trace = JSON.parse(raw)
     return { body: parseAssistantMessage(body).body, trace }
   } catch {
-    return { body: text, trace: null }
+    return { body: cleaned, trace: null }
   }
 }
 
@@ -40,34 +50,104 @@ const INTENT_LABELS = {
   other: '通用助手',
 }
 
-/** 把一条工具调用记录格式化为可读行，只渲染 tool 与 args 的关键字段。 */
-function formatToolCall(tc) {
+/** `fetch_execution_context` 的 `file_source` → 用户可读来源（口径见 coze 侧 `_resolve_code`）。 */
+const FILE_SOURCE_LABELS = {
+  explicit: '显式指定',
+  entry_file: '主入口',
+  current_step_file: '当前步所在文件',
+  only_file: '项目唯一文件',
+  source_code: '单文件兜底',
+}
+
+/** 只渲染标量参数：长 JSON 撑破布局，且原始参数对用户无意义。 */
+function scalarBits(args) {
+  return Object.entries(args)
+    .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))
+    .map(([k, v]) => `${k}=${v}`)
+}
+
+/**
+ * `fetch_execution_context` 的 `result` 摘要：**取到了哪个文件**（以及走的是哪条兜底）。
+ *
+ * 为什么必须从 `result` 读而不是从 `args` 读：自动前置的那次 fetch（`step_facts` 之前，
+ * `args` 为空）与模型不传 `file` 的调用都解析不出文件名，只看 `args` 时执行过程区只会显示
+ * 「调用 fetch_execution_context」——用户无从判断它到底读到了 Main.java 还是别的文件。
+ */
+function fetchStatus(result) {
+  if (!result) return ''
+  let r
+  try {
+    r = JSON.parse(result)
+  } catch {
+    return ''
+  }
+  if (!r || typeof r !== 'object') return ''
+  if (r.error && String(r.error).trim()) {
+    const one = String(r.error).split('\n')[0].trim()
+    return ` → 失败：${one.length > 60 ? `${one.slice(0, 60)}…` : one}`
+  }
+  const file = typeof r.file === 'string' ? r.file : ''
+  const src = FILE_SOURCE_LABELS[r.file_source] || (r.file_source ? String(r.file_source) : '')
+  // `file` 为空串 = 取到的是单文件代码/激活文件，此时只报来源（否则会渲染成「（单文件/激活文件）」）。
+  const head = file || src || '取到源码'
+  const tail = file && src ? `（${src}）` : ''
+  const chars = typeof r.code_chars === 'number' ? `，${r.code_chars} 字` : ''
+  return ` → ${head}${tail}${chars}`
+}
+
+/** 工具名 → 卡片标题。未知工具直接用原名（将来加工具不必改前端也有可读标题）。 */
+const TOOL_LABELS = {
+  fetch_execution_context: '获取执行上下文',
+  step_facts: '查询单步证据',
+}
+
+/**
+ * 把一条工具调用记录拆成卡片字段（执行过程区渲染成卡片，不再是裸文本行）。
+ *
+ * - `label`：用户可读工具名
+ * - `argsText`：只渲染标量参数（`fetch_execution_context` 的 `file=Util.java`、
+ *   `step_facts` 的 `查询第 2 步，行 5`）——长 JSON 撑破布局，且原始参数对用户无意义
+ * - `resultText`：`result` 摘要（取到哪个文件 / 越界 / 失败原因），无 `result` 时为空串
+ * - `status`：`ok` | `error`，卡片据此标色
+ *
+ * 口径与拆分前逐字一致（`file`/`file_source`/`code_chars` 仍从 `result` 读——自动前置那
+ * 次 fetch 的 `args` 是空的，只看 `args` 读不出文件名）；只是把「一行纯文本」换成三段字段。
+ */
+function toolCard(tc) {
   const tool = tc.tool || '工具'
   const args = tc.args && typeof tc.args === 'object' ? tc.args : {}
-  if (tool === 'step_facts') {
+  let argsText = ''
+  let resultText = ''
+  let status = 'ok'
+  if (tool === 'fetch_execution_context') {
+    argsText = scalarBits(args).join('，')
+    const arrow = fetchStatus(tc.result)
+    if (arrow) {
+      resultText = arrow.replace(/^ → /, '')
+      status = resultText.startsWith('失败：') ? 'error' : 'ok'
+    }
+  } else if (tool === 'step_facts') {
     const bits = []
     if (typeof args.step_index === 'number') bits.push(`第 ${args.step_index + 1} 步`)
     if (typeof args.line === 'number') bits.push(`行 ${args.line}`)
-    // 附加 tool_calls.result 摘要：越界(共N步)/已获取证据，便于诊断 step_facts
-    let status = ''
+    argsText = bits.length ? `查询${bits.join('，')}` : ''
+    // 附加 result 摘要：越界(共N步)/已获取证据，便于诊断 step_facts
     if (tc.result) {
       try {
         const r = JSON.parse(tc.result)
         if (r.error && String(r.error).trim()) {
           const count = typeof r.steps_count === 'number' ? `（共 ${r.steps_count} 步）` : ''
-          status = ` → 越界${count}`
+          resultText = `越界${count}`
+          status = 'error'
         } else {
-          status = ' → 已获取证据'
+          resultText = '已获取证据'
         }
       } catch { /* 忽略 result 解析失败 */ }
     }
-    const base = bits.length ? `调用 ${tool}：查询${bits.join('，')}` : `调用 ${tool}`
-    return base + status
+  } else {
+    argsText = scalarBits(args).join('，')
   }
-  const scalars = Object.entries(args)
-    .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))
-    .map(([k, v]) => `${k}=${v}`)
-  return scalars.length ? `调用 ${tool}：${scalars.join('，')}` : `调用 ${tool}`
+  return { tool, label: TOOL_LABELS[tool] || tool, argsText, resultText, status }
 }
 
 function formatLatency(ms) {
@@ -94,7 +174,7 @@ function formatTokens(usage) {
 export function traceSummary(trace) {
   const empty = {
     intentLabel: '',
-    toolLines: [],
+    toolCards: [],
     toolEmptyText: '',
     reviseText: '',
     qualityWarnings: [],
@@ -105,9 +185,9 @@ export function traceSummary(trace) {
   const intentLabel = trace.intent
     ? `意图识别：${INTENT_LABELS[trace.intent] || INTENT_LABELS.other}（${trace.intent}）`
     : ''
-  const toolLines = (Array.isArray(trace.tool_calls) ? trace.tool_calls : [])
+  const toolCards = (Array.isArray(trace.tool_calls) ? trace.tool_calls : [])
     .filter((tc) => tc && tc.tool)
-    .map(formatToolCall)
+    .map(toolCard)
   const toolEmptyText = Array.isArray(trace.tool_calls) && trace.tool_calls.length === 0
     ? '未调用工具'
     : ''
@@ -128,7 +208,7 @@ export function traceSummary(trace) {
     ? `耗时 ${formatLatency(trace.latency_ms)}`
     : ''
   const tokenText = formatTokens(trace.token_usage)
-  return { intentLabel, toolLines, toolEmptyText, reviseText, qualityWarnings, latencyText, tokenText }
+  return { intentLabel, toolCards, toolEmptyText, reviseText, qualityWarnings, latencyText, tokenText }
 }
 
 /**

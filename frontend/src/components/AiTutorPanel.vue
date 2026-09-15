@@ -64,7 +64,7 @@
                   v-if="i !== store.chatMessages.length - 1 || !store.isExplaining"
                   :content="m.text"
                 />
-                <span v-else v-html="renderMarkdown(m.text)"></span>
+                <span v-else v-html="renderMarkdown(streamText(m.text))"></span>
                 <EditSuggestionCard
                   v-if="parsedMessages[i].edits.length && !store.isExplaining"
                   :edits="parsedMessages[i].edits"
@@ -85,9 +85,14 @@
             </div>
           </div>
         </template>
-        <div v-if="store.isExplaining && store.explainStage" class="chat-stage">
+        <!-- 生成期间的实时进度：优先用 agent 的过程哨兵（`liveStage`，更细粒度），
+             没有时退回本地 `explainStage`（老 agent 仍是这条路）。逐条工具行在其下累积。 -->
+        <div v-if="store.isExplaining && (displayStage || liveToolLines.length)" class="chat-stage">
           <span class="stage-dot" />
-          {{ store.explainStage }}
+          <div class="chat-stage-body">
+            <div v-if="displayStage">{{ displayStage }}</div>
+            <div v-for="(line, k) in liveToolLines" :key="k" class="chat-stage-tool">{{ line }}</div>
+          </div>
         </div>
         <div v-if="store.explainError" class="ai-error">{{ store.explainError }}</div>
       </div>
@@ -194,6 +199,8 @@ import { parseAssistantMessage } from '../utils/editSuggestion'
 import { foldedCount, isFolded } from '../utils/timeline'
 
 import { renderMarkdown } from '../utils/markdown.js'
+import { extractProcessEvents } from '../utils/processEvents.js'
+import { stripLeadingToolJson } from '../utils/editSuggestion.js'
 import DecisionTracePanel from './DecisionTracePanel.vue'
 
 const props = defineProps({
@@ -229,6 +236,33 @@ const parsedMessages = computed(() =>
       ? parseAssistantMessage(m.text)
       : { body: m.text, edits: [], nav: { views: [] }, plan: null },
   ),
+)
+
+// --- 生成期间的实时进度（agent 过程哨兵）---
+
+/**
+ * 流式中的正文：剥掉过程哨兵，再剥掉开头被纯累加粘上的裸工具 JSON
+ * （`main_agent` 中间提案随 `answer` delta 流出，见 `stripLeadingToolJson` 的 docstring）。
+ * 终态那条走 `DecisionTracePanel`，那里同样会剥。
+ */
+function streamText(text) {
+  return stripLeadingToolJson(extractProcessEvents(text).clean)
+}
+
+/** 实时阶段文案：哨兵优先，退回本地 stage 事件（老 agent 只有后者）。 */
+const displayStage = computed(() => store.liveStage || store.explainStage)
+
+/** 实时工具行：`step_facts：step_index=1`。只渲染标量参数，免得长 JSON 撑破布局。 */
+const liveToolLines = computed(() =>
+  (store.liveTools || []).map((t) => {
+    const tool = (t && t.tool) || '工具'
+    const args = t && t.args && typeof t.args === 'object' ? t.args : {}
+    const bits = Object.entries(args)
+      .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))
+      .map(([k, v]) => `${k}=${v}`)
+    const status = t && t.status && t.status !== 'ok' ? `（${t.status}）` : ''
+    return bits.length ? `${tool}：${bits.join('，')}${status}` : `${tool}${status}`
+  }),
 )
 
 // --- 对话时间线（记录点回退后的折叠；决策 T3/T7）---
@@ -620,7 +654,7 @@ function explainTag(tagName) {
 .chat-typing { color: var(--text-muted); }
 .chat-stage {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   margin-top: 8px;
   font-family: var(--mono);
@@ -628,6 +662,9 @@ function explainTag(tagName) {
   color: var(--text-muted);
   user-select: none;
 }
+/* 实时工具行：比阶段文案更淡、更小，避免抢正文的注意力 */
+.chat-stage-body { display: flex; flex-direction: column; gap: 2px; }
+.chat-stage-tool { opacity: 0.72; font-size: 10px; }
 .stage-dot {
   width: 7px;
   height: 7px;

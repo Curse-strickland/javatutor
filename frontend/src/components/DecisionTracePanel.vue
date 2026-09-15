@@ -36,8 +36,25 @@
         <div v-if="hasSummary" class="trace-summary">
           <span v-if="summary.intentLabel" class="trace-intent">{{ summary.intentLabel }}</span>
           <span v-if="summary.reviseText" class="trace-revise">{{ summary.reviseText }}</span>
-          <ul v-if="summary.toolLines.length" class="trace-tools">
-            <li v-for="(line, i) in summary.toolLines" :key="i">{{ line }}</li>
+          <!-- 工具调用卡片：一行标题（状态点 + 工具名 + 参数）+ 一行结果摘要。
+               用户反馈「工具调用过程渲染成卡片」（2026-09-14）——此前是一行纯文本，
+               参数与结果挤在「调用 X：a，b → c」里，长起来就不可读。 -->
+          <ul v-if="summary.toolCards.length" class="trace-tools">
+            <li
+              v-for="(c, i) in summary.toolCards"
+              :key="i"
+              class="trace-tool"
+              :class="c.status"
+            >
+              <span class="trace-tool-dot" :class="c.status" aria-hidden="true" />
+              <span class="trace-tool-main">
+                <span class="trace-tool-head">
+                  <span class="trace-tool-name">{{ c.label }}</span>
+                  <span v-if="c.argsText" class="trace-tool-args">{{ c.argsText }}</span>
+                </span>
+                <span v-if="c.resultText" class="trace-tool-result">{{ c.resultText }}</span>
+              </span>
+            </li>
           </ul>
           <span v-else-if="summary.toolEmptyText" class="trace-revise">{{ summary.toolEmptyText }}</span>
           <ul v-if="summary.qualityWarnings.length" class="trace-warnings">
@@ -128,7 +145,7 @@ const process = computed(() => traceProcess(trace.value))
 const debugLines = computed(() => traceDebugLines(trace.value))
 const hasSummary = computed(() =>
   summary.value.intentLabel !== '' || summary.value.reviseText !== '' ||
-  summary.value.toolLines.length > 0 || summary.value.toolEmptyText !== '' ||
+  summary.value.toolCards.length > 0 || summary.value.toolEmptyText !== '' ||
   summary.value.qualityWarnings.length > 0 ||
   summary.value.latencyText !== '' ||
   summary.value.tokenText !== ''
@@ -233,14 +250,54 @@ const devMode = computed(() => {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
-.trace-tools li {
+.trace-tool {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--primary);
+  border-radius: 0;
+  background: var(--bg-2);
+}
+.trace-tool.error { border-left-color: var(--danger); }
+.trace-tool-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.trace-tool-dot.error { background: var(--danger); }
+.trace-tool-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.trace-tool-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.trace-tool-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+.trace-tool-args,
+.trace-tool-result {
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-muted);
+  word-break: break-word;
 }
+.trace-tool-result { color: var(--text); }
 .trace-warnings {
   margin: 2px 0 0;
   padding: 0;

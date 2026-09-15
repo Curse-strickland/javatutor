@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { GOALS, buildGoalPrompt, parseAssistantMessage, planEdits } from './editSuggestion'
+import { GOALS, STEP2_MARKER, buildGoalPrompt, parseAssistantMessage, planEdits } from './editSuggestion'
 
 describe('parseAssistantMessage', () => {
   it('纯正文原样返回，edits 为空', () => {
@@ -237,13 +237,13 @@ describe('buildGoalPrompt（F1/F2/F3：白名单 + 显式排除未选项）', ()
 
   it('单项：只做该方向（不再是「以 X 为优先」的软措辞）', () => {
     expect(buildGoalPrompt([P])).toBe(
-      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
+      STEP2_MARKER + '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
     )
   })
 
   it('单项 + 排除同一张卡的未选项', () => {
     expect(buildGoalPrompt([P], [M])).toBe(
-      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。'
+      STEP2_MARKER + '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。'
       + '不要顺带做其他方向的改动（例如：「以空间优化为先」：用左右边界索引限定原数组范围）。'
       + '请给出优化后的完整代码。',
     )
@@ -251,7 +251,7 @@ describe('buildGoalPrompt（F1/F2/F3：白名单 + 显式排除未选项）', ()
 
   it('多项：逐条列出（勾 ≥2 项 → 第 2 轮 goal 记 comprehensive）', () => {
     expect(buildGoalPrompt([P, M])).toBe(
-      '只做以下方向的优化：①「以性能为先」：用哈希表把嵌套循环降为 O(n)；'
+      STEP2_MARKER + '只做以下方向的优化：①「以性能为先」：用哈希表把嵌套循环降为 O(n)；'
       + '②「以空间优化为先」：用左右边界索引限定原数组范围。'
       + '请给出优化后的完整代码。',
     )
@@ -270,6 +270,17 @@ describe('buildGoalPrompt（F1/F2/F3：白名单 + 显式排除未选项）', ()
     expect(buildGoalPrompt([])).toBe('')
     expect(buildGoalPrompt(null)).toBe('')
     expect(buildGoalPrompt([null])).toBe('')
+    // 空选择不得吐出「只有标记没有内容」的提问——那会让 agent 收到一个空方向的第二步
+    expect(buildGoalPrompt([])).not.toContain(STEP2_MARKER)
+  })
+
+  it('第二步标记必须出现在提问**开头**（agent 判别第二步的唯一依据）', () => {
+    // 标记是跨仓握手字面量，与 coze 侧 prompting/optimization.py::STEP2_MARKER 逐字一致；
+    // 位置也重要——引导要求「以标记起头」，标记跑到句中 agent 认不出。
+    expect(buildGoalPrompt([P]).startsWith(STEP2_MARKER)).toBe(true)
+    expect(buildGoalPrompt([P, M]).startsWith(STEP2_MARKER)).toBe(true)
+    expect(buildGoalPrompt([P], [M]).startsWith(STEP2_MARKER)).toBe(true)
+    expect(STEP2_MARKER).toBe('【优化第二步】')
   })
 
   it('GOALS 含 comprehensive（与 spec §4.4 / coze 侧闭集一致）', () => {
