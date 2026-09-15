@@ -16,7 +16,14 @@ fi
 SERVER="$1"
 DEPLOY_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REMOTE_DIR="/opt/javatutor"
-REMOTE_WEB_ROOT="/var/www/javatutor"
+
+# 前端要落到 nginx 真正服务的目录。
+# 线上 nginx 的 root 是 /var/www/html，而它是软链 → /opt/javatutor/dist
+# （/var/www/javatutor 是 2026-07-19 迁移前的旧路径，nginx 已不再服务它）。
+# 2026-09-15 修正：原值 "/var/www/javatutor" 会让前端推送静默失效 ——
+# rsync 报成功、文件也写进去了，但没有任何请求会读到它们。
+# 与 .github/workflows/deploy.yml 的 TARGET=/opt/javatutor/ + frontend/dist 保持一致。
+REMOTE_WEB_ROOT="/opt/javatutor/dist"
 
 echo "=========================================="
 echo " 部署到 $SERVER"

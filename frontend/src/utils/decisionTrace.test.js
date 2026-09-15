@@ -53,7 +53,7 @@ describe('splitDecisionTrace', () => {
 describe('traceSummary', () => {
   const empty = {
     intentLabel: '',
-    toolLines: [],
+    toolCards: [],
     toolEmptyText: '',
     reviseText: '',
     qualityWarnings: [],
@@ -79,7 +79,7 @@ describe('traceSummary', () => {
     expect(traceSummary({}).toolEmptyText).toBe('')
   })
 
-  it('renders tool_calls as readable lines without full json', () => {
+  it('renders tool_calls as card fields without full json', () => {
     const trace = {
       tool_calls: [
         { tool: 'step_facts', args: { step_index: 1, line: 5 } },
@@ -87,14 +87,14 @@ describe('traceSummary', () => {
         { tool: 'no_args' },
       ],
     }
-    expect(traceSummary(trace).toolLines).toEqual([
-      '调用 step_facts：查询第 2 步，行 5',
-      '调用 search_kb：query=HashMap',
-      '调用 no_args',
+    expect(traceSummary(trace).toolCards).toEqual([
+      { tool: 'step_facts', label: '查询单步证据', argsText: '查询第 2 步，行 5', resultText: '', status: 'ok' },
+      { tool: 'search_kb', label: 'search_kb', argsText: 'query=HashMap', resultText: '', status: 'ok' },
+      { tool: 'no_args', label: 'no_args', argsText: '', resultText: '', status: 'ok' },
     ])
   })
 
-  it('annotates step_facts result status on the tool line', () => {
+  it('annotates step_facts result status on the tool card', () => {
     const trace = {
       tool_calls: [
         { tool: 'step_facts', args: { step_index: 6, line: 0 },
@@ -103,9 +103,79 @@ describe('traceSummary', () => {
           result: JSON.stringify({ error: '', evidence: { variables: { x: 1 } }, diff: [] }) },
       ],
     }
-    expect(traceSummary(trace).toolLines).toEqual([
-      '调用 step_facts：查询第 7 步，行 0 → 越界（共 6 步）',
-      '调用 step_facts：查询第 1 步 → 已获取证据',
+    expect(traceSummary(trace).toolCards).toEqual([
+      { tool: 'step_facts', label: '查询单步证据', argsText: '查询第 7 步，行 0',
+        resultText: '越界（共 6 步）', status: 'error' },
+      { tool: 'step_facts', label: '查询单步证据', argsText: '查询第 1 步',
+        resultText: '已获取证据', status: 'ok' },
+    ])
+  })
+
+  it('annotates the fetch tool card with the file it actually read', () => {
+    const trace = {
+      tool_calls: [
+        // 自动前置的 fetch：args 为空，只有 result 能说明它读到了哪个文件。
+        // 下面这串是 coze `harness/render.py::_handle_fetch` 的**真实产物**（原样粘贴），
+        // 不是手写的形状——变了就是契约变了。
+        { tool: 'fetch_execution_context', args: {},
+          result: '{"stored": true, "file": "Main.java", "file_source": "entry_file", "code_chars": 3160, "steps_count": 1, "current_step_index": 0, "current_line": 1, "algorithm_tags": []}' },
+        // 模型显式指定文件：args 与 result 都带文件名
+        { tool: 'fetch_execution_context', args: { file: 'Util.java' },
+          result: JSON.stringify({ stored: true, file: 'Util.java', file_source: 'explicit',
+            code_chars: 88 }) },
+        // 单文件兜底：file 为空串，只报来源
+        { tool: 'fetch_execution_context', args: {},
+          result: JSON.stringify({ stored: true, file: '', file_source: 'source_code',
+            code_chars: 20 }) },
+      ],
+    }
+    expect(traceSummary(trace).toolCards).toEqual([
+      { tool: 'fetch_execution_context', label: '获取执行上下文', argsText: '',
+        resultText: 'Main.java（主入口），3160 字', status: 'ok' },
+      { tool: 'fetch_execution_context', label: '获取执行上下文', argsText: 'file=Util.java',
+        resultText: 'Util.java（显式指定），88 字', status: 'ok' },
+      { tool: 'fetch_execution_context', label: '获取执行上下文', argsText: '',
+        resultText: '单文件兜底，20 字', status: 'ok' },
+    ])
+  })
+
+  it('shows the fetch failure reason on the card, not a bare one', () => {
+    const trace = {
+      tool_calls: [
+        // 同样取自 coze 真实产物
+        { tool: 'fetch_execution_context', args: {},
+          result: '{"stored": false, "error": "未能取到源码（解析来源：未能解析；候选文件：[\'A.java\', \'B.java\']）。请用 file 参数指定要读的文件名。"}' },
+      ],
+    }
+    const card = traceSummary(trace).toolCards[0]
+    expect(card.status).toBe('error')
+    expect(card.resultText).toBe(
+      "失败：未能取到源码（解析来源：未能解析；候选文件：['A.java', 'B.java']）。请用 file 参数指定要读的文…",
+    )
+  })
+
+  it('truncates a long fetch failure reason to one readable line', () => {
+    const trace = {
+      tool_calls: [
+        { tool: 'fetch_execution_context', args: {},
+          result: JSON.stringify({ error: `未能取到源码（${'文件不存在；'.repeat(20)}）` }) },
+      ],
+    }
+    const card = traceSummary(trace).toolCards[0]
+    expect(card.resultText.endsWith('…')).toBe(true)
+    expect(card.resultText.length).toBeLessThan(100)
+  })
+
+  it('keeps a bare fetch card when result is absent (old agent) or unparsable', () => {
+    const trace = {
+      tool_calls: [
+        { tool: 'fetch_execution_context', args: {} },
+        { tool: 'fetch_execution_context', args: {}, result: 'not json' },
+      ],
+    }
+    expect(traceSummary(trace).toolCards).toEqual([
+      { tool: 'fetch_execution_context', label: '获取执行上下文', argsText: '', resultText: '', status: 'ok' },
+      { tool: 'fetch_execution_context', label: '获取执行上下文', argsText: '', resultText: '', status: 'ok' },
     ])
   })
 
@@ -139,7 +209,7 @@ describe('traceSummary', () => {
 
   it('does not throw on missing fields', () => {
     expect(() => traceSummary({})).not.toThrow()
-    expect(traceSummary({}).toolLines).toEqual([])
+    expect(traceSummary({}).toolCards).toEqual([])
     expect(traceSummary({ latency_ms: 0 }).latencyText).toBe('')
     expect(traceSummary({ token_usage: {} }).tokenText).toBe('')
   })
@@ -238,5 +308,33 @@ describe('traceProcess', () => {
 
   it('hasContent is false when reasoning empty and no candidates', () => {
     expect(traceProcess({ reasoning: [], retrieval: { candidates: [] } }).hasContent).toBe(false)
+  })
+})
+
+describe('splitDecisionTrace 剥离过程哨兵', () => {
+  const mark = (event) => `\n<!--jt:process ${JSON.stringify(event)}-->\n`
+
+  it('body 不含哨兵文本（终态不漏）', () => {
+    const text =
+      mark({ kind: 'stage', text: '正在分析问题…' }) +
+      mark({ kind: 'tool', tool: 'step_facts', args: {}, status: 'ok', latency_ms: 1 }) +
+      '正文\n\n【决策痕迹】\n' +
+      JSON.stringify({ intent: 'data_query' })
+    const result = splitDecisionTrace(text)
+    expect(result.body).toBe('正文')
+    expect(result.body).not.toContain('jt:process')
+    expect(result.trace).toEqual({ intent: 'data_query' })
+  })
+
+  it('无痕迹标记时也剥掉哨兵', () => {
+    const text = mark({ kind: 'stage', text: '正在分析问题…' }) + '只有正文'
+    expect(splitDecisionTrace(text).body).toBe('只有正文')
+  })
+
+  it('痕迹 JSON 畸形时回退正文仍不含哨兵', () => {
+    const text = mark({ kind: 'stage', text: '阶段' }) + '正文\n\n【决策痕迹】\n{坏 JSON'
+    const result = splitDecisionTrace(text)
+    expect(result.trace).toBeNull()
+    expect(result.body).not.toContain('jt:process')
   })
 })

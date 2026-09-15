@@ -210,7 +210,7 @@ describe('player store 优化卡支持', () => {
     )
     expect(spy).toHaveBeenCalledTimes(1)
     expect(spy.mock.calls[0][0]).toBe(
-      '只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
+      '【优化第二步】只做「以性能为先」方向的优化，具体要求：用哈希表把嵌套循环降为 O(n)。请给出优化后的完整代码。',
     )
   })
 
@@ -230,7 +230,7 @@ describe('player store 优化卡支持', () => {
     const spy = vi.spyOn(s, 'askQuestion').mockResolvedValue(undefined)
     await s.askGoalOptimization([{ goal: 'memory', label: '以空间优化为先', detail: '' }], [], 'Main.java')
     expect(spy.mock.calls[0][0]).toBe(
-      '只做「以空间优化为先」方向的优化。请给出优化后的完整代码。（目标文件：Main.java）',
+      '【优化第二步】只做「以空间优化为先」方向的优化。请给出优化后的完整代码。（目标文件：Main.java）',
     )
   })
 

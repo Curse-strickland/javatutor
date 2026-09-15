@@ -2,8 +2,9 @@ import { defineStore } from 'pinia'
 import { detectTutorialCategory } from '../utils/algoTutorialMap.js'
 import { http } from '../utils/http.js'
 import { allowedPanels, algoSubTabs } from '../constants/uiPanelManifest.js'
-import { buildGoalPrompt } from '../utils/editSuggestion.js'
+import { buildGoalPrompt, stripLeadingToolJson } from '../utils/editSuggestion.js'
 import { buildRetryPrompt, hasUsableReplace, nextRetry } from '../utils/optimization.js'
+import { applyProcessEvents, extractProcessEvents } from '../utils/processEvents.js'
 import { MAX_TIMELINE, buildCheckpointLabel } from '../utils/timeline.js'
 
 export const usePlayerStore = defineStore('player', {
@@ -23,6 +24,13 @@ export const usePlayerStore = defineStore('player', {
     explainError: null,
     explainStage: '',
     explainAbortController: null,
+    /**
+     * 生成期间的**实时进度**（来自 agent 的过程哨兵，见 `utils/processEvents.js`）。
+     * `liveStage` 是**覆盖式**阶段文案（只显示最新一条），`liveTools` 是**追加式**工具列表。
+     * 生成结束后清空——信息由 `DecisionTracePanel` 的【执行过程】折叠区接管。
+     */
+    liveStage: '',
+    liveTools: [],
     /**
      * 优化卡门禁失败后的自动返修：null | `{ msgIndex, attempt, max }`。
      * 上限必须由 store 持有——卡片会因折叠/重挂载而丢失局部状态（决策见
@@ -88,8 +96,9 @@ export const usePlayerStore = defineStore('player', {
     multiState: {
       files: [],             // [{name, code}]
       activeFileIndex: 0,
+      entryFile: '',         // 主入口文件名（发送给 Coze 的 entryFile；由 refreshEntryFile 写入）
       umlCache: {},          // {kind: {svg, ts, source}}
-      projectAnalysis: null, // { entry, flow, classDiagram, structure, errors }
+      projectAnalysis: null, // { entry: {class, method}, flow, classDiagram, structure, errors }
       isAnalyzingProject: false,
       projectAnalysisError: null,
     },
@@ -202,6 +211,7 @@ export const usePlayerStore = defineStore('player', {
         })
         const data = await res.json()
         this.applyRunResult(data)
+        this.refreshEntryFile()
       } catch (e) {
         this.error = e.message || '网络请求失败'
         this.lastRunError = { message: this.error }
@@ -440,8 +450,11 @@ export const usePlayerStore = defineStore('player', {
           onError: (m) => { this.explainError = m },
         })
         // F5：拿不到候选 → 丢弃该次返修结果，保留失败卡片（用户还要看到错误原文）
-        if (!hasUsableReplace(buf)) return
-        msg.text = buf                                  // F2：原地替换卡片，不新增气泡
+        // 先剥哨兵：返修回答同样会带过程哨兵，不能让它进「是否有可用候选」的判定与正文。
+        // 再剥开头裸工具 JSON：提案 delta 同样会被 `buf` 纯累加粘在最前面。
+        const clean = stripLeadingToolJson(extractProcessEvents(buf).clean)
+        if (!hasUsableReplace(clean)) return
+        msg.text = clean                                // F2：原地替换卡片，不新增气泡
         msg.optRev = (msg.optRev || 0) + 1              // 通知卡片重跑门禁
       } catch (e) {
         /* 返修本身失败（含被用户提问抢占的 AbortError）：保持失败卡片，不重试 */
@@ -494,6 +507,8 @@ export const usePlayerStore = defineStore('player', {
       this.isExplaining = true
       this.explainError = null
       this.explainStage = ''
+      this.liveStage = ''
+      this.liveTools = []
       this.explainAbortController = new AbortController()
 
       // 先放入用户消息，再追加空 assistant 消息接收流式回复
@@ -505,7 +520,22 @@ export const usePlayerStore = defineStore('player', {
         await this._runChat({
           question: q,
           signal: this.explainAbortController.signal,
-          onChunk: (t) => { this.chatMessages[assistantIdx].text += t },
+          onChunk: (t) => {
+            this.chatMessages[assistantIdx].text += t
+            // **增量**抽取本 chunk 内的哨兵并更新实时进度。不做「每 chunk 全量重解析」——
+            // 那是 O(n²)。
+            // **假定**（非保证，review 2026-09-13 P3-2）：哨兵是单条完整消息（agent 侧经
+            // `AIMessage` 一次转出），**不跨 chunk 被切开**。这条依赖 Java 代理不做分片转发，
+            // 超出本仓控制面。降级后果可接受：哨兵是 HTML 注释，`marked` 的 `html()` 返回空串，
+            // 最坏是丢一条进度而不是漏出乱码。联调时留意——若出现「进度条莫名缺一条」，
+            // 先查代理是否把一条 answer 消息拆成了多个 chunk。
+            const { events } = extractProcessEvents(t)
+            if (events.length) {
+              const next = applyProcessEvents(this, events)
+              this.liveStage = next.liveStage
+              this.liveTools = next.liveTools
+            }
+          },
           onError: (m) => { this.explainError = m },
           onStage: (m) => { this.explainStage = m },
         })
@@ -515,6 +545,8 @@ export const usePlayerStore = defineStore('player', {
         }
       } finally {
         this.isExplaining = false
+        this.liveStage = ''
+        this.liveTools = []
         this.explainAbortController = null
       }
     },
@@ -534,6 +566,10 @@ export const usePlayerStore = defineStore('player', {
         stackFrames: s.stackFrames || [],
         output: s.output
       }))
+      // 项目文件只在多文件模式下发送：切回单文件后 multiState 仍有残留（状态刻意不销毁，
+      // 以便切回多文件能恢复上次项目），但**发送侧必须按模式裁剪**——否则 `### 项目结构`
+      // 会列出与当前编辑代码无关的文件（2026-09-14 联调修复 Task 7）。
+      const multi = this.mode === 'multi'
       return {
         code: this.code,
         runId: this.runId,
@@ -542,8 +578,8 @@ export const usePlayerStore = defineStore('player', {
         currentLine: this.currentLine,
         steps: stepSnapshots,
         variables: { ...this.currentVariables, _explainTopic: question },
-        files: this.multiState.files.map(f => ({ name: f.name, code: f.code })),   // 全部文件
-        entryFile: this.multiState.entryFile || '',                                // 主入口（可选）
+        files: multi ? this.multiState.files.map(f => ({ name: f.name, code: f.code })) : [],
+        entryFile: multi ? (this.multiState.entryFile || '') : '',
         // 运行模式事实（语义在 coze 侧知识与引导里，前端只报事实）：
         // 缺省即 `default`（不是省略），coze 侧据此区分「默认模式」与「旧客户端没带」
         mode: this.testMode ? 'test' : 'default',
@@ -867,6 +903,49 @@ export const usePlayerStore = defineStore('player', {
     clearMultiFiles() {
       this.multiState.files = []
       this.multiState.activeFileIndex = 0
+      this.multiState.entryFile = ''
+    },
+
+    /**
+     * 推导并写入主入口文件名（`multiState.entryFile`），供提问体 `entryFile` 字段使用。
+     *
+     * 2026-09-14 联调修复 Task 6：`entryFile` 此前**只有读、没有写**，于是 `buildChatBody`
+     * 里的 `entryFile` 恒为 `''`，Coze 侧永远收不到主入口，只能靠兜底猜文件。
+     *
+     * 两个来源，**先真后备**：
+     * 1. `projectAnalysis.entry.class`——`/api/project/analyze` 的 `entry` 是
+     *    `{class, method}` **对象**（不是文件名字符串），故按「去掉 .java 后等于类名」反查文件名；
+     * 2. 兜底：扫含 `public static void main` 的源文件（与后端 `hasMainMethod` 同口径）。
+     *    这条让入口在**用户没点开流程图面板**时也能确定——`analyzeProject` 是面板/按钮触发的，
+     *    不能作为唯一来源。
+     *
+     * 两处都推不出时**保留原值**（`entryFile` 可能来自一次更完整的分析），只有当既没有
+     * 分析结果、也没有含 main 的文件时才置空。
+     */
+    refreshEntryFile() {
+      const files = this.multiState.files || []
+      if (!files.length) {
+        this.multiState.entryFile = ''
+        return
+      }
+      const cls = this.multiState.projectAnalysis?.entry?.class
+      if (cls && typeof cls === 'string') {
+        const target = `${cls}.java`.toLowerCase()
+        const hit = files.find((f) => {
+          const base = String(f.name || '').replace(/\\/g, '/').split('/').pop() || ''
+          return base.toLowerCase() === target
+        })
+        if (hit) {
+          this.multiState.entryFile = hit.name
+          return
+        }
+      }
+      const withMain = files.find((f) => /public\s+static\s+void\s+main\s*\(/.test(f.code || ''))
+      if (withMain) {
+        this.multiState.entryFile = withMain.name
+        return
+      }
+      this.multiState.entryFile = ''
     },
 
     setActiveMultiFile(index) {
@@ -900,6 +979,8 @@ export const usePlayerStore = defineStore('player', {
           this.multiState.projectAnalysisError = data.error || '分析失败'
         } else {
           this.multiState.projectAnalysis = data
+          // 分析结果里的 entry.class 是比「扫 main 方法」更权威的入口来源，故覆写一次。
+          this.refreshEntryFile()
         }
       } catch (e) {
         this.multiState.projectAnalysisError = e.message || '分析请求失败'

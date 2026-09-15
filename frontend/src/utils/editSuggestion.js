@@ -21,6 +21,16 @@ export const GOALS = {
 
 const ORDINALS = ['①', '②', '③'] // 与 options 上限（3 项）一致
 
+/**
+ * 第二步提问的判别标记（coze 侧 `prompting/optimization.py::STEP2_MARKER`，两侧字面量必须一致）。
+ *
+ * 为什么必须由前端写进提问：无状态——聊天请求不带任何对话历史，会话工作记忆只留上一答**前 200 字**，
+ * 而 `options` 块在回答**末尾** ⇒「上一轮已经给过方案卡」在服务端基本读不到。
+ * 而第二步提问的形状（「只做「以性能为先」方向的优化」）**恰好就是**「已含明确目标」，
+ * 与第一步的判别依据冲突，模型无法区分，表现为「再给一张一模一样的方案卡、一行代码都没有」。
+ */
+export const STEP2_MARKER = '【优化第二步】'
+
 /** 某一项方向的显示名：优先 agent 给的 label，回落闭集中文名。 */
 function optionName(o) {
   return o.label || GOALS[o.goal] || o.goal
@@ -30,6 +40,7 @@ function optionName(o) {
  * 拼「已勾选优化方向」后发出的第 2 轮提问（F2：白名单 + 显式黑名单）。
  * 「以 X 为优先」是软偏好，会把选择变成建议；这里改成「只做 X」+「不要顺带做 Y」，
  * 让选择成为硬约束（agent 侧 guidance 同步要求「只做所列方向」）。
+ * 开头固定带 `STEP2_MARKER`：那是 agent 判别「第二步」的唯一依据。
  * @param {Array<{goal: string, label?: string, detail?: string}>} selected 已勾选方向（≥1 项）
  * @param {Array<{goal: string, label?: string, detail?: string}>} [excluded] 同一张方案卡里未被勾选的项
  * @returns {string} 空选择返回 ''（调用方不得发送）
@@ -55,7 +66,7 @@ export function buildGoalPrompt(selected, excluded = []) {
     ? `。不要顺带做其他方向的改动（例如：${bad.map((o) => `「${name(o)}」${o.detail ? `：${o.detail}` : ''}`).join('；')}）`
     : ''
 
-  return `${head}${tail}。请给出优化后的完整代码。`
+  return `${STEP2_MARKER}${head}${tail}。请给出优化后的完整代码。`
 }
 
 // 归一化非 patch 的【编辑建议】块（kind=options/replace）；不合法返回 null → 调用方回退为正文。
@@ -147,11 +158,50 @@ function collapseBlankLines(text) {
   return text.replace(/\n{3,}/g, '\n\n')
 }
 
+/**
+ * 反复剥掉正文**开头**的裸工具调用 JSON（形如 `{"tool":"step_facts","args":{...}}`）。
+ *
+ * 为什么前端要做这件事：`main_agent` 的**中间提案**也会随 `answer` delta 流到客户端——
+ * LangGraph `stream_mode="messages"` 会把节点返回值里**所有键**的消息一起转出（不只
+ * `messages`，`agent_messages` 也在内），平台 SDK 只过滤 `langgraph_node === "tools"`，
+ * 其余非 chunk 的 `AIMessage` 一律转成 `answer`。而本 store 是**纯累加**（`text += t`，
+ * 不插分隔符），于是提案 JSON 会粘在正文最前面、连标题一起糊成
+ * `{"tool":…}}### 当前这一步的执行内容`——`}}###` 的粘连不是模型少打了换行，
+ * 是 `+=` 本身不插分隔符。
+ *
+ * coze 侧的 `_strip_leaked_json` 规则 0 管的是 `state["answer"]`，**够不到流**
+ * （见 `docs/reviews/2026-09-13-process-streaming-and-strip-leading-tool-json-review.md` §1.2），
+ * 所以这一层必须在前端补。两端判据刻意同口径。
+ *
+ * **必须循环到不动为止**：一次提问有多轮提案（`MAX_ROUNDS`），每轮各一段 JSON，
+ * 剥掉第一段后第二段会**新暴露**成开头。
+ *
+ * **判别收在 `tool` 键上**（与 harness `parse_action` 同口径，见
+ * `src/graphs/javatutor/harness/contracts.py`）：正文若恰好以别的 JSON 对象开头
+ * （例如用户就是在问一份配置，或【视角导航】的 `{"views":[…]}`），一律不碰。
+ *
+ * 对不含前导工具 JSON 的文本**恒等**（不改变一个字），失败一律原样返回、不抛错。
+ */
+export function stripLeadingToolJson(text) {
+  if (typeof text !== 'string' || !text) return text
+  let out = text
+  for (;;) {
+    // parseJsonAt 自带前导空白跳过，故返回的结束下标可直接切片。
+    const range = parseJsonAt(out, 0)
+    if (!range) return out
+    let parsed
+    try { parsed = JSON.parse(range[1]) } catch { return out }
+    // 只有「对象且有 tool 键」才剥：数组 / 无 tool 的对象（导航、编辑建议）原样保留。
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !parsed.tool) return out
+    out = out.slice(range[0])
+  }
+}
+
 // 剥掉 body（已去掉【决策痕迹】）的结构化指令块。为兼容既有语义：
 // 从「最后一块」开始：只剥「解析成功且产出 ≥1 个可用项」的块；可用项为空的块按正文保留并停止。
 // 这样「编辑建议 JSON 合法但 edits 空」与「导航 views 空」都回退为正文，不静默丢弃。
 function extractStructBlocks(body) {
-  let text = body
+  let text = stripLeadingToolJson(body)
   const edits = []
   const nav = { views: [] }
   let plan = null
