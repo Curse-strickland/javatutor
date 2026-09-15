@@ -143,6 +143,7 @@ Coze 密钥配置：`backend/src/main/resources/coze.properties` 只放非敏感
 | `docs/logging-guide.md` | 日志排查指南（request-id 排查法 + 常用命令 + SLS 接入） |
 | `docs/devlog/2026-09-03-request-logging.md` | 后端结构化日志 + request-id 开发日志 |
 | `docs/old/` | 归档的旧文档（`sandbox-design` 等，仅历史参考） |
+| `deploy/README.md` | 部署指南：GitHub Actions 主流程（push `main` 触发）、线上真实布局（`/var/www/html` 软链 → `/opt/javatutor/dist`）、`rsync --delete` 红线、手动部署脚本用法 |
 
 ## 开发与审查 Hook（强制）
 
